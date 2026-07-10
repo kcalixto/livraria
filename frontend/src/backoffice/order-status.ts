@@ -94,5 +94,6 @@ export function formatOrderDate(iso: string): string {
 }
 
 export function shortOrderId(id: string): string {
-  return `#${id.slice(0, 8)}`;
+  if (/^[A-Z0-9]{6}$/.test(id)) return `#${id.slice(0, 3)}-${id.slice(3)}`;
+  return `#${id.slice(0, 8)}`; // pedidos antigos com uuid
 }

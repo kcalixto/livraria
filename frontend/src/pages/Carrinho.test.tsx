@@ -79,11 +79,11 @@ describe('Carrinho', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('envia o pedido e mostra confirmação com id, limpando o carrinho', async () => {
+  it('envia o pedido e mostra o código com hífen e aviso pra guardar, limpando o carrinho', async () => {
     seedCart();
     const fetchMock = vi
       .fn()
-      .mockResolvedValue(new Response(JSON.stringify({ id: 'abc-123' }), { status: 201 }));
+      .mockResolvedValue(new Response(JSON.stringify({ id: 'AJ3C9K' }), { status: 201 }));
     vi.stubGlobal('fetch', fetchMock);
     renderPage();
 
@@ -93,7 +93,8 @@ describe('Carrinho', () => {
     await userEvent.click(screen.getByRole('button', { name: /enviar pedido/i }));
 
     expect(await screen.findByText(/pedido enviado/i)).toBeInTheDocument();
-    expect(screen.getByText(/abc-123/)).toBeInTheDocument();
+    expect(screen.getByText(/AJ3-C9K/)).toBeInTheDocument();
+    expect(screen.getByText(/guarde o código/i)).toBeInTheDocument();
     expect(JSON.parse(localStorage.getItem('livraria:carrinho')!)).toEqual([]);
 
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];

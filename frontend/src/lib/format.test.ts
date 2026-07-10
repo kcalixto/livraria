@@ -1,11 +1,23 @@
 import { describe, expect, it } from 'vitest';
-import { buildMeta, formatPrice, splitParagraphs } from './format';
+import { buildMeta, formatOrderCode, formatPrice, splitParagraphs } from './format';
 
 describe('formatPrice', () => {
   it('formata centavos como R$ pt-BR', () => {
     expect(formatPrice(4200)).toBe('R$ 42,00');
     expect(formatPrice(4990)).toBe('R$ 49,90');
     expect(formatPrice(0)).toBe('R$ 0,00');
+  });
+});
+
+describe('formatOrderCode', () => {
+  it('apresenta código de 6 caracteres com hífen no meio', () => {
+    expect(formatOrderCode('AJ3C9K')).toBe('AJ3-C9K');
+  });
+
+  it('mantém códigos fora do padrão (ex.: uuid antigo) como estão', () => {
+    expect(formatOrderCode('bd1ef38d-f45e-472e-8964-0a561811b45d')).toBe(
+      'bd1ef38d-f45e-472e-8964-0a561811b45d',
+    );
   });
 });
 

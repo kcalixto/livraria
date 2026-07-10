@@ -73,7 +73,6 @@ export function Catalogo() {
             <p className="catalog__empty-title">
               Ainda não há edições disponíveis em <strong>{ACTIVE_REGION}</strong>.
             </p>
-            <p className="catalog__empty-sub">Novos títulos chegam toda semana.</p>
           </div>
         )}
 

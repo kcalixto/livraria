@@ -29,8 +29,8 @@
   --cover-border: #c2bba9;
   --skeleton: #e0dacb;
   --skeleton-soft: #e8e2d4;
-  --serif: 'Newsreader', Georgia, serif;
-  --mono: 'IBM Plex Mono', monospace;
+  --serif: "Newsreader", Georgia, serif;
+  --mono: "IBM Plex Mono", monospace;
 }
 
 * {
@@ -1196,4 +1196,36 @@ a:hover {
   .sales-table__cols span:nth-child(5) {
     display: none;
   }
+}
+
+/* ── Ajustes ── */
+.site-header--sticky {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+.ver-mais {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--wine);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-transform: lowercase;
+}
+.ver-mais:hover {
+  color: var(--wine-dark);
+  text-decoration: underline;
+}
+.alert--warn {
+  color: var(--warn);
+  background: var(--warn-bg);
+  border: 1px solid var(--warn-border);
+}
+.order-done__warning {
+  margin-top: 14px;
+  text-align: left;
 }

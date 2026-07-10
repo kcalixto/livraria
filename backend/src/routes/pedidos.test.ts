@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { mockClient } from 'aws-sdk-client-mock';
-import { BatchWriteCommand, DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
+import {
+  BatchWriteCommand,
+  DynamoDBDocumentClient,
+  QueryCommand,
+} from '@aws-sdk/lib-dynamodb';
 import { app } from '../app';
 
 const ddbMock = mockClient(DynamoDBDocumentClient);
@@ -18,11 +22,12 @@ const validBody = {
 
 beforeEach(() => {
   ddbMock.reset();
+  ddbMock.on(QueryCommand).resolves({ Items: [] });
   process.env.PEDIDOS_TABLE_NAME = 'livraria-tb-pedidos-test';
 });
 
 describe('POST /pedidos', () => {
-  it('cria um item por livro com o mesmo id de pedido e status waiting-payment', async () => {
+  it('cria um item por livro com o mesmo código de pedido (6 alfanuméricos maiúsculos) e status waiting-payment', async () => {
     ddbMock.on(BatchWriteCommand).resolves({});
 
     const res = await app.request('/pedidos', {
@@ -33,7 +38,7 @@ describe('POST /pedidos', () => {
 
     expect(res.status).toBe(201);
     const { id } = (await res.json()) as { id: string };
-    expect(id).toMatch(/^[0-9a-f-]{36}$/);
+    expect(id).toMatch(/^[A-Z0-9]{6}$/);
 
     const calls = ddbMock.commandCalls(BatchWriteCommand);
     expect(calls).toHaveLength(1);
@@ -79,6 +84,25 @@ describe('POST /pedidos', () => {
       headers: JSON_HEADER,
     });
     expect(res.status).toBe(400);
+  });
+
+  it('regenera o código quando há colisão com pedido existente', async () => {
+    ddbMock.reset();
+    ddbMock
+      .on(QueryCommand)
+      .resolvesOnce({ Items: [{ id: 'COLIDE', book_id: 'x' }] })
+      .resolves({ Items: [] });
+    ddbMock.on(BatchWriteCommand).resolves({});
+
+    const res = await app.request('/pedidos', {
+      method: 'POST',
+      body: JSON.stringify(validBody),
+      headers: JSON_HEADER,
+    });
+
+    expect(res.status).toBe(201);
+    expect(ddbMock.commandCalls(QueryCommand)).toHaveLength(2);
+    expect(ddbMock.commandCalls(BatchWriteCommand)).toHaveLength(1);
   });
 
   it('deduplica book_id repetido somando amounts', async () => {

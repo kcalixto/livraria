@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { CartProvider } from '../cart/CartContext';
 import { LivroEntry } from './LivroEntry';
 import type { Book } from '../lib/types';
@@ -62,5 +63,33 @@ describe('LivroEntry', () => {
   it('renderiza o status do livro como tag quando disponível', () => {
     renderEntry(baseBook);
     expect(screen.getByText('disponível')).toBeInTheDocument();
+  });
+
+  describe('descrição longa (clamp de 220 caracteres)', () => {
+    const longText = 'A'.repeat(150) + ' ' + 'B'.repeat(150);
+    const longBook = { ...baseBook, description: `${longText}\n\nSegundo parágrafo.` };
+
+    it('mostra versão truncada com "ver mais" quando passa de 220 caracteres', () => {
+      renderEntry(longBook);
+      expect(screen.getByRole('button', { name: /ver mais/i })).toBeInTheDocument();
+      expect(screen.queryByText('Segundo parágrafo.')).not.toBeInTheDocument();
+    });
+
+    it('"ver mais" expande para o texto completo com "ver menos" no final', async () => {
+      const user = userEvent.setup();
+      renderEntry(longBook);
+
+      await user.click(screen.getByRole('button', { name: /ver mais/i }));
+      expect(screen.getByText('Segundo parágrafo.')).toBeInTheDocument();
+
+      await user.click(screen.getByRole('button', { name: /ver menos/i }));
+      expect(screen.queryByText('Segundo parágrafo.')).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /ver mais/i })).toBeInTheDocument();
+    });
+
+    it('descrição curta não ganha botão', () => {
+      renderEntry(baseBook);
+      expect(screen.queryByRole('button', { name: /ver mais/i })).not.toBeInTheDocument();
+    });
   });
 });

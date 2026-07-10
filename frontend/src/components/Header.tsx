@@ -6,7 +6,7 @@ export function Header() {
   const { count } = useCart();
 
   return (
-    <header className="site-header">
+    <header className={`site-header${count > 0 ? ' site-header--sticky' : ''}`}>
       <RegionPicker />
       <div className="site-header__right">
         <Link to="/" className="site-header__brand">

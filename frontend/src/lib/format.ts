@@ -5,6 +5,13 @@ export function formatPrice(cents: number): string {
   return brl.format(cents / 100).replace(/[\u00a0\u202f]/g, ' ');
 }
 
+// Código de pedido de 6 alfanuméricos vira "AJ3-C9K" pra leitura; outros
+// formatos (ex.: uuid de pedidos antigos) passam intactos.
+export function formatOrderCode(code: string): string {
+  if (!/^[A-Z0-9]{6}$/.test(code)) return code;
+  return `${code.slice(0, 3)}-${code.slice(3)}`;
+}
+
 export function splitParagraphs(description: string): string[] {
   return description
     .split(/\n\s*\n/)

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { apiPost } from '../api/client';
 import { useCart } from '../cart/CartContext';
-import { formatPrice } from '../lib/format';
+import { formatOrderCode, formatPrice } from '../lib/format';
 import { ACTIVE_REGION_VALUE } from '../lib/region';
 
 type Step = 'cart' | 'checkout' | 'done';
@@ -62,7 +62,10 @@ export function Carrinho() {
             Entraremos em contato pelo seu contato para combinar a entrega na Zona Sul.
           </p>
           <div className="order-done__id">
-            Pedido <strong>#{orderId}</strong>
+            Pedido <strong>#{formatOrderCode(orderId)}</strong>
+          </div>
+          <div className="alert alert--warn order-done__warning">
+            Guarde o código do pedido — não será possível consultá-lo de outra forma depois.
           </div>
         </div>
       </div>

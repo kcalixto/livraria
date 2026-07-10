@@ -1,9 +1,36 @@
 import { Hono } from 'hono';
-import { BatchWriteCommand } from '@aws-sdk/lib-dynamodb';
+import { BatchWriteCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { docClient } from '../lib/db';
 import { ORDER_STATUS_WAITING_PAYMENT } from '../lib/order-status';
 
 const MAX_ITEMS = 25; // limite do BatchWrite do DynamoDB
+
+const ORDER_CODE_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+const ORDER_CODE_LENGTH = 6;
+const MAX_CODE_ATTEMPTS = 5;
+
+function generateOrderCode(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(ORDER_CODE_LENGTH));
+  return [...bytes].map((b) => ORDER_CODE_CHARS[b % ORDER_CODE_CHARS.length]).join('');
+}
+
+// Código curto colide de vez em quando (36^6 combinações): checa existência
+// antes de gravar, senão o BatchWrite misturaria dois pedidos no mesmo id.
+async function uniqueOrderCode(): Promise<string | null> {
+  for (let attempt = 0; attempt < MAX_CODE_ATTEMPTS; attempt++) {
+    const code = generateOrderCode();
+    const existing = await docClient.send(
+      new QueryCommand({
+        TableName: process.env.PEDIDOS_TABLE_NAME,
+        KeyConditionExpression: 'id = :id',
+        ExpressionAttributeValues: { ':id': code },
+        Limit: 1,
+      }),
+    );
+    if ((existing.Items ?? []).length === 0) return code;
+  }
+  return null;
+}
 
 interface OrderItemInput {
   book_id: string;
@@ -43,7 +70,8 @@ pedidos.post('/', async (c) => {
     );
   }
 
-  const id = crypto.randomUUID();
+  const id = await uniqueOrderCode();
+  if (!id) return c.json({ error: 'could not allocate order code, try again' }, 503);
   const now = new Date().toISOString();
   const puts = items.map(({ book_id, amount }) => ({
     PutRequest: {
