@@ -25,8 +25,6 @@ provider:
   stage: ${opt:stage, 'dev'}
   deploymentBucket:
     name: livraria-serverless-deployment-${self:provider.stage}
-  httpApi:
-    cors: true # apertar para a origem do site na fase final
   environment:
     STAGE: ${self:provider.stage}
     LIVROS_TABLE_NAME: ${self:custom.table.livros.${self:provider.stage}}
