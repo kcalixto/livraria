@@ -1,0 +1,105 @@
+service: livraria
+frameworkVersion: '3'
+
+custom:
+  assetsBucket: livraria-assets-bucket
+  table:
+    livros:
+      dev: livraria-tb-livros-dev
+      prd: livraria-tb-livros-prd
+    pedidos:
+      dev: livraria-tb-pedidos-dev
+      prd: livraria-tb-pedidos-prd
+  esbuild:
+    bundle: true
+    minify: false
+    sourcemap: true
+    target: node20
+    platform: node
+    format: cjs
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  region: sa-east-1
+  stage: ${opt:stage, 'dev'}
+  deploymentBucket:
+    name: livraria-serverless-deployment-${self:provider.stage}
+  httpApi:
+    cors: true # apertar para a origem do site na fase final
+  environment:
+    STAGE: ${self:provider.stage}
+    LIVROS_TABLE_NAME: ${self:custom.table.livros.${self:provider.stage}}
+    PEDIDOS_TABLE_NAME: ${self:custom.table.pedidos.${self:provider.stage}}
+    ASSETS_S3_BUCKET_NAME: ${self:custom.assetsBucket}
+    LIVRARIA_BACKOFFICE_API_KEY: ${ssm:/livraria/backoffice-api-key}
+    BACKOFFICE_KEY: ${ssm:/livraria/backoffice-key}
+    JWT_SECRET: ${ssm:/livraria/jwt-secret}
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:GetItem
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
+            - dynamodb:Scan
+            - dynamodb:Query
+          Resource:
+            - !GetAtt TabelaLivros.Arn
+            - !GetAtt TabelaPedidos.Arn
+            - !Sub '${TabelaPedidos.Arn}/index/*'
+        - Effect: Allow
+          Action:
+            - s3:PutObject
+          Resource: arn:aws:s3:::${self:custom.assetsBucket}/${self:provider.stage}/livros/*
+
+plugins:
+  - serverless-esbuild
+
+functions:
+  api:
+    handler: src/handler.handler
+    events:
+      - httpApi: '*'
+
+resources:
+  Resources:
+    TabelaLivros:
+      Type: AWS::DynamoDB::Table
+      DeletionPolicy: Retain
+      Properties:
+        TableName: ${self:custom.table.livros.${self:provider.stage}}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
+    TabelaPedidos:
+      Type: AWS::DynamoDB::Table
+      DeletionPolicy: Retain
+      Properties:
+        TableName: ${self:custom.table.pedidos.${self:provider.stage}}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: S
+          - AttributeName: book_id
+            AttributeType: S
+          - AttributeName: status
+            AttributeType: S
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
+          - AttributeName: book_id
+            KeyType: RANGE
+        GlobalSecondaryIndexes:
+          - IndexName: status-index
+            KeySchema:
+              - AttributeName: status
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL
