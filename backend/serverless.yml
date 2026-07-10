@@ -62,6 +62,7 @@ functions:
     handler: src/handler.handler
     events:
       - httpApi: '*'
+        cors: true
 
 resources:
   Resources:
