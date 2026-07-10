@@ -1,0 +1,76 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [main, development]
+  pull_request:
+
+env:
+  AWS_REGION: sa-east-1
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+
+      - name: Backend — install, typecheck e testes
+        working-directory: backend
+        run: |
+          npm ci
+          npm run check
+          npm test
+
+      - name: Frontend — install, typecheck e testes
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run check
+          npm test
+
+  deploy:
+    needs: test
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    env:
+      STAGE: ${{ github.ref == 'refs/heads/main' && 'prd' || 'dev' }}
+      SITE_BUCKET: ${{ github.ref == 'refs/heads/main' && 'livraria-serverless-deplyment-prd' || 'livraria-serverless-deployment-dev' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Backend — serverless deploy
+        working-directory: backend
+        run: |
+          npm ci
+          npx serverless deploy --stage "$STAGE"
+
+      - name: Frontend — build e sync pro S3
+        working-directory: frontend
+        run: |
+          npm ci
+          if [ "$STAGE" = "prd" ]; then
+            npm run build
+          else
+            npx tsc -b && npx vite build --mode development
+          fi
+          aws s3 sync dist/ "s3://$SITE_BUCKET" --delete

@@ -10,8 +10,13 @@ import { backofficePedidos } from './routes/backoffice-pedidos';
 export const app = new Hono();
 
 // CORS tratado aqui (o catch-all do httpApi roteia até o OPTIONS pra Lambda).
-// Apertar origin para a origem do site na fase de produção.
-app.use('*', cors());
+const ALLOWED_ORIGINS = [
+  'http://livraria-serverless-deployment-dev.s3-website-sa-east-1.amazonaws.com',
+  'http://livraria-serverless-deplyment-prd.s3-website-sa-east-1.amazonaws.com', // nome do bucket tem esse typo mesmo
+  'http://localhost:5173',
+];
+
+app.use('*', cors({ origin: ALLOWED_ORIGINS }));
 
 app.route('/', livros);
 app.route('/pedidos', pedidos);

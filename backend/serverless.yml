@@ -24,7 +24,7 @@ provider:
   region: sa-east-1
   stage: ${opt:stage, 'dev'}
   deploymentBucket:
-    name: livraria-serverless-deployment-${self:provider.stage}
+    name: kcalixto-serverless-framework
   environment:
     STAGE: ${self:provider.stage}
     LIVROS_TABLE_NAME: ${self:custom.table.livros.${self:provider.stage}}
