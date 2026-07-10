@@ -102,6 +102,40 @@ describe('PATCH /backoffice/pedidos/:id/status', () => {
     }
   });
 
+  it('com book_id no body atualiza apenas aquela linha do pedido', async () => {
+    ddbMock.on(QueryCommand).resolves({
+      Items: [
+        { id: 'p1', book_id: 'b1', status: 'waiting-payment' },
+        { id: 'p1', book_id: 'b2', status: 'waiting-payment' },
+      ],
+    });
+    ddbMock.on(UpdateCommand).resolves({});
+
+    const res = await app.request('/backoffice/pedidos/p1/status', {
+      method: 'PATCH',
+      body: JSON.stringify({ status: 'payment-received', book_id: 'b2' }),
+      headers: { ...(await authHeader()), 'content-type': 'application/json' },
+    });
+
+    expect(res.status).toBe(200);
+    const updates = ddbMock.commandCalls(UpdateCommand);
+    expect(updates).toHaveLength(1);
+    expect(updates[0].args[0].input.Key).toEqual({ id: 'p1', book_id: 'b2' });
+  });
+
+  it('retorna 404 quando o book_id não pertence ao pedido', async () => {
+    ddbMock.on(QueryCommand).resolves({
+      Items: [{ id: 'p1', book_id: 'b1', status: 'waiting-payment' }],
+    });
+
+    const res = await app.request('/backoffice/pedidos/p1/status', {
+      method: 'PATCH',
+      body: JSON.stringify({ status: 'payment-received', book_id: 'nao-tem' }),
+      headers: { ...(await authHeader()), 'content-type': 'application/json' },
+    });
+    expect(res.status).toBe(404);
+  });
+
   it('retorna 404 quando o pedido não existe', async () => {
     ddbMock.on(QueryCommand).resolves({ Items: [] });
 

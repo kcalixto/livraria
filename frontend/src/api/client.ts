@@ -29,3 +29,20 @@ export function apiPost<T>(path: string, body: unknown): Promise<T> {
     body: JSON.stringify(body),
   });
 }
+
+function bearer(): Record<string, string> {
+  const token = sessionStorage.getItem('livraria:token');
+  return token ? { authorization: `Bearer ${token}` } : {};
+}
+
+export function apiAuthGet<T>(path: string): Promise<T> {
+  return request<T>(path, { headers: bearer() });
+}
+
+export function apiAuthPatch<T>(path: string, body: unknown): Promise<T> {
+  return request<T>(path, {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json', ...bearer() },
+    body: JSON.stringify(body),
+  });
+}

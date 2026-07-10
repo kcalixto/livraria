@@ -40,7 +40,11 @@ backofficePedidos.patch('/:id/status', async (c) => {
       ExpressionAttributeValues: { ':id': id },
     }),
   );
-  const items = existing.Items ?? [];
+  let items = existing.Items ?? [];
+  // book_id opcional: atualiza só aquela linha do pedido (design: status por livro)
+  if (body.book_id !== undefined) {
+    items = items.filter((item) => item.book_id === body.book_id);
+  }
   if (items.length === 0) return c.json({ error: 'not found' }, 404);
 
   const now = new Date().toISOString();

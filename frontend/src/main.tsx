@@ -5,6 +5,11 @@ import './styles.css';
 import { CartProvider } from './cart/CartContext';
 import { Catalogo } from './pages/Catalogo';
 import { Carrinho } from './pages/Carrinho';
+import { Login } from './pages/backoffice/Login';
+import { BackofficeLayout } from './pages/backoffice/BackofficeLayout';
+import { Pedidos } from './pages/backoffice/Pedidos';
+import { Vendas } from './pages/backoffice/Vendas';
+import { Estoque } from './pages/backoffice/Estoque';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -13,6 +18,12 @@ createRoot(document.getElementById('root')!).render(
         <Routes>
           <Route path="/" element={<Catalogo />} />
           <Route path="/carrinho" element={<Carrinho />} />
+          <Route path="/backoffice" element={<Login />} />
+          <Route element={<BackofficeLayout />}>
+            <Route path="/backoffice/pedidos" element={<Pedidos />} />
+            <Route path="/backoffice/vendas" element={<Vendas />} />
+            <Route path="/backoffice/estoque" element={<Estoque />} />
+          </Route>
         </Routes>
       </CartProvider>
     </BrowserRouter>
