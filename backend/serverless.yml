@@ -42,6 +42,7 @@ provider:
           Action:
             - dynamodb:GetItem
             - dynamodb:PutItem
+            - dynamodb:BatchWriteItem
             - dynamodb:UpdateItem
             - dynamodb:DeleteItem
             - dynamodb:Scan
