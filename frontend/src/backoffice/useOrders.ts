@@ -2,8 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { ApiError, apiAuthGet, apiGet } from '../api/client';
 import type { Book } from '../lib/types';
 import { clearToken } from './auth';
-import { groupOrders, ORDER_STATUSES } from './order-status';
-import type { OrderGroup, OrderLine } from './order-status';
+import type { Order } from './order-status';
 
 export interface BookInfo {
   title: string;
@@ -14,35 +13,34 @@ interface OrdersState {
   loading: boolean;
   error: boolean;
   unauthorized: boolean;
-  groups: OrderGroup[];
+  orders: Order[];
   books: Map<string, BookInfo>;
 }
 
-// Pedidos não guardam snapshot de título/preço: junta com o catálogo atual.
-// Livro removido do catálogo aparece com o book_id e valor "—".
+// A API já retorna pedidos agrupados (items[] por unidade). Unidades não
+// guardam snapshot de título/preço: junta com o catálogo atual (título
+// removido do catálogo aparece com o title_id e valor "—").
 export function useOrders() {
   const [state, setState] = useState<OrdersState>({
     loading: true,
     error: false,
     unauthorized: false,
-    groups: [],
+    orders: [],
     books: new Map(),
   });
 
   const load = useCallback(async () => {
     setState((s) => ({ ...s, loading: true, error: false }));
     try {
-      const [livros, ...byStatus] = await Promise.all([
+      const [livros, orders] = await Promise.all([
         apiGet<Book[]>('/livros'),
-        ...ORDER_STATUSES.map((status) =>
-          apiAuthGet<OrderLine[]>(`/backoffice/pedidos?status=${status}`),
-        ),
+        apiAuthGet<Order[]>('/backoffice/pedidos'),
       ]);
       setState({
         loading: false,
         error: false,
         unauthorized: false,
-        groups: groupOrders(byStatus.flat()),
+        orders,
         books: new Map(livros.map((b) => [b.id, { title: b.title, price: b.price }])),
       });
     } catch (err) {

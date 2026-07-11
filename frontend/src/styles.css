@@ -949,7 +949,7 @@ a:hover {
 .order-card__cols,
 .order-card__row {
   display: grid;
-  grid-template-columns: 2.2fr 0.5fr 0.8fr 2fr 1.2fr;
+  grid-template-columns: 2.4fr 0.9fr 2fr 1.4fr;
   gap: 0;
   padding: 8px 16px;
   align-items: center;
@@ -999,16 +999,21 @@ a:hover {
   border: 1px solid #e0cfa8;
 }
 .stage-pill--1 {
+  color: #2f5d5d;
+  background: #e2edea;
+  border: 1px solid #bfd6d0;
+}
+.stage-pill--2 {
   color: #3a4a5a;
   background: #e7ebee;
   border: 1px solid #c4ccd2;
 }
-.stage-pill--2 {
+.stage-pill--3 {
   color: #7a1f1a;
   background: #f3e3e0;
   border: 1px solid #e6c3bd;
 }
-.stage-pill--3 {
+.stage-pill--4 {
   color: #3a5c3a;
   background: #e6ede2;
   border: 1px solid #c8d6c0;
@@ -1029,12 +1034,15 @@ a:hover {
   background: #8a5a1a;
 }
 .stage-seg--on-1 {
-  background: #3a4a5a;
+  background: #2f5d5d;
 }
 .stage-seg--on-2 {
-  background: #7a1f1a;
+  background: #3a4a5a;
 }
 .stage-seg--on-3 {
+  background: #7a1f1a;
+}
+.stage-seg--on-4 {
   background: #3a5c3a;
 }
 .stage-action {
@@ -1060,7 +1068,7 @@ a:hover {
 .sales-table__cols,
 .sales-table__row {
   display: grid;
-  grid-template-columns: 1.4fr 1.3fr 2fr 0.9fr 0.9fr 1.1fr;
+  grid-template-columns: 0.9fr 1.3fr 2fr 0.9fr 0.9fr 1fr;
   gap: 0;
   align-items: center;
   padding: 12px 24px;
@@ -1394,4 +1402,11 @@ a.btn--primary:hover {
 a.btn--secondary,
 a.btn--secondary:hover {
   color: var(--ink);
+}
+
+.sales-table__order-id {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--wine);
 }

@@ -6,29 +6,30 @@ import {
   formatOrderDate,
   isDelivered,
   shortOrderId,
+  STAGE_COUNT,
   STAGES,
 } from '../../backoffice/order-status';
-import type { OrderGroup, OrderLine } from '../../backoffice/order-status';
+import type { Order, UnitItem } from '../../backoffice/order-status';
 import { useOrders } from '../../backoffice/useOrders';
 import type { BookInfo } from '../../backoffice/useOrders';
 
-function orderTotal(group: OrderGroup, books: Map<string, BookInfo>): string {
+function orderTotal(order: Order, books: Map<string, BookInfo>): string {
   let total = 0;
-  for (const line of group.lines) {
-    const book = books.get(line.book_id);
+  for (const item of order.items) {
+    const book = books.get(item.title_id);
     if (!book) return '—';
-    total += book.price * line.amount;
+    total += book.price;
   }
   return formatPrice(total);
 }
 
-function StatusCell({ line }: { line: OrderLine }) {
-  const stage = STAGES[line.status];
+function StatusCell({ item }: { item: UnitItem }) {
+  const stage = STAGES[item.status];
   return (
     <span>
       <span className={`stage-pill stage-pill--${stage.index}`}>{stage.label}</span>
       <span className="stage-segs">
-        {[0, 1, 2, 3].map((i) => (
+        {Array.from({ length: STAGE_COUNT }, (_, i) => (
           <span
             key={i}
             className={`stage-seg${i <= stage.index ? ` stage-seg--on-${stage.index}` : ''}`}
@@ -40,24 +41,30 @@ function StatusCell({ line }: { line: OrderLine }) {
 }
 
 export function Pedidos() {
-  const { loading, error, unauthorized, groups, books, reload } = useOrders();
+  const { loading, error, unauthorized, orders, books, reload } = useOrders();
   const [lastAction, setLastAction] = useState('');
-  const pending = groups.filter((g) => !isDelivered(g));
+  const [actionError, setActionError] = useState('');
+  const pending = orders.filter((o) => !isDelivered(o));
 
   if (unauthorized) return <Navigate to="/backoffice" replace />;
 
-  async function advance(line: OrderLine) {
-    const stage = STAGES[line.status];
+  async function advance(order: Order, item: UnitItem) {
+    const stage = STAGES[item.status];
     if (!stage.next) return;
-    await apiAuthPatch(`/backoffice/pedidos/${line.id}/status`, {
-      status: stage.next,
-      book_id: line.book_id,
-    });
-    const book = books.get(line.book_id);
-    setLastAction(
-      `✓ ${shortOrderId(line.id)} · ${book?.title ?? line.book_id} → ${STAGES[stage.next].label}`,
-    );
-    await reload();
+    setActionError('');
+    try {
+      await apiAuthPatch(`/backoffice/pedidos/${order.id}/status`, {
+        status: stage.next,
+        unit_id: item.unit_id,
+      });
+      const book = books.get(item.title_id);
+      setLastAction(
+        `✓ ${shortOrderId(order.id)} · ${book?.title ?? item.title_id} → ${STAGES[stage.next].label}`,
+      );
+      await reload();
+    } catch {
+      setActionError('Não foi possível atualizar o status. Tente de novo.');
+    }
   }
 
   if (loading) return <div className="bo-loading">Carregando…</div>;
@@ -75,6 +82,7 @@ export function Pedidos() {
   return (
     <div className="bo-content">
       {lastAction && <div className="alert alert--success bo-last-action">{lastAction}</div>}
+      {actionError && <div className="alert alert--error bo-last-action">{actionError}</div>}
 
       {pending.length === 0 && (
         <div className="bo-empty">
@@ -83,36 +91,34 @@ export function Pedidos() {
         </div>
       )}
 
-      {pending.map((group) => (
-        <div key={group.id} className="order-card">
+      {pending.map((order) => (
+        <div key={order.id} className="order-card">
           <div className="order-card__header">
-            <span className="order-card__id">{shortOrderId(group.id)}</span>
-            <span className="order-card__name">{group.name}</span>
-            <span className="order-card__contact">{group.contact}</span>
-            <span className="order-card__date">{formatOrderDate(group.created_at)}</span>
-            <span className="order-card__total">{orderTotal(group, books)}</span>
+            <span className="order-card__id">{shortOrderId(order.id)}</span>
+            <span className="order-card__name">{order.name}</span>
+            <span className="order-card__contact">{order.contact}</span>
+            <span className="order-card__date">{formatOrderDate(order.created_at)}</span>
+            <span className="order-card__total">{orderTotal(order, books)}</span>
           </div>
           <div className="order-card__cols">
             <span>Livro</span>
-            <span className="t-center">Qtd</span>
             <span>Valor</span>
             <span>Status</span>
             <span className="t-right">Ação</span>
           </div>
-          {group.lines.map((line) => {
-            const book = books.get(line.book_id);
-            const stage = STAGES[line.status];
+          {order.items.map((item) => {
+            const book = books.get(item.title_id);
+            const stage = STAGES[item.status];
             return (
-              <div key={line.book_id} className="order-card__row">
-                <span className="order-card__book">{book?.title ?? line.book_id}</span>
-                <span className="t-center order-card__qty">{line.amount}</span>
+              <div key={item.unit_id} className="order-card__row">
+                <span className="order-card__book">{book?.title ?? item.title_id}</span>
                 <span className="order-card__price">
-                  {book ? formatPrice(book.price * line.amount) : '—'}
+                  {book ? formatPrice(book.price) : '—'}
                 </span>
-                <StatusCell line={line} />
+                <StatusCell item={item} />
                 <span className="t-right">
                   {stage.nextLabel ? (
-                    <button className="stage-action" onClick={() => void advance(line)}>
+                    <button className="stage-action" onClick={() => void advance(order, item)}>
                       {stage.nextLabel}
                     </button>
                   ) : (

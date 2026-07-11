@@ -1,5 +1,6 @@
 export const ORDER_STATUSES = [
   'waiting-payment',
+  'in-reserve',
   'payment-received',
   'sent-to-delivery',
   'received',

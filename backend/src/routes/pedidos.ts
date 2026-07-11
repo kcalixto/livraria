@@ -3,8 +3,6 @@ import { BatchWriteCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { docClient } from '../lib/db';
 import { ORDER_STATUS_WAITING_PAYMENT } from '../lib/order-status';
 
-const MAX_ITEMS = 25; // limite do BatchWrite do DynamoDB
-
 const ORDER_CODE_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
 const ORDER_CODE_LENGTH = 6;
 const MAX_CODE_ATTEMPTS = 5;
@@ -47,7 +45,6 @@ function parseItems(items: unknown): OrderItemInput[] | null {
     if (typeof amount !== 'number' || !Number.isInteger(amount) || amount < 1) return null;
     byBook.set(bookId, (byBook.get(bookId) ?? 0) + amount);
   }
-  if (byBook.size > MAX_ITEMS) return null;
   return [...byBook.entries()].map(([book_id, amount]) => ({ book_id, amount }));
 }
 
@@ -65,7 +62,7 @@ pedidos.post('/', async (c) => {
   const items = parseItems(body.items);
   if (!items) {
     return c.json(
-      { error: `items must have 1-${MAX_ITEMS} entries with book_id and integer amount >= 1` },
+      { error: 'items must be a non-empty list with book_id and integer amount >= 1' },
       400,
     );
   }
@@ -73,27 +70,39 @@ pedidos.post('/', async (c) => {
   const id = await uniqueOrderCode();
   if (!id) return c.json({ error: 'could not allocate order code, try again' }, 503);
   const now = new Date().toISOString();
-  const puts = items.map(({ book_id, amount }) => ({
-    PutRequest: {
-      Item: {
-        id,
-        book_id,
-        amount,
-        name: body.name,
-        contact: body.contact,
-        region: body.region,
-        status: ORDER_STATUS_WAITING_PAYMENT,
-        created_at: now,
-        updated_at: now,
-      },
-    },
-  }));
 
-  await docClient.send(
-    new BatchWriteCommand({
-      RequestItems: { [process.env.PEDIDOS_TABLE_NAME!]: puts },
+  // 1 linha por UNIDADE física: a venda é por título/unidade; o pedido é só
+  // o agrupador de entrega. Range key composta title_id#unit_id.
+  const puts = items.flatMap(({ book_id, amount }) =>
+    Array.from({ length: amount }, () => {
+      const unitId = crypto.randomUUID();
+      return {
+        PutRequest: {
+          Item: {
+            id,
+            book_id: `${book_id}#${unitId}`,
+            title_id: book_id,
+            unit_id: unitId,
+            name: body.name,
+            contact: body.contact,
+            region: body.region,
+            status: ORDER_STATUS_WAITING_PAYMENT,
+            created_at: now,
+            updated_at: now,
+          },
+        },
+      };
     }),
   );
+
+  const BATCH_SIZE = 25; // limite do BatchWrite do DynamoDB
+  for (let i = 0; i < puts.length; i += BATCH_SIZE) {
+    await docClient.send(
+      new BatchWriteCommand({
+        RequestItems: { [process.env.PEDIDOS_TABLE_NAME!]: puts.slice(i, i + BATCH_SIZE) },
+      }),
+    );
+  }
 
   return c.json({ id }, 201);
 });

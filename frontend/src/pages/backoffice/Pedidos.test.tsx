@@ -5,39 +5,42 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { Pedidos } from './Pedidos';
 
 const livros = [
-  { id: 'b1', title: 'A Comuna e o Fogo', price: 4200, description: '', amount: 3, status: 'disponível', image_url: 'x' },
-  { id: 'b2', title: 'O Pão e as Rosas', price: 3800, description: '', amount: 3, status: 'disponível', image_url: 'x' },
+  { id: 'b1', title: 'A Comuna e o Fogo', price: 4200, description: '', amount: 3, status: 'disponível' },
+  { id: 'b2', title: 'O Pão e as Rosas', price: 3800, description: '', amount: 3, status: 'disponível' },
 ];
 
-const orderLine = (over: Record<string, unknown>) => ({
-  id: 'p1',
-  book_id: 'b1',
-  name: 'Camarada Rosa',
-  contact: '(11) 9 8888-0000',
-  amount: 1,
-  region: 'SP, Capital - Zona Sul',
-  status: 'waiting-payment',
-  created_at: '2026-07-09T14:00:00.000Z',
-  updated_at: '2026-07-09T14:00:00.000Z',
-  ...over,
-});
+interface UnitItem {
+  unit_id: string;
+  title_id: string;
+  status: string;
+}
 
-function stubFetchRouting(lines: Array<Record<string, unknown>>) {
-  const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+function order(id: string, items: UnitItem[], over: Record<string, unknown> = {}) {
+  return {
+    id,
+    name: 'Camarada Rosa',
+    contact: '(11) 9 8888-0000',
+    region: 'SP, Capital - Zona Sul',
+    created_at: '2026-07-09T14:00:00.000Z',
+    items,
+    ...over,
+  };
+}
+
+let fetchMock: ReturnType<typeof vi.fn>;
+
+function stubFetch(orders: unknown[]) {
+  fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
     const u = String(url);
     if (init?.method === 'PATCH') {
       return Promise.resolve(new Response(JSON.stringify({ ok: true }), { status: 200 }));
     }
-    if (u.includes('/livros')) {
-      return Promise.resolve(new Response(JSON.stringify(livros), { status: 200 }));
+    if (u.includes('/backoffice/pedidos')) {
+      return Promise.resolve(new Response(JSON.stringify(orders), { status: 200 }));
     }
-    const status = new URL(u).searchParams.get('status');
-    return Promise.resolve(
-      new Response(JSON.stringify(lines.filter((l) => l.status === status)), { status: 200 }),
-    );
+    return Promise.resolve(new Response(JSON.stringify(livros), { status: 200 }));
   });
   vi.stubGlobal('fetch', fetchMock);
-  return fetchMock;
 }
 
 function renderPage() {
@@ -60,39 +63,49 @@ afterEach(() => {
   sessionStorage.clear();
 });
 
-describe('Backoffice — Pedidos', () => {
-  it('agrupa linhas do mesmo pedido num card com titulo, valor e status por linha', async () => {
-    stubFetchRouting([
-      orderLine({ book_id: 'b1', status: 'waiting-payment' }),
-      orderLine({ book_id: 'b2', status: 'payment-received', amount: 2 }),
+describe('Backoffice — Pedidos (linhas por unidade)', () => {
+  it('duas unidades do MESMO título renderizam duas linhas', async () => {
+    stubFetch([
+      order('PED001', [
+        { unit_id: 'u1', title_id: 'b1', status: 'waiting-payment' },
+        { unit_id: 'u2', title_id: 'b1', status: 'waiting-payment' },
+      ]),
     ]);
     renderPage();
 
     expect(await screen.findByText('Camarada Rosa')).toBeInTheDocument();
-    expect(screen.getByText('A Comuna e o Fogo')).toBeInTheDocument();
-    expect(screen.getByText('O Pão e as Rosas')).toBeInTheDocument();
-    expect(screen.getByText('Esperando pagamento')).toBeInTheDocument();
-    expect(screen.getByText('Pagamento efetuado')).toBeInTheDocument();
-    // total = 4200 + 2*3800 = 11800
-    expect(screen.getByText('R$ 118,00')).toBeInTheDocument();
+    expect(screen.getAllByText('A Comuna e o Fogo')).toHaveLength(2);
+    // total do pedido = 2 × 42,00
+    expect(screen.getByText('R$ 84,00')).toBeInTheDocument();
+    // valor de cada linha = preço unitário
+    expect(screen.getAllByText('R$ 42,00')).toHaveLength(2);
   });
 
-  it('avançar status chama PATCH com book_id da linha', async () => {
-    const fetchMock = stubFetchRouting([orderLine({ book_id: 'b1', status: 'waiting-payment' })]);
+  it('avançar status chama PATCH com o unit_id da linha', async () => {
+    stubFetch([
+      order('PED001', [
+        { unit_id: 'u1', title_id: 'b1', status: 'waiting-payment' },
+        { unit_id: 'u2', title_id: 'b2', status: 'payment-received' },
+      ]),
+    ]);
     renderPage();
 
-    await userEvent.click(await screen.findByRole('button', { name: /confirmar pagamento/i }));
+    await userEvent.click(await screen.findByRole('button', { name: /enviar p\/ entrega/i }));
 
     const patchCall = fetchMock.mock.calls.find(([, init]) => init?.method === 'PATCH');
     expect(patchCall).toBeTruthy();
     const [url, init] = patchCall as [string, RequestInit];
-    expect(url).toMatch(/\/backoffice\/pedidos\/p1\/status$/);
-    expect((init.headers as Record<string, string>).authorization).toBe('Bearer jwt-abc');
-    expect(JSON.parse(init.body as string)).toEqual({ status: 'payment-received', book_id: 'b1' });
+    expect(url).toMatch(/\/backoffice\/pedidos\/PED001\/status$/);
+    expect(JSON.parse(init.body as string)).toEqual({
+      status: 'sent-to-delivery',
+      unit_id: 'u2',
+    });
   });
 
-  it('pedido com todas as linhas entregues não aparece em Pedidos', async () => {
-    stubFetchRouting([orderLine({ book_id: 'b1', status: 'received' })]);
+  it('pedido com todas as unidades entregues não aparece em Pedidos', async () => {
+    stubFetch([
+      order('PED001', [{ unit_id: 'u1', title_id: 'b1', status: 'received' }]),
+    ]);
     renderPage();
 
     expect(await screen.findByText(/nenhum pedido pendente/i)).toBeInTheDocument();

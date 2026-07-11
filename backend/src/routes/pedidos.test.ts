@@ -15,10 +15,21 @@ const validBody = {
   contact: 'telegram @fulano',
   region: 'SP, Capital - Zona Sul',
   items: [
-    { book_id: 'b1', amount: 2 },
-    { book_id: 'b2', amount: 1 },
+    { book_id: 'livro-a', amount: 2 },
+    { book_id: 'livro-b', amount: 1 },
   ],
 };
+
+function writtenItems() {
+  return ddbMock
+    .commandCalls(BatchWriteCommand)
+    .flatMap(
+      (call) =>
+        call.args[0].input.RequestItems!['livraria-tb-pedidos-test'].map(
+          (r) => r.PutRequest!.Item!,
+        ),
+    );
+}
 
 beforeEach(() => {
   ddbMock.reset();
@@ -27,8 +38,8 @@ beforeEach(() => {
   process.env.PEDIDOS_TABLE_NAME = 'livraria-tb-pedidos-test';
 });
 
-describe('POST /pedidos', () => {
-  it('cria um item por livro com o mesmo código de pedido (6 alfanuméricos maiúsculos) e status waiting-payment', async () => {
+describe('POST /pedidos (linhas por unidade)', () => {
+  it('explode cada item em uma linha-unidade com chave title_id#unit_id', async () => {
     ddbMock.on(BatchWriteCommand).resolves({});
 
     const res = await app.request('/pedidos', {
@@ -41,23 +52,66 @@ describe('POST /pedidos', () => {
     const { id } = (await res.json()) as { id: string };
     expect(id).toMatch(/^[A-Z0-9]{6}$/);
 
-    const calls = ddbMock.commandCalls(BatchWriteCommand);
-    expect(calls).toHaveLength(1);
-    const requests =
-      calls[0].args[0].input.RequestItems!['livraria-tb-pedidos-test'];
-    expect(requests).toHaveLength(2);
-    const items = requests.map((r) => r.PutRequest!.Item!);
+    const items = writtenItems();
+    expect(items).toHaveLength(3); // 2 unidades do livro-a + 1 do livro-b
+
     for (const item of items) {
       expect(item.id).toBe(id);
       expect(item.status).toBe('waiting-payment');
       expect(item.name).toBe('Fulano');
-      expect(item.contact).toBe('telegram @fulano');
       expect(item.region).toBe('SP, Capital - Zona Sul');
+      expect(item.unit_id).toMatch(/^[0-9a-f-]{36}$/);
+      expect(item.book_id).toBe(`${item.title_id}#${item.unit_id}`);
+      expect(item).not.toHaveProperty('amount');
       expect(item.created_at).toBeTruthy();
-      expect(item.updated_at).toBeTruthy();
     }
-    expect(items.map((i) => i.book_id).sort()).toEqual(['b1', 'b2']);
-    expect(items.find((i) => i.book_id === 'b1')!.amount).toBe(2);
+
+    const unitIds = items.map((i) => i.unit_id);
+    expect(new Set(unitIds).size).toBe(3); // unit_ids distintos
+
+    expect(items.filter((i) => i.title_id === 'livro-a')).toHaveLength(2);
+    expect(items.filter((i) => i.title_id === 'livro-b')).toHaveLength(1);
+  });
+
+  it('grava em pacotes de 25 quando o pedido tem mais de 25 unidades', async () => {
+    ddbMock.on(BatchWriteCommand).resolves({});
+
+    const res = await app.request('/pedidos', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...validBody,
+        items: [{ book_id: 'livro-a', amount: 60 }],
+      }),
+      headers: JSON_HEADER,
+    });
+
+    expect(res.status).toBe(201);
+    const batches = ddbMock.commandCalls(BatchWriteCommand);
+    expect(batches).toHaveLength(3); // 25 + 25 + 10
+    const sizes = batches.map(
+      (b) => b.args[0].input.RequestItems!['livraria-tb-pedidos-test'].length,
+    );
+    expect(sizes).toEqual([25, 25, 10]);
+    expect(writtenItems()).toHaveLength(60);
+  });
+
+  it('soma amounts de book_id repetido antes de explodir', async () => {
+    ddbMock.on(BatchWriteCommand).resolves({});
+
+    const res = await app.request('/pedidos', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...validBody,
+        items: [
+          { book_id: 'livro-a', amount: 1 },
+          { book_id: 'livro-a', amount: 2 },
+        ],
+      }),
+      headers: JSON_HEADER,
+    });
+
+    expect(res.status).toBe(201);
+    expect(writtenItems()).toHaveLength(3);
   });
 
   it.each([
@@ -72,16 +126,6 @@ describe('POST /pedidos', () => {
     const res = await app.request('/pedidos', {
       method: 'POST',
       body: JSON.stringify(body),
-      headers: JSON_HEADER,
-    });
-    expect(res.status).toBe(400);
-  });
-
-  it('retorna 400 com mais de 25 itens (limite do BatchWrite)', async () => {
-    const items = Array.from({ length: 26 }, (_, i) => ({ book_id: `b${i}`, amount: 1 }));
-    const res = await app.request('/pedidos', {
-      method: 'POST',
-      body: JSON.stringify({ ...validBody, items }),
       headers: JSON_HEADER,
     });
     expect(res.status).toBe(400);
@@ -103,30 +147,5 @@ describe('POST /pedidos', () => {
 
     expect(res.status).toBe(201);
     expect(ddbMock.commandCalls(QueryCommand)).toHaveLength(2);
-    expect(ddbMock.commandCalls(BatchWriteCommand)).toHaveLength(1);
-  });
-
-  it('deduplica book_id repetido somando amounts', async () => {
-    ddbMock.on(BatchWriteCommand).resolves({});
-
-    const res = await app.request('/pedidos', {
-      method: 'POST',
-      body: JSON.stringify({
-        ...validBody,
-        items: [
-          { book_id: 'b1', amount: 1 },
-          { book_id: 'b1', amount: 2 },
-        ],
-      }),
-      headers: JSON_HEADER,
-    });
-
-    expect(res.status).toBe(201);
-    const requests =
-      ddbMock.commandCalls(BatchWriteCommand)[0].args[0].input.RequestItems![
-        'livraria-tb-pedidos-test'
-      ];
-    expect(requests).toHaveLength(1);
-    expect(requests[0].PutRequest!.Item!.amount).toBe(3);
   });
 });

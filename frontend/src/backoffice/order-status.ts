@@ -1,26 +1,28 @@
 export type OrderStatus =
   | 'waiting-payment'
+  | 'in-reserve'
   | 'payment-received'
   | 'sent-to-delivery'
   | 'received';
 
-export const ORDER_STATUSES: OrderStatus[] = [
-  'waiting-payment',
-  'payment-received',
-  'sent-to-delivery',
-  'received',
-];
+export interface UnitItem {
+  unit_id: string;
+  title_id: string;
+  status: OrderStatus;
+  lote_id?: string;
+  received_amount?: number;
+  picked_up?: boolean;
+  updated_at?: string;
+}
 
-export interface OrderLine {
+// Pedido como a API do backoffice retorna: agrupador de entrega + unidades
+export interface Order {
   id: string;
-  book_id: string;
   name: string;
   contact: string;
-  amount: number;
   region: string;
-  status: OrderStatus;
   created_at: string;
-  updated_at: string;
+  items: UnitItem[];
 }
 
 interface StageInfo {
@@ -30,60 +32,46 @@ interface StageInfo {
   nextLabel: string | null;
 }
 
+export const STAGE_COUNT = 5;
+
 export const STAGES: Record<OrderStatus, StageInfo> = {
   'waiting-payment': {
     index: 0,
     label: 'Esperando pagamento',
+    next: 'in-reserve',
+    nextLabel: 'Reservar',
+  },
+  'in-reserve': {
+    index: 1,
+    label: 'Em Reserva',
     next: 'payment-received',
     nextLabel: 'Confirmar pagamento',
   },
   'payment-received': {
-    index: 1,
+    index: 2,
     label: 'Pagamento efetuado',
     next: 'sent-to-delivery',
     nextLabel: 'Enviar p/ entrega',
   },
   'sent-to-delivery': {
-    index: 2,
+    index: 3,
     label: 'Enviado para entrega',
     next: 'received',
     nextLabel: 'Marcar entregue',
   },
-  received: { index: 3, label: 'Entregue', next: null, nextLabel: null },
+  received: { index: 4, label: 'Entregue', next: null, nextLabel: null },
 };
 
-export interface OrderGroup {
-  id: string;
-  name: string;
-  contact: string;
-  region: string;
-  created_at: string;
-  lines: OrderLine[];
+// unidade finalizada = aparece em Vendas
+export function isUnitFinalized(item: UnitItem): boolean {
+  return (
+    item.status === 'received' ||
+    (item.picked_up === true && item.status === 'payment-received')
+  );
 }
 
-export function groupOrders(lines: OrderLine[]): OrderGroup[] {
-  const byId = new Map<string, OrderGroup>();
-  for (const line of lines) {
-    const group = byId.get(line.id);
-    if (group) {
-      group.lines.push(line);
-      if (line.created_at < group.created_at) group.created_at = line.created_at;
-    } else {
-      byId.set(line.id, {
-        id: line.id,
-        name: line.name,
-        contact: line.contact,
-        region: line.region,
-        created_at: line.created_at,
-        lines: [line],
-      });
-    }
-  }
-  return [...byId.values()].sort((a, b) => b.created_at.localeCompare(a.created_at));
-}
-
-export function isDelivered(group: OrderGroup): boolean {
-  return group.lines.every((l) => l.status === 'received');
+export function isDelivered(order: Order): boolean {
+  return order.items.every(isUnitFinalized);
 }
 
 export function formatOrderDate(iso: string): string {
