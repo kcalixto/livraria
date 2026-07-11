@@ -10,10 +10,13 @@ livros.get('/livros', async (c) => {
     new ScanCommand({ TableName: process.env.LIVROS_TABLE_NAME }),
   );
   // capa não vem da API: o front resolve /images/<id>.jpg servido junto do site
-  const books = (result.Items ?? []).map((item) => ({
-    ...item,
-    amount: mockAmount(),
-    status: BOOK_STATUS_AVAILABLE,
-  }));
+  const items: Record<string, unknown>[] = result.Items ?? [];
+  const books = items
+    .sort((a, b) => String(b.created_at ?? '').localeCompare(String(a.created_at ?? '')))
+    .map((item) => ({
+      ...item,
+      amount: mockAmount(),
+      status: BOOK_STATUS_AVAILABLE,
+    }));
   return c.json(books);
 });

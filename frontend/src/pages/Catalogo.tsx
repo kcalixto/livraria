@@ -77,7 +77,10 @@ export function Catalogo() {
         )}
 
         {state.kind === 'ready' &&
-          state.books.map((book) => <LivroEntry key={book.id} book={book} />)}
+          // esgotados por último; sort estável preserva a ordem da API entre os grupos
+          [...state.books]
+            .sort((a, b) => Number(a.amount === 0) - Number(b.amount === 0))
+            .map((book) => <LivroEntry key={book.id} book={book} />)}
       </main>
     </div>
   );

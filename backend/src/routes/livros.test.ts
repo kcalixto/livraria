@@ -34,6 +34,21 @@ describe('GET /livros', () => {
     expect(calls[0].args[0].input.TableName).toBe('livraria-tb-livros-test');
   });
 
+  it('ordena por created_at descendente (mais novos primeiro)', async () => {
+    ddbMock.on(ScanCommand).resolves({
+      Items: [
+        { id: 'antigo', title: 'Antigo', price: 100, created_at: '2026-07-01T10:00:00.000Z' },
+        { id: 'novo', title: 'Novo', price: 100, created_at: '2026-07-11T10:00:00.000Z' },
+        { id: 'meio', title: 'Meio', price: 100, created_at: '2026-07-05T10:00:00.000Z' },
+      ],
+    });
+
+    const res = await app.request('/livros', { headers: KEY_HEADER });
+    const body = (await res.json()) as Array<{ id: string }>;
+
+    expect(body.map((b) => b.id)).toEqual(['novo', 'meio', 'antigo']);
+  });
+
   it('retorna livros com amount e status, sem campo de imagem (capa é resolvida no front)', async () => {
     ddbMock.on(ScanCommand).resolves({
       Items: [

@@ -77,6 +77,32 @@ describe('Catalogo', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
+  it('livros esgotados vão pro final da listagem, mantendo a ordem entre os demais', async () => {
+    const catalog = [
+      { id: 'e1', title: 'Esgotado Primeiro', description: '', price: 100, amount: 0, status: 'disponível' },
+      { id: 'd1', title: 'Disponível Um', description: '', price: 100, amount: 5, status: 'disponível' },
+      { id: 'e2', title: 'Esgotado Segundo', description: '', price: 100, amount: 0, status: 'disponível' },
+      { id: 'd2', title: 'Disponível Dois', description: '', price: 100, amount: 2, status: 'disponível' },
+    ];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response(JSON.stringify(catalog), { status: 200 })),
+    );
+
+    renderPage();
+
+    await screen.findByRole('heading', { name: 'Disponível Um' });
+    const titles = [...document.querySelectorAll('.livro-entry__title')].map(
+      (h) => h.textContent,
+    );
+    expect(titles).toEqual([
+      'Disponível Um',
+      'Disponível Dois',
+      'Esgotado Primeiro',
+      'Esgotado Segundo',
+    ]);
+  });
+
   it('mostra o picker de região com a única opção ativa', async () => {
     vi.stubGlobal(
       'fetch',
