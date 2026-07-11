@@ -15,7 +15,6 @@ const books: Book[] = [
     price: 4200,
     amount: 12,
     status: 'disponível',
-    image_url: 'x',
   },
 ];
 

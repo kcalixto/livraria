@@ -17,7 +17,6 @@ const baseBook: Book = {
   format: 'Ensaio',
   amount: 12,
   status: 'disponível',
-  image_url: 'https://exemplo/dev/livros/b1.png',
 };
 
 function renderEntry(book: Book) {
@@ -63,6 +62,14 @@ describe('LivroEntry', () => {
   it('renderiza o status do livro como tag quando disponível', () => {
     renderEntry(baseBook);
     expect(screen.getByText('disponível')).toBeInTheDocument();
+  });
+
+  it('a capa vem de /images/<id>.jpg', () => {
+    renderEntry(baseBook);
+    expect(screen.getByRole('img', { name: /capa de a comuna e o fogo/i })).toHaveAttribute(
+      'src',
+      '/images/b1.jpg',
+    );
   });
 
   describe('descrição longa (clamp de 220 caracteres)', () => {

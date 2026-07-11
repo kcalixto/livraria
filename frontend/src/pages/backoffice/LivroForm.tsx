@@ -4,8 +4,6 @@ import { ApiError, apiAuthPost, apiAuthPut, apiGet } from '../../api/client';
 import { clearToken } from '../../backoffice/auth';
 import type { Book } from '../../lib/types';
 
-const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
-
 interface FieldErrors {
   title?: string;
   description?: string;
@@ -22,16 +20,6 @@ function textToCents(text: string): number | null {
   return Math.round(parseFloat(normalized) * 100);
 }
 
-async function fileToBase64(file: File): Promise<string> {
-  const dataUrl = await new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(file);
-  });
-  return dataUrl.split(',')[1] ?? '';
-}
-
 export function LivroForm() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -45,8 +33,6 @@ export function LivroForm() {
   const [edition, setEdition] = useState('');
   const [year, setYear] = useState('');
   const [format, setFormat] = useState('');
-  const [coverFile, setCoverFile] = useState<File | null>(null);
-  const [coverError, setCoverError] = useState('');
   const [errors, setErrors] = useState<FieldErrors>({});
   const [apiError, setApiError] = useState(false);
   const [unauthorized, setUnauthorized] = useState(false);
@@ -82,21 +68,6 @@ export function LivroForm() {
       .finally(() => setLoadingBook(false));
   }, [editing, id]);
 
-  function onCoverChange(file: File | null) {
-    setCoverError('');
-    setCoverFile(null);
-    if (!file) return;
-    if (file.type !== 'image/png') {
-      setCoverError('Apenas PNG é aceito.');
-      return;
-    }
-    if (file.size > MAX_IMAGE_BYTES) {
-      setCoverError('A capa deve ter no máximo 2MB.');
-      return;
-    }
-    setCoverFile(file);
-  }
-
   async function submit(e: { preventDefault: () => void }) {
     e.preventDefault();
 
@@ -106,7 +77,7 @@ export function LivroForm() {
     if (!description.trim()) nextErrors.description = 'Informe a descrição.';
     if (price === null) nextErrors.price = 'Informe um preço válido (ex.: 49,90).';
     setErrors(nextErrors);
-    if (Object.keys(nextErrors).length > 0 || coverError) return;
+    if (Object.keys(nextErrors).length > 0) return;
 
     const payload: Record<string, unknown> = {
       title: title.trim(),
@@ -122,18 +93,10 @@ export function LivroForm() {
     setSaving(true);
     setApiError(false);
     try {
-      let bookId = id;
       if (editing) {
         await apiAuthPut(`/backoffice/livros/${id}`, payload);
       } else {
-        const created = await apiAuthPost<{ id: string }>('/backoffice/livros', payload);
-        bookId = created.id;
-      }
-      if (coverFile && bookId) {
-        await apiAuthPost('/backoffice/upload-image', {
-          book_id: bookId,
-          image_base64: await fileToBase64(coverFile),
-        });
+        await apiAuthPost('/backoffice/livros', payload);
       }
       navigate('/backoffice/livros');
     } catch (err) {
@@ -256,18 +219,10 @@ export function LivroForm() {
           </div>
         </div>
 
-        <label className="field-label" htmlFor="livro-capa">
-          Capa (PNG, máx 2MB)
-        </label>
-        <input
-          id="livro-capa"
-          type="file"
-          accept="image/png"
-          className="livro-form__file"
-          onChange={(e) => onCoverChange(e.target.files?.[0] ?? null)}
-        />
-        {coverFile && <div className="livro-form__file-ok">✓ {coverFile.name}</div>}
-        {coverError && <div className="field-error">{coverError}</div>}
+        <div className="alert alert--warn livro-form__cover-note">
+          A capa entra em frontend/public/images/&lt;id&gt;.jpg — lembre que é preciso um
+          novo build/deploy do site pra ela renderizar.
+        </div>
 
         {apiError && (
           <div className="alert alert--error livro-form__api-error">

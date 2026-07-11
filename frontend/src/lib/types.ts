@@ -10,7 +10,6 @@ export interface Book {
   format?: string;
   amount: number;
   status: string;
-  image_url: string;
 }
 
 export interface CartItem {

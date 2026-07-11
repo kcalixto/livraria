@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { LivroForm } from './LivroForm';
@@ -16,7 +16,6 @@ const existingBook = {
   description: 'Par 1.\n\nPar 2.',
   amount: 3,
   status: 'disponível',
-  image_url: 'http://img/b1.png',
 };
 
 let fetchMock: ReturnType<typeof vi.fn>;
@@ -28,9 +27,6 @@ function stubFetch() {
       return Promise.resolve(
         new Response(JSON.stringify({ ...existingBook, id: 'novo-id' }), { status: 201 }),
       );
-    }
-    if (init?.method === 'POST' && u.includes('/upload-image')) {
-      return Promise.resolve(new Response(JSON.stringify({ url: 'http://img' }), { status: 200 }));
     }
     if (init?.method === 'PUT') {
       return Promise.resolve(new Response(JSON.stringify(existingBook), { status: 200 }));
@@ -103,49 +99,14 @@ describe('LivroForm — criar', () => {
     expect(headers.authorization).toBe('Bearer jwt-abc');
   });
 
-  it('rejeita capa acima de 2MB sem chamar upload', async () => {
+  it('não tem campo de upload de capa e mostra o lembrete de build', () => {
     renderForm('/backoffice/livros/novo');
 
-    const big = new File([new Uint8Array(2 * 1024 * 1024 + 1)], 'capa.png', {
-      type: 'image/png',
-    });
-    await userEvent.upload(screen.getByLabelText(/capa/i), big);
-
-    expect(await screen.findByText(/no máximo 2MB/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/capa/i)).not.toBeInTheDocument();
     expect(
-      fetchMock.mock.calls.filter(([u]) => String(u).includes('/upload-image')),
-    ).toHaveLength(0);
-  });
-
-  it('rejeita arquivo que não é PNG', async () => {
-    renderForm('/backoffice/livros/novo');
-
-    const jpeg = new File(['x'], 'capa.jpg', { type: 'image/jpeg' });
-    await userEvent.upload(screen.getByLabelText(/capa/i), jpeg, { applyAccept: false });
-
-    expect(await screen.findByText(/apenas png/i)).toBeInTheDocument();
-  });
-
-  it('com capa selecionada, cria o livro e sobe a imagem com o id retornado', async () => {
-    renderForm('/backoffice/livros/novo');
-
-    await userEvent.type(screen.getByLabelText(/título/i), 'Com Capa');
-    await userEvent.type(screen.getByLabelText(/descrição/i), 'Desc.');
-    await userEvent.type(screen.getByLabelText(/preço/i), '10,00');
-    const png = new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], 'capa.png', {
-      type: 'image/png',
-    });
-    await userEvent.upload(screen.getByLabelText(/capa/i), png);
-    await userEvent.click(screen.getByRole('button', { name: /salvar/i }));
-
-    await waitFor(() => {
-      const uploadCall = fetchMock.mock.calls.find(([u]) => String(u).includes('/upload-image'));
-      expect(uploadCall).toBeTruthy();
-      const body = JSON.parse((uploadCall![1] as RequestInit).body as string);
-      expect(body.book_id).toBe('novo-id');
-      expect(typeof body.image_base64).toBe('string');
-      expect(body.image_base64.length).toBeGreaterThan(0);
-    });
+      screen.getByText(/a capa entra em frontend\/public\/images\/<id>\.jpg/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/novo build\/deploy do site/i)).toBeInTheDocument();
   });
 });
 

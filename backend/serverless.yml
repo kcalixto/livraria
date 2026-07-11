@@ -2,7 +2,6 @@ service: livraria
 frameworkVersion: '3'
 
 custom:
-  assetsBucket: livraria-assets-bucket
   table:
     livros:
       dev: livraria-tb-livros-dev
@@ -26,10 +25,8 @@ provider:
   deploymentBucket:
     name: kcalixto-serverless-framework
   environment:
-    STAGE: ${self:provider.stage}
     LIVROS_TABLE_NAME: ${self:custom.table.livros.${self:provider.stage}}
     PEDIDOS_TABLE_NAME: ${self:custom.table.pedidos.${self:provider.stage}}
-    ASSETS_S3_BUCKET_NAME: ${self:custom.assetsBucket}
     LIVRARIA_FRONT_END_API_KEY: ${ssm:/livraria/front-end-api-key}
     BACKOFFICE_KEY: ${ssm:/livraria/backoffice-key}
     JWT_SECRET: ${ssm:/livraria/jwt-secret}
@@ -49,10 +46,6 @@ provider:
             - !GetAtt TabelaLivros.Arn
             - !GetAtt TabelaPedidos.Arn
             - !Sub '${TabelaPedidos.Arn}/index/*'
-        - Effect: Allow
-          Action:
-            - s3:PutObject
-          Resource: arn:aws:s3:::${self:custom.assetsBucket}/${self:provider.stage}/livros/*
 
 plugins:
   - serverless-esbuild

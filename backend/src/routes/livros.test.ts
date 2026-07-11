@@ -12,8 +12,6 @@ beforeEach(() => {
   ddbMock.reset();
   process.env.LIVRARIA_FRONT_END_API_KEY = 'chave-front';
   process.env.LIVROS_TABLE_NAME = 'livraria-tb-livros-test';
-  process.env.ASSETS_S3_BUCKET_NAME = 'livraria-assets-bucket';
-  process.env.STAGE = 'dev';
 });
 
 describe('GET /livros', () => {
@@ -36,7 +34,7 @@ describe('GET /livros', () => {
     expect(calls[0].args[0].input.TableName).toBe('livraria-tb-livros-test');
   });
 
-  it('retorna livros com amount, status e image_url derivados', async () => {
+  it('retorna livros com amount e status, sem campo de imagem (capa é resolvida no front)', async () => {
     ddbMock.on(ScanCommand).resolves({
       Items: [
         {
@@ -61,9 +59,8 @@ describe('GET /livros', () => {
       price: 5000,
       author: 'Karl Marx',
       status: BOOK_STATUS_AVAILABLE,
-      image_url:
-        'https://livraria-assets-bucket.s3.sa-east-1.amazonaws.com/dev/livros/b1.png',
     });
+    expect(body[0]).not.toHaveProperty('image_url');
     const amount = body[0].amount as number;
     expect(Number.isInteger(amount)).toBe(true);
     expect(amount).toBeGreaterThanOrEqual(0);

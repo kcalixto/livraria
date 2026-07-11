@@ -2,8 +2,26 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { ApiError, apiAuthDelete, apiGet } from '../../api/client';
 import { clearToken } from '../../backoffice/auth';
+import { bookCoverPath } from '../../lib/covers';
 import { formatPrice } from '../../lib/format';
 import type { Book } from '../../lib/types';
+
+// id encurtado clicável: copia o uuid completo (nome do arquivo da capa)
+function IdChip({ id }: { id: string }) {
+  const [copied, setCopied] = useState(false);
+
+  async function copy() {
+    await navigator.clipboard.writeText(id);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  return (
+    <button className="id-chip" title={id} onClick={() => void copy()}>
+      {copied ? 'copiado ✓' : `${id.slice(0, 4)}…`}
+    </button>
+  );
+}
 
 type State =
   | { kind: 'loading' }
@@ -83,6 +101,7 @@ export function Livros() {
         <div className="bo-livros">
           <div className="bo-livros__cols">
             <span>Capa</span>
+            <span>Id</span>
             <span>Título</span>
             <span>Autor</span>
             <span>Preço</span>
@@ -93,12 +112,15 @@ export function Livros() {
             <div key={book.id} className="bo-livros__row">
               <img
                 className="bo-livros__cover"
-                src={book.image_url}
+                src={bookCoverPath(book.id)}
                 alt=""
                 onError={(e) => {
                   (e.target as HTMLImageElement).style.visibility = 'hidden';
                 }}
               />
+              <span>
+                <IdChip id={book.id} />
+              </span>
               <span className="bo-livros__title">{book.title}</span>
               <span className="bo-livros__author">{book.author ?? '—'}</span>
               <span className="bo-livros__price">{formatPrice(book.price)}</span>
