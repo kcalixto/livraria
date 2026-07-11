@@ -759,7 +759,7 @@ a:hover {
 }
 .order-done__id {
   font-family: var(--mono);
-  font-size: 12px;
+  font-size: 20px;
   background: var(--surface-header);
   border: 1px solid var(--border);
   border-radius: 4px;
