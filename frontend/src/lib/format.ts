@@ -28,6 +28,7 @@ export function formatOrderCode(code: string): string {
 }
 
 export function splitParagraphs(description: string): string[] {
+  if (!description) return [];
   return description
     .split(/\n\s*\n/)
     .map((p) => p.trim())
