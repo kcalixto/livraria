@@ -64,11 +64,11 @@ describe('LivroEntry', () => {
     expect(screen.getByText('disponível')).toBeInTheDocument();
   });
 
-  it('a capa vem de /images/<id>.jpg', () => {
+  it('a capa vem de /images/<stage>/<id>.jpg', () => {
     renderEntry(baseBook);
     expect(screen.getByRole('img', { name: /capa de a comuna e o fogo/i })).toHaveAttribute(
       'src',
-      '/images/b1.jpg',
+      '/images/dev/b1.jpg',
     );
   });
 

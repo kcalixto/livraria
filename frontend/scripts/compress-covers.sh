@@ -14,7 +14,7 @@ command -v magick >/dev/null || { echo "erro: ImageMagick (magick) não encontra
 shopt -s nullglob
 total=0
 compressed=0
-for f in "$IMAGES_DIR"/*.jpg "$IMAGES_DIR"/*.jpeg; do
+for f in "$IMAGES_DIR"/*.jpg "$IMAGES_DIR"/*.jpeg "$IMAGES_DIR"/*/*.jpg "$IMAGES_DIR"/*/*.jpeg; do
   total=$((total + 1))
   before=$(stat -f%z "$f")
   if [ "$before" -le "$MAX_BYTES" ]; then

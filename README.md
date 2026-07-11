@@ -16,7 +16,7 @@ Webapp de livraria local: catálogo público focado nas descrições dos livros,
 | Site | `http://livraria-serverless-deployment-dev.s3-website-sa-east-1.amazonaws.com` | `http://livraria-serverless-deplyment-prd.s3-website-sa-east-1.amazonaws.com` |
 | Tabelas | `livraria-tb-{livros,pedidos}-dev` | `livraria-tb-{livros,pedidos}-prd` |
 
-Capas de livro: arquivos em `frontend/public/images/<id-do-livro>.jpg` — entram no build do site e são servidas pela mesma origem (sem bucket de assets; capa nova exige novo build/deploy do site). Deployment do serverless: `kcalixto-serverless-framework`.
+Capas de livro: arquivos em `frontend/public/images/<stage>/<id-do-livro>.jpg` — entram no build do site e são servidas pela mesma origem (sem bucket de assets; capa nova exige novo build/deploy do site). Deployment do serverless: `kcalixto-serverless-framework`.
 
 ## CI/CD
 
@@ -51,6 +51,6 @@ curl -X POST $API/backoffice/livros -H "authorization: Bearer $TOKEN" -H "x-api-
   -d '{"title":"...","description":"par1\n\npar2","price":4200,"author":"...","pages":288,"edition":"2ª","year":2024,"format":"Ensaio"}'
 ```
 
-Capa: salve o arquivo como `frontend/public/images/<id-do-livro>.jpg` e faça um novo build/deploy do site.
+Capa: salve o arquivo como `frontend/public/images/<stage>/<id-do-livro>.jpg` e faça um novo build/deploy do site.
 
 Seed de dados mockados no dev: `backend/scripts/seed-mock-books.sh`. Preços em **centavos** (int). Estoque é **mockado** (amount aleatório 0–10 por chamada; ESGOTADO quando 0).

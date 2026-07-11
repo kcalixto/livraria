@@ -104,12 +104,12 @@ describe('Backoffice — Livros', () => {
     expect(await screen.findByText(/copiado/i)).toBeInTheDocument();
   });
 
-  it('a capa da listagem vem de /images/<id>.jpg', async () => {
+  it('a capa da listagem vem de /images/<stage>/<id>.jpg', async () => {
     renderPage();
     await screen.findByText('A Comuna e o Fogo');
     const covers = document.querySelectorAll('.bo-livros__cover');
     expect((covers[0] as HTMLImageElement).getAttribute('src')).toBe(
-      '/images/47aeb72f-5448-4859-b6b0-13b7079e095f.jpg',
+      '/images/dev/47aeb72f-5448-4859-b6b0-13b7079e095f.jpg',
     );
   });
 

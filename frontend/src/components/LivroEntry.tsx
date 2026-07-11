@@ -1,17 +1,17 @@
-import { useState } from 'react';
-import { useCart } from '../cart/CartContext';
-import { bookCoverPath } from '../lib/covers';
-import { buildMeta, formatPrice, splitParagraphs } from '../lib/format';
-import type { Book } from '../lib/types';
-import { StockBadge } from './StockBadge';
-import { StatusTag } from './StatusTag';
+import { useState } from "react";
+import { useCart } from "../cart/CartContext";
+import { bookCoverPath, STAGE } from "../lib/covers";
+import { buildMeta, formatPrice, splitParagraphs } from "../lib/format";
+import type { Book } from "../lib/types";
+import { StockBadge } from "./StockBadge";
+import { StatusTag } from "./StatusTag";
 
 const DESCRIPTION_CLAMP = 220;
 
 function ClampedDescription({ description }: { description: string }) {
   const [expanded, setExpanded] = useState(false);
   const paragraphs = splitParagraphs(description);
-  const plain = paragraphs.join(' ');
+  const plain = paragraphs.join(" ");
 
   if (plain.length <= DESCRIPTION_CLAMP) {
     return (
@@ -27,7 +27,7 @@ function ClampedDescription({ description }: { description: string }) {
     return (
       <div className="livro-entry__desc">
         <p>
-          {plain.slice(0, DESCRIPTION_CLAMP).trimEnd()}…{' '}
+          {plain.slice(0, DESCRIPTION_CLAMP).trimEnd()}…{" "}
           <button className="ver-mais" onClick={() => setExpanded(true)}>
             ver mais
           </button>
@@ -43,7 +43,7 @@ function ClampedDescription({ description }: { description: string }) {
           {para}
           {i === paragraphs.length - 1 && (
             <>
-              {' '}
+              {" "}
               <button className="ver-mais" onClick={() => setExpanded(false)}>
                 ver menos
               </button>
@@ -69,13 +69,19 @@ export function LivroEntry({ book }: { book: Book }) {
             <span>{book.title}</span>
           </div>
         ) : (
-          <img src={bookCoverPath(book.id)} alt={`Capa de ${book.title}`} onError={() => setCoverBroken(true)} />
+          <img
+            src={bookCoverPath(STAGE, book.id)}
+            alt={`Capa de ${book.title}`}
+            onError={() => setCoverBroken(true)}
+          />
         )}
       </div>
 
       <div className="livro-entry__body">
         <h3 className="livro-entry__title">{book.title}</h3>
-        {book.author && <div className="livro-entry__author">({book.author})</div>}
+        {book.author && (
+          <div className="livro-entry__author">({book.author})</div>
+        )}
 
         <ClampedDescription description={book.description} />
 
@@ -91,7 +97,9 @@ export function LivroEntry({ book }: { book: Book }) {
               <StockBadge amount={book.amount} />
               <button
                 className="btn btn--primary"
-                onClick={() => add({ id: book.id, title: book.title, price: book.price })}
+                onClick={() =>
+                  add({ id: book.id, title: book.title, price: book.price })
+                }
               >
                 Adicionar ao carrinho
               </button>

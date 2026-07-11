@@ -220,8 +220,8 @@ export function LivroForm() {
         </div>
 
         <div className="alert alert--warn livro-form__cover-note">
-          A capa entra em frontend/public/images/&lt;id&gt;.jpg — lembre que é preciso um
-          novo build/deploy do site pra ela renderizar.
+          A capa entra em frontend/public/images/&lt;stage&gt;/&lt;id&gt;.jpg — lembre que é
+          preciso um novo build/deploy do site pra ela renderizar.
         </div>
 
         {apiError && (

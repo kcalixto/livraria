@@ -104,7 +104,7 @@ describe('LivroForm — criar', () => {
 
     expect(screen.queryByLabelText(/capa/i)).not.toBeInTheDocument();
     expect(
-      screen.getByText(/a capa entra em frontend\/public\/images\/<id>\.jpg/i),
+      screen.getByText(/a capa entra em frontend\/public\/images\/<stage>\/<id>\.jpg/i),
     ).toBeInTheDocument();
     expect(screen.getByText(/novo build\/deploy do site/i)).toBeInTheDocument();
   });
