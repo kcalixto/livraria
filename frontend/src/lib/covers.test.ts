@@ -3,7 +3,7 @@ import { bookCoverPath } from "./covers";
 
 describe("bookCoverPath", () => {
   it("monta o caminho relativo da capa por id", () => {
-    expect(bookCoverPath("dev", "47aeb72f-5448-4859-b6b0-13b7079e095f")).toBe(
+    expect(bookCoverPath("47aeb72f-5448-4859-b6b0-13b7079e095f")).toBe(
       "/images/dev/47aeb72f-5448-4859-b6b0-13b7079e095f.jpg",
     );
   });

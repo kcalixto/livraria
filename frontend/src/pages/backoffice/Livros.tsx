@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { ApiError, apiAuthDelete, apiGet } from "../../api/client";
 import { clearToken } from "../../backoffice/auth";
-import { bookCoverPath, STAGE } from "../../lib/covers";
+import { bookCoverPath } from "../../lib/covers";
 import { formatPrice } from "../../lib/format";
 import type { Book } from "../../lib/types";
 
@@ -116,7 +116,7 @@ export function Livros() {
             <div key={book.id} className="bo-livros__row">
               <img
                 className="bo-livros__cover"
-                src={bookCoverPath(STAGE, book.id)}
+                src={bookCoverPath(book.id)}
                 alt=""
                 onError={(e) => {
                   (e.target as HTMLImageElement).style.visibility = "hidden";

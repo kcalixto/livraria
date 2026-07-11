@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useCart } from "../cart/CartContext";
-import { bookCoverPath, STAGE } from "../lib/covers";
+import { bookCoverPath } from "../lib/covers";
 import { buildMeta, formatPrice, splitParagraphs } from "../lib/format";
 import type { Book } from "../lib/types";
 import { StockBadge } from "./StockBadge";
@@ -70,7 +70,7 @@ export function LivroEntry({ book }: { book: Book }) {
           </div>
         ) : (
           <img
-            src={bookCoverPath(STAGE, book.id)}
+            src={bookCoverPath(book.id)}
             alt={`Capa de ${book.title}`}
             onError={() => setCoverBroken(true)}
           />
