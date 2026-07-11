@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Navigate } from 'react-router-dom';
-import { apiAuthPatch } from '../../api/client';
-import { formatPrice } from '../../lib/format';
+import { ApiError, apiAuthPatch } from '../../api/client';
+import { centsToText, formatPrice, textToCents } from '../../lib/format';
 import {
   formatOrderDate,
   isDelivered,
@@ -28,6 +28,9 @@ function StatusCell({ item }: { item: UnitItem }) {
   return (
     <span>
       <span className={`stage-pill stage-pill--${stage.index}`}>{stage.label}</span>
+      {item.picked_up && (
+        <span className="badge badge--low unit-picked-badge">retirado sem pagamento</span>
+      )}
       <span className="stage-segs">
         {Array.from({ length: STAGE_COUNT }, (_, i) => (
           <span
@@ -44,26 +47,158 @@ export function Pedidos() {
   const { loading, error, unauthorized, orders, books, reload } = useOrders();
   const [lastAction, setLastAction] = useState('');
   const [actionError, setActionError] = useState('');
+  const [payingUnitId, setPayingUnitId] = useState<string | null>(null);
+  const [payText, setPayText] = useState('');
   const pending = orders.filter((o) => !isDelivered(o));
 
   if (unauthorized) return <Navigate to="/backoffice" replace />;
 
-  async function advance(order: Order, item: UnitItem) {
-    const stage = STAGES[item.status];
-    if (!stage.next) return;
+  async function patch(order: Order, item: UnitItem, body: Record<string, unknown>, doneLabel: string) {
     setActionError('');
     try {
       await apiAuthPatch(`/backoffice/pedidos/${order.id}/status`, {
-        status: stage.next,
+        ...body,
         unit_id: item.unit_id,
       });
       const book = books.get(item.title_id);
-      setLastAction(
-        `✓ ${shortOrderId(order.id)} · ${book?.title ?? item.title_id} → ${STAGES[stage.next].label}`,
-      );
+      setLastAction(`✓ ${shortOrderId(order.id)} · ${book?.title ?? item.title_id} → ${doneLabel}`);
+      setPayingUnitId(null);
       await reload();
-    } catch {
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 400) {
+        setActionError('Sem estoque disponível na região para essa ação.');
+        return;
+      }
       setActionError('Não foi possível atualizar o status. Tente de novo.');
+    }
+  }
+
+  function openPayment(item: UnitItem) {
+    const book = books.get(item.title_id);
+    setPayText(book ? centsToText(book.price) : '');
+    setPayingUnitId(item.unit_id);
+    setActionError('');
+  }
+
+  async function confirmPayment(order: Order, item: UnitItem) {
+    const cents = textToCents(payText);
+    if (cents === null) {
+      setActionError('Informe um valor recebido válido (ex.: 42,00).');
+      return;
+    }
+    await patch(
+      order,
+      item,
+      { status: 'payment-received', received_amount: cents },
+      'Pagamento efetuado',
+    );
+  }
+
+  function renderActions(order: Order, item: UnitItem) {
+    if (payingUnitId === item.unit_id) {
+      return (
+        <span className="pay-inline">
+          <input
+            className="field-input pay-inline__input"
+            aria-label="Valor recebido"
+            value={payText}
+            onChange={(e) => setPayText(e.target.value)}
+          />
+          <button className="stage-action" onClick={() => void confirmPayment(order, item)}>
+            Confirmar
+          </button>
+          <button className="stage-action" onClick={() => setPayingUnitId(null)}>
+            Cancelar
+          </button>
+        </span>
+      );
+    }
+
+    if (item.picked_up) {
+      return (
+        <>
+          <button className="stage-action" onClick={() => openPayment(item)}>
+            Confirmar pagamento
+          </button>
+          <button
+            className="stage-action"
+            onClick={() => void patch(order, item, { picked_up: false }, 'Retirada desfeita')}
+          >
+            Desfazer retirado
+          </button>
+        </>
+      );
+    }
+
+    switch (item.status) {
+      case 'waiting-payment':
+        return (
+          <>
+            <button
+              className="stage-action"
+              onClick={() => void patch(order, item, { status: 'in-reserve' }, 'Em Reserva')}
+            >
+              Reservar
+            </button>
+            <button className="stage-action" onClick={() => openPayment(item)}>
+              Confirmar pagamento
+            </button>
+            <button
+              className="stage-action"
+              onClick={() =>
+                void patch(order, item, { picked_up: true }, 'Retirado sem pagamento')
+              }
+            >
+              Retirado s/ pagamento
+            </button>
+          </>
+        );
+      case 'in-reserve':
+        return (
+          <>
+            <button className="stage-action" onClick={() => openPayment(item)}>
+              Confirmar pagamento
+            </button>
+            <button
+              className="stage-action"
+              onClick={() =>
+                void patch(order, item, { status: 'waiting-payment' }, 'Reserva liberada')
+              }
+            >
+              Liberar reserva
+            </button>
+            <button
+              className="stage-action"
+              onClick={() =>
+                void patch(order, item, { picked_up: true }, 'Retirado sem pagamento')
+              }
+            >
+              Retirado s/ pagamento
+            </button>
+          </>
+        );
+      case 'payment-received':
+        return (
+          <button
+            className="stage-action"
+            onClick={() =>
+              void patch(order, item, { status: 'sent-to-delivery' }, 'Enviado para entrega')
+            }
+          >
+            Enviar p/ entrega
+          </button>
+        );
+      case 'sent-to-delivery':
+        return (
+          <button
+            className="stage-action"
+            onClick={() => void patch(order, item, { status: 'received' }, 'Entregue')}
+          >
+            Marcar entregue
+          </button>
+        );
+      default:
+        return <span className="stage-action stage-action--done">Concluído</span>;
     }
   }
 
@@ -104,27 +239,22 @@ export function Pedidos() {
             <span>Livro</span>
             <span>Valor</span>
             <span>Status</span>
-            <span className="t-right">Ação</span>
+            <span className="t-right">Ações</span>
           </div>
           {order.items.map((item) => {
             const book = books.get(item.title_id);
-            const stage = STAGES[item.status];
             return (
               <div key={item.unit_id} className="order-card__row">
                 <span className="order-card__book">{book?.title ?? item.title_id}</span>
                 <span className="order-card__price">
-                  {book ? formatPrice(book.price) : '—'}
+                  {item.received_amount !== undefined
+                    ? formatPrice(item.received_amount)
+                    : book
+                      ? formatPrice(book.price)
+                      : '—'}
                 </span>
                 <StatusCell item={item} />
-                <span className="t-right">
-                  {stage.nextLabel ? (
-                    <button className="stage-action" onClick={() => void advance(order, item)}>
-                      {stage.nextLabel}
-                    </button>
-                  ) : (
-                    <span className="stage-action stage-action--done">Concluído</span>
-                  )}
-                </span>
+                <span className="t-right order-card__actions">{renderActions(order, item)}</span>
               </div>
             );
           })}

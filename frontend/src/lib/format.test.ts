@@ -1,11 +1,38 @@
 import { describe, expect, it } from 'vitest';
-import { buildMeta, formatOrderCode, formatPrice, splitParagraphs } from './format';
+import {
+  buildMeta,
+  centsToText,
+  formatOrderCode,
+  formatPrice,
+  splitParagraphs,
+  textToCents,
+} from './format';
 
 describe('formatPrice', () => {
   it('formata centavos como R$ pt-BR', () => {
     expect(formatPrice(4200)).toBe('R$ 42,00');
     expect(formatPrice(4990)).toBe('R$ 49,90');
     expect(formatPrice(0)).toBe('R$ 0,00');
+  });
+});
+
+describe('centsToText / textToCents', () => {
+  it('converte centavos para texto em reais', () => {
+    expect(centsToText(4990)).toBe('49,90');
+    expect(centsToText(100)).toBe('1,00');
+  });
+
+  it('converte texto em reais para centavos', () => {
+    expect(textToCents('49,90')).toBe(4990);
+    expect(textToCents('49.90')).toBe(4990);
+    expect(textToCents('1.234,56')).toBe(123456);
+    expect(textToCents('10')).toBe(1000);
+  });
+
+  it('retorna null para texto inválido', () => {
+    expect(textToCents('abc')).toBeNull();
+    expect(textToCents('')).toBeNull();
+    expect(textToCents('1,2,3')).toBeNull();
   });
 });
 

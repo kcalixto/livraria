@@ -1,5 +1,6 @@
 import { Navigate, NavLink, Outlet } from 'react-router-dom';
 import { getToken } from '../../backoffice/auth';
+import { RegionPicker } from '../../components/RegionPicker';
 
 export function BackofficeLayout() {
   if (!getToken()) return <Navigate to="/backoffice" replace />;
@@ -19,7 +20,12 @@ export function BackofficeLayout() {
         <NavLink to="/backoffice/livros" className="bo-tab">
           Livros
         </NavLink>
-        <span className="bo-tabs__hint">Status por livro · finalize itens independentes</span>
+        <NavLink to="/backoffice/lotes" className="bo-tab">
+          Lotes
+        </NavLink>
+        <span className="bo-tabs__region">
+          <RegionPicker />
+        </span>
       </nav>
       <Outlet />
     </div>

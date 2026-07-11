@@ -13,6 +13,7 @@ interface UnitItem {
   unit_id: string;
   title_id: string;
   status: string;
+  picked_up?: boolean;
 }
 
 function order(id: string, items: UnitItem[], over: Record<string, unknown> = {}) {
@@ -109,6 +110,118 @@ describe('Backoffice — Pedidos (linhas por unidade)', () => {
     renderPage();
 
     expect(await screen.findByText(/nenhum pedido pendente/i)).toBeInTheDocument();
+  });
+
+  it('unidade em waiting mostra Reservar, Retirado s/ pagamento e Confirmar pagamento', async () => {
+    stubFetch([
+      order('PED001', [{ unit_id: 'u1', title_id: 'b1', status: 'waiting-payment' }]),
+    ]);
+    renderPage();
+
+    expect(await screen.findByRole('button', { name: /^reservar$/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /retirado s\/ pagamento/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /confirmar pagamento/i })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /^reservar$/i }));
+    const patchCall = fetchMock.mock.calls.find(([, init]) => init?.method === 'PATCH');
+    expect(JSON.parse((patchCall![1] as RequestInit).body as string)).toEqual({
+      status: 'in-reserve',
+      unit_id: 'u1',
+    });
+  });
+
+  it('unidade em reserva: Liberar reserva volta pra waiting', async () => {
+    stubFetch([
+      order('PED001', [{ unit_id: 'u1', title_id: 'b1', status: 'in-reserve' }]),
+    ]);
+    renderPage();
+
+    await userEvent.click(await screen.findByRole('button', { name: /liberar reserva/i }));
+
+    const patchCall = fetchMock.mock.calls.find(([, init]) => init?.method === 'PATCH');
+    expect(JSON.parse((patchCall![1] as RequestInit).body as string)).toEqual({
+      status: 'waiting-payment',
+      unit_id: 'u1',
+    });
+  });
+
+  it('Confirmar pagamento expande input com o preço default e envia received_amount editado', async () => {
+    stubFetch([
+      order('PED001', [{ unit_id: 'u1', title_id: 'b1', status: 'in-reserve' }]),
+    ]);
+    renderPage();
+
+    await userEvent.click(await screen.findByRole('button', { name: /confirmar pagamento/i }));
+
+    const input = screen.getByLabelText(/valor recebido/i);
+    expect(input).toHaveValue('42,00'); // default = preço do título
+
+    await userEvent.clear(input);
+    await userEvent.type(input, '100,00'); // doação acima do preço
+    await userEvent.click(screen.getByRole('button', { name: /^confirmar$/i }));
+
+    const patchCall = fetchMock.mock.calls.find(([, init]) => init?.method === 'PATCH');
+    expect(JSON.parse((patchCall![1] as RequestInit).body as string)).toEqual({
+      status: 'payment-received',
+      unit_id: 'u1',
+      received_amount: 10000,
+    });
+  });
+
+  it('Retirado s/ pagamento marca picked_up; unidade retirada tem badge, Confirmar pagamento e Desfazer', async () => {
+    stubFetch([
+      order('PED001', [
+        { unit_id: 'u1', title_id: 'b1', status: 'waiting-payment' },
+        { unit_id: 'u2', title_id: 'b2', status: 'waiting-payment', picked_up: true },
+      ]),
+    ]);
+    renderPage();
+
+    // marca a primeira como retirada
+    await userEvent.click(await screen.findByRole('button', { name: /retirado s\/ pagamento/i }));
+    const patchCall = fetchMock.mock.calls.find(([, init]) => init?.method === 'PATCH');
+    expect(JSON.parse((patchCall![1] as RequestInit).body as string)).toEqual({
+      picked_up: true,
+      unit_id: 'u1',
+    });
+
+    // a segunda (já retirada) tem badge e ação de desfazer
+    expect(
+      screen.getByText(/retirado sem pagamento/i, { selector: '.unit-picked-badge' }),
+    ).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /desfazer retirado/i }));
+    const undoCall = fetchMock.mock.calls.filter(([, init]) => init?.method === 'PATCH').pop();
+    expect(JSON.parse((undoCall![1] as RequestInit).body as string)).toEqual({
+      picked_up: false,
+      unit_id: 'u2',
+    });
+  });
+
+  it('erro 400 na transição (sem estoque) mostra alerta', async () => {
+    fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      if (init?.method === 'PATCH') {
+        return Promise.resolve(
+          new Response(JSON.stringify({ error: 'no available stock' }), { status: 400 }),
+        );
+      }
+      if (String(url).includes('/backoffice/pedidos')) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify([
+              order('PED001', [{ unit_id: 'u1', title_id: 'b1', status: 'waiting-payment' }]),
+            ]),
+            { status: 200 },
+          ),
+        );
+      }
+      return Promise.resolve(new Response(JSON.stringify(livros), { status: 200 }));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    renderPage();
+
+    await userEvent.click(await screen.findByRole('button', { name: /^reservar$/i }));
+
+    expect(await screen.findByText(/sem estoque disponível/i)).toBeInTheDocument();
   });
 
   it('token expirado (401): limpa token e volta pro login', async () => {

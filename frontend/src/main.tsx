@@ -12,6 +12,9 @@ import { Vendas } from './pages/backoffice/Vendas';
 import { Estoque } from './pages/backoffice/Estoque';
 import { Livros } from './pages/backoffice/Livros';
 import { LivroForm } from './pages/backoffice/LivroForm';
+import { Lotes } from './pages/backoffice/Lotes';
+import { LoteForm } from './pages/backoffice/LoteForm';
+import { LoteDetail } from './pages/backoffice/LoteDetail';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -28,6 +31,9 @@ createRoot(document.getElementById('root')!).render(
             <Route path="/backoffice/livros" element={<Livros />} />
             <Route path="/backoffice/livros/novo" element={<LivroForm />} />
             <Route path="/backoffice/livros/:id/editar" element={<LivroForm />} />
+            <Route path="/backoffice/lotes" element={<Lotes />} />
+            <Route path="/backoffice/lotes/novo" element={<LoteForm />} />
+            <Route path="/backoffice/lotes/:id" element={<LoteDetail />} />
           </Route>
         </Routes>
       </CartProvider>

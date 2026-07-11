@@ -14,7 +14,7 @@ Webapp de livraria local: catálogo público focado nas descrições dos livros,
 |---|---|---|
 | API | `https://a07s4i4gvb.execute-api.sa-east-1.amazonaws.com` | `https://l674u4xyoj.execute-api.sa-east-1.amazonaws.com` |
 | Site | `http://livraria-serverless-deployment-dev.s3-website-sa-east-1.amazonaws.com` | `http://livraria-serverless-deplyment-prd.s3-website-sa-east-1.amazonaws.com` |
-| Tabelas | `livraria-tb-{livros,pedidos}-dev` | `livraria-tb-{livros,pedidos}-prd` |
+| Tabelas | `livraria-tb-{livros,pedidos,lotes}-dev` | `livraria-tb-{livros,pedidos,lotes}-prd` |
 
 Capas de livro: arquivos em `frontend/public/images/<stage>/<id-do-livro>.jpg` — entram no build do site e são servidas pela mesma origem (sem bucket de assets; capa nova exige novo build/deploy do site). Deployment do serverless: `kcalixto-serverless-framework`.
 
@@ -53,4 +53,8 @@ curl -X POST $API/backoffice/livros -H "authorization: Bearer $TOKEN" -H "x-api-
 
 Capa: salve o arquivo como `frontend/public/images/<stage>/<id-do-livro>.jpg` e faça um novo build/deploy do site.
 
-Seed de dados mockados no dev: `backend/scripts/seed-mock-books.sh`. Preços em **centavos** (int). Estoque é **mockado** (amount aleatório 0–10 por chamada; ESGOTADO quando 0).
+Seed de dados mockados no dev: `backend/scripts/seed-mock-books.sh`. Preços em **centavos** (int).
+
+## Estoque (real, por Lotes)
+
+O estoque deriva de **Lotes de aquisição** (aba Lotes do backoffice: data, região, livros+quantidades, custo total). A venda é por **unidade** (`unit_id`): cada unidade aloca FIFO um `lote_id` ao entrar em estado que deduz estoque (`in-reserve`, `payment-received`+, ou retirada sem pagamento) — reversível (liberar reserva / desfazer retirado devolvem ao lote). O pagamento registra o **valor recebido** por unidade (doações contam no vendido do lote). Pedidos **nunca** são bloqueados por falta de estoque (ficam aguardando; futura tela de re-estoque). Regras completas no [CLAUDE.md](CLAUDE.md).

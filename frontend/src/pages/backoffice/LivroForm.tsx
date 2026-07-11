@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { ApiError, apiAuthPost, apiAuthPut, apiGet } from '../../api/client';
 import { clearToken } from '../../backoffice/auth';
+import { centsToText, textToCents } from '../../lib/format';
 import type { Book } from '../../lib/types';
 
 interface FieldErrors {
@@ -9,15 +10,6 @@ interface FieldErrors {
   price?: string;
 }
 
-function centsToText(cents: number): string {
-  return (cents / 100).toFixed(2).replace('.', ',');
-}
-
-function textToCents(text: string): number | null {
-  const normalized = text.trim().replace(/\./g, '').replace(',', '.');
-  if (!/^\d+(\.\d{1,2})?$/.test(normalized)) return null;
-  return Math.round(parseFloat(normalized) * 100);
-}
 
 export function LivroForm() {
   const { id } = useParams();

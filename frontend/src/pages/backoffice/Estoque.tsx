@@ -1,18 +1,24 @@
-import { useEffect, useState } from 'react';
-import { apiGet } from '../../api/client';
+import { useCallback, useEffect, useState } from 'react';
+import { Navigate } from 'react-router-dom';
+import { ApiError, apiAuthGet, apiGet } from '../../api/client';
+import { clearToken } from '../../backoffice/auth';
+import { ACTIVE_REGION } from '../../lib/region';
 import type { Book } from '../../lib/types';
 
-const REGIONS = ['Zona Sul', 'Zona Norte', 'Centro', 'ABC'] as const;
-
-// Estoque MOCKADO (área a ser aprofundada): números pseudo-aleatórios
-// determinísticos derivados do id do livro, estáveis entre renders.
-function mockQty(bookId: string, region: string): number {
-  let hash = 0;
-  for (const ch of `${bookId}:${region}`) {
-    hash = (hash * 31 + ch.charCodeAt(0)) | 0;
-  }
-  return Math.abs(hash) % 15;
+interface StockRow {
+  book_id: string;
+  acquired: number;
+  reserved: number;
+  picked_up: number;
+  sold: number;
+  available: number;
 }
+
+type State =
+  | { kind: 'loading' }
+  | { kind: 'error' }
+  | { kind: 'unauthorized' }
+  | { kind: 'ready'; rows: StockRow[]; titles: Map<string, string> };
 
 function qtyClass(qty: number): string {
   if (qty === 0) return 'stock-qty--zero';
@@ -21,49 +27,81 @@ function qtyClass(qty: number): string {
 }
 
 export function Estoque() {
-  const [books, setBooks] = useState<Book[] | null>(null);
+  const [state, setState] = useState<State>({ kind: 'loading' });
 
-  useEffect(() => {
-    apiGet<Book[]>('/livros')
-      .then(setBooks)
-      .catch(() => setBooks([]));
+  const load = useCallback(async () => {
+    setState({ kind: 'loading' });
+    try {
+      const [rows, livros] = await Promise.all([
+        apiAuthGet<StockRow[]>('/backoffice/estoque'),
+        apiGet<Book[]>('/livros'),
+      ]);
+      setState({
+        kind: 'ready',
+        rows,
+        titles: new Map(livros.map((b) => [b.id, b.title])),
+      });
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        clearToken();
+        setState({ kind: 'unauthorized' });
+        return;
+      }
+      setState({ kind: 'error' });
+    }
   }, []);
 
-  if (!books) return <div className="bo-loading">Carregando…</div>;
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  if (state.kind === 'unauthorized') return <Navigate to="/backoffice" replace />;
+  if (state.kind === 'loading') return <div className="bo-loading">Carregando…</div>;
+  if (state.kind === 'error') {
+    return (
+      <div className="bo-state">
+        <div className="alert alert--error">Não foi possível carregar o estoque.</div>
+        <button className="btn btn--secondary" onClick={() => void load()}>
+          Tentar de novo
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="bo-content">
-      <div className="stock-banner">↯ Área a ser aprofundada — números fictícios (mock)</div>
-      <div className="stock-table">
-        <div className="stock-table__cols">
-          <span>Título</span>
-          {REGIONS.map((r) => (
-            <span key={r} className="t-center">
-              {r}
-            </span>
-          ))}
-          <span className="t-right">Total</span>
+      <div className="stock-region">Saldo real · {ACTIVE_REGION}</div>
+      {state.rows.length === 0 ? (
+        <div className="bo-empty">
+          <div className="bo-empty__title">Nenhum livro em estoque</div>
+          <div className="bo-empty__sub">Registre um lote de aquisição na aba Lotes.</div>
         </div>
-        {books.map((book) => {
-          const quantities = REGIONS.map((r) => mockQty(book.id, r));
-          const total = quantities.reduce((a, b) => a + b, 0);
-          return (
-            <div key={book.id} className="stock-table__row">
-              <span className="stock-table__title">{book.title}</span>
-              {quantities.map((qty, i) => (
-                <span key={REGIONS[i]} className={`t-center stock-qty ${qtyClass(qty)}`}>
-                  {qty}
-                </span>
-              ))}
-              <span className="t-right stock-table__total">{total}</span>
+      ) : (
+        <div className="stock-table">
+          <div className="stock-table__cols">
+            <span>Título</span>
+            <span className="t-center">Adquirido</span>
+            <span className="t-center">Reservado</span>
+            <span className="t-center">Retirado</span>
+            <span className="t-center">Vendido</span>
+            <span className="t-right">Disponível</span>
+          </div>
+          {state.rows.map((row) => (
+            <div key={row.book_id} className="stock-table__row">
+              <span className="stock-table__title">
+                {state.titles.get(row.book_id) ?? row.book_id}
+              </span>
+              <span className="t-center stock-qty">{row.acquired}</span>
+              <span className="t-center stock-qty">{row.reserved}</span>
+              <span className="t-center stock-qty">{row.picked_up}</span>
+              <span className="t-center stock-qty">{row.sold}</span>
+              <span className={`t-right stock-qty ${qtyClass(row.available)}`}>
+                {row.available}
+              </span>
             </div>
-          );
-        })}
-      </div>
-      <p className="stock-note">
-        Placeholder de profundidade: entradas por lote, alertas de estoque baixo, histórico de
-        reposição e edição inline ainda serão especificados.
-      </p>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

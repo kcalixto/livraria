@@ -5,6 +5,21 @@ export function formatPrice(cents: number): string {
   return brl.format(cents / 100).replace(/[\u00a0\u202f]/g, ' ');
 }
 
+export function centsToText(cents: number): string {
+  return (cents / 100).toFixed(2).replace('.', ',');
+}
+
+export function textToCents(text: string): number | null {
+  let normalized = text.trim();
+  if (!normalized) return null;
+  // com vírgula, pontos são separador de milhar; sem vírgula, ponto é decimal
+  if (normalized.includes(',')) {
+    normalized = normalized.replace(/\./g, '').replace(',', '.');
+  }
+  if (!/^\d+(\.\d{1,2})?$/.test(normalized)) return null;
+  return Math.round(parseFloat(normalized) * 100);
+}
+
 // Código de pedido de 6 alfanuméricos vira "AJ3-C9K" pra leitura; outros
 // formatos (ex.: uuid de pedidos antigos) passam intactos.
 export function formatOrderCode(code: string): string {
