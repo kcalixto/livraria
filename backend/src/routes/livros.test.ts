@@ -2,21 +2,27 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { mockClient } from 'aws-sdk-client-mock';
 import { DynamoDBDocumentClient, ScanCommand } from '@aws-sdk/lib-dynamodb';
 import { app } from '../app';
-import { BOOK_STATUS_AVAILABLE } from '../lib/stock-mock';
+import { BOOK_STATUS_AVAILABLE } from '../lib/constants';
 
 const ddbMock = mockClient(DynamoDBDocumentClient);
 
 const KEY_HEADER = { 'x-api-key': 'chave-front' };
+const REGION = 'SP, Capital - Zona Sul';
 
 beforeEach(() => {
   ddbMock.reset();
   process.env.LIVRARIA_FRONT_END_API_KEY = 'chave-front';
   process.env.LIVROS_TABLE_NAME = 'livraria-tb-livros-test';
+  process.env.LOTES_TABLE_NAME = 'livraria-tb-lotes-test';
+  process.env.PEDIDOS_TABLE_NAME = 'livraria-tb-pedidos-test';
+  // default: sem lotes e sem pedidos
+  ddbMock.on(ScanCommand, { TableName: 'livraria-tb-lotes-test' }).resolves({ Items: [] });
+  ddbMock.on(ScanCommand, { TableName: 'livraria-tb-pedidos-test' }).resolves({ Items: [] });
 });
 
 describe('GET /livros', () => {
   it('retorna lista vazia quando a tabela está vazia', async () => {
-    ddbMock.on(ScanCommand).resolves({ Items: [] });
+    ddbMock.on(ScanCommand, { TableName: 'livraria-tb-livros-test' }).resolves({ Items: [] });
 
     const res = await app.request('/livros', { headers: KEY_HEADER });
 
@@ -24,18 +30,8 @@ describe('GET /livros', () => {
     expect(await res.json()).toEqual([]);
   });
 
-  it('faz Scan na tabela do env LIVROS_TABLE_NAME', async () => {
-    ddbMock.on(ScanCommand).resolves({ Items: [] });
-
-    await app.request('/livros', { headers: KEY_HEADER });
-
-    const calls = ddbMock.commandCalls(ScanCommand);
-    expect(calls).toHaveLength(1);
-    expect(calls[0].args[0].input.TableName).toBe('livraria-tb-livros-test');
-  });
-
   it('ordena por created_at descendente (mais novos primeiro)', async () => {
-    ddbMock.on(ScanCommand).resolves({
+    ddbMock.on(ScanCommand, { TableName: 'livraria-tb-livros-test' }).resolves({
       Items: [
         { id: 'antigo', title: 'Antigo', price: 100, created_at: '2026-07-01T10:00:00.000Z' },
         { id: 'novo', title: 'Novo', price: 100, created_at: '2026-07-11T10:00:00.000Z' },
@@ -49,15 +45,33 @@ describe('GET /livros', () => {
     expect(body.map((b) => b.id)).toEqual(['novo', 'meio', 'antigo']);
   });
 
-  it('retorna livros com amount e status, sem campo de imagem (capa é resolvida no front)', async () => {
-    ddbMock.on(ScanCommand).resolves({
+  it('amount é o estoque REAL da região (lotes menos deduções); sem lote = 0', async () => {
+    ddbMock.on(ScanCommand, { TableName: 'livraria-tb-livros-test' }).resolves({
+      Items: [
+        { id: 'b1', title: 'Com Lote', price: 5000 },
+        { id: 'b2', title: 'Sem Lote', price: 3000 },
+      ],
+    });
+    ddbMock.on(ScanCommand, { TableName: 'livraria-tb-lotes-test' }).resolves({
       Items: [
         {
-          id: 'b1',
-          title: 'O Capital',
-          description: 'Par 1.\n\nPar 2.',
-          price: 5000,
-          author: 'Karl Marx',
+          id: 'lote-a',
+          date: '2026-07-01',
+          region: REGION,
+          books: [{ book_id: 'b1', amount: 4 }],
+          total_cost: 1000,
+        },
+      ],
+    });
+    ddbMock.on(ScanCommand, { TableName: 'livraria-tb-pedidos-test' }).resolves({
+      Items: [
+        {
+          id: 'PED1',
+          region: REGION,
+          unit_id: 'u1',
+          title_id: 'b1',
+          status: 'in-reserve',
+          lote_id: 'lote-a',
         },
       ],
     });
@@ -65,20 +79,11 @@ describe('GET /livros', () => {
     const res = await app.request('/livros', { headers: KEY_HEADER });
     const body = (await res.json()) as Array<Record<string, unknown>>;
 
-    expect(res.status).toBe(200);
-    expect(body).toHaveLength(1);
-    expect(body[0]).toMatchObject({
-      id: 'b1',
-      title: 'O Capital',
-      description: 'Par 1.\n\nPar 2.',
-      price: 5000,
-      author: 'Karl Marx',
-      status: BOOK_STATUS_AVAILABLE,
-    });
-    expect(body[0]).not.toHaveProperty('image_url');
-    const amount = body[0].amount as number;
-    expect(Number.isInteger(amount)).toBe(true);
-    expect(amount).toBeGreaterThanOrEqual(0);
-    expect(amount).toBeLessThanOrEqual(10);
+    const comLote = body.find((b) => b.id === 'b1')!;
+    const semLote = body.find((b) => b.id === 'b2')!;
+    expect(comLote.amount).toBe(3); // 4 adquiridos − 1 reservado
+    expect(comLote.status).toBe(BOOK_STATUS_AVAILABLE);
+    expect(semLote.amount).toBe(0); // esgotado: nunca entrou em lote
+    expect(comLote).not.toHaveProperty('image_url');
   });
 });

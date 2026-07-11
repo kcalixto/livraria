@@ -99,30 +99,281 @@ describe('GET /backoffice/pedidos (agrupado no backend)', () => {
   });
 });
 
-describe('PATCH /backoffice/pedidos/:id/status (por unit_id)', () => {
-  it('atualiza apenas a unidade informada', async () => {
-    ddbMock.on(QueryCommand).resolves({
-      Items: [
-        unit({ book_id: 'livro-a#u1', unit_id: 'u1' }),
-        unit({ book_id: 'livro-a#u2', unit_id: 'u2' }),
-      ],
-    });
-    ddbMock.on(UpdateCommand).resolves({});
+function mockLotes(lotes: Record<string, unknown>[]) {
+  ddbMock
+    .on(ScanCommand, { TableName: 'livraria-tb-lotes-test' })
+    .resolves({ Items: lotes });
+}
 
-    const res = await app.request('/backoffice/pedidos/PED001/status', {
-      method: 'PATCH',
-      body: JSON.stringify({ status: 'in-reserve', unit_id: 'u2' }),
-      headers: { ...(await authHeader()), 'content-type': 'application/json' },
+function mockPedidosScan(units: Record<string, unknown>[]) {
+  ddbMock
+    .on(ScanCommand, { TableName: 'livraria-tb-pedidos-test' })
+    .resolves({ Items: units });
+}
+
+const REGION = 'SP, Capital - Zona Sul';
+
+const LOTE_ANTIGO = {
+  id: 'lote-antigo',
+  date: '2026-07-01',
+  region: REGION,
+  books: [{ book_id: 'livro-a', amount: 1 }],
+  total_cost: 1000,
+};
+const LOTE_NOVO = {
+  id: 'lote-novo',
+  date: '2026-07-10',
+  region: REGION,
+  books: [{ book_id: 'livro-a', amount: 1 }],
+  total_cost: 1000,
+};
+
+async function patchUnit(body: Record<string, unknown>) {
+  return app.request('/backoffice/pedidos/PED001/status', {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+    headers: { ...(await authHeader()), 'content-type': 'application/json' },
+  });
+}
+
+describe('PATCH — transições e alocação FIFO', () => {
+  beforeEach(() => {
+    process.env.LOTES_TABLE_NAME = 'livraria-tb-lotes-test';
+    ddbMock.on(UpdateCommand).resolves({});
+  });
+
+  it('waiting→in-reserve aloca o lote mais antigo com unidade livre (FIFO)', async () => {
+    const line = unit({ book_id: 'livro-a#u1', unit_id: 'u1' });
+    ddbMock.on(QueryCommand).resolves({ Items: [line] });
+    mockLotes([LOTE_NOVO, LOTE_ANTIGO]);
+    mockPedidosScan([line]);
+
+    const res = await patchUnit({ status: 'in-reserve', unit_id: 'u1' });
+
+    expect(res.status).toBe(200);
+    const input = ddbMock.commandCalls(UpdateCommand)[0].args[0].input;
+    expect(input.Key).toEqual({ id: 'PED001', book_id: 'livro-a#u1' });
+    expect(input.UpdateExpression).toContain('lote_id');
+    expect(input.ExpressionAttributeValues![':lote_id']).toBe('lote-antigo');
+  });
+
+  it('FIFO pula lote sem unidade livre (unidade já alocada em outro pedido)', async () => {
+    const line = unit({ book_id: 'livro-a#u1', unit_id: 'u1' });
+    const ocupada = unit({
+      id: 'PED999',
+      book_id: 'livro-a#u9',
+      unit_id: 'u9',
+      status: 'in-reserve',
+      lote_id: 'lote-antigo',
+    });
+    ddbMock.on(QueryCommand).resolves({ Items: [line] });
+    mockLotes([LOTE_ANTIGO, LOTE_NOVO]);
+    mockPedidosScan([line, ocupada]);
+
+    const res = await patchUnit({ status: 'in-reserve', unit_id: 'u1' });
+
+    expect(res.status).toBe(200);
+    const input = ddbMock.commandCalls(UpdateCommand)[0].args[0].input;
+    expect(input.ExpressionAttributeValues![':lote_id']).toBe('lote-novo');
+  });
+
+  it('sem estoque livre na região → 400 e nada muda', async () => {
+    const line = unit({ book_id: 'livro-a#u1', unit_id: 'u1' });
+    ddbMock.on(QueryCommand).resolves({ Items: [line] });
+    mockLotes([]); // nenhum lote
+    mockPedidosScan([line]);
+
+    const res = await patchUnit({ status: 'in-reserve', unit_id: 'u1' });
+
+    expect(res.status).toBe(400);
+    expect(ddbMock.commandCalls(UpdateCommand)).toHaveLength(0);
+  });
+
+  it('in-reserve→waiting-payment libera a unidade (REMOVE lote_id)', async () => {
+    const line = unit({
+      book_id: 'livro-a#u1',
+      unit_id: 'u1',
+      status: 'in-reserve',
+      lote_id: 'lote-antigo',
+    });
+    ddbMock.on(QueryCommand).resolves({ Items: [line] });
+
+    const res = await patchUnit({ status: 'waiting-payment', unit_id: 'u1' });
+
+    expect(res.status).toBe(200);
+    const input = ddbMock.commandCalls(UpdateCommand)[0].args[0].input;
+    expect(input.UpdateExpression).toMatch(/REMOVE.*lote_id/);
+  });
+
+  it('payment-received exige received_amount', async () => {
+    const line = unit({
+      book_id: 'livro-a#u1',
+      unit_id: 'u1',
+      status: 'in-reserve',
+      lote_id: 'lote-antigo',
+    });
+    ddbMock.on(QueryCommand).resolves({ Items: [line] });
+
+    const res = await patchUnit({ status: 'payment-received', unit_id: 'u1' });
+
+    expect(res.status).toBe(400);
+    expect(ddbMock.commandCalls(UpdateCommand)).toHaveLength(0);
+  });
+
+  it('in-reserve→payment-received mantém o lote e grava o valor recebido', async () => {
+    const line = unit({
+      book_id: 'livro-a#u1',
+      unit_id: 'u1',
+      status: 'in-reserve',
+      lote_id: 'lote-antigo',
+    });
+    ddbMock.on(QueryCommand).resolves({ Items: [line] });
+
+    const res = await patchUnit({
+      status: 'payment-received',
+      unit_id: 'u1',
+      received_amount: 5500,
     });
 
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ id: 'PED001', unit_id: 'u2', status: 'in-reserve' });
-
-    const updates = ddbMock.commandCalls(UpdateCommand);
-    expect(updates).toHaveLength(1);
-    expect(updates[0].args[0].input.Key).toEqual({ id: 'PED001', book_id: 'livro-a#u2' });
+    const input = ddbMock.commandCalls(UpdateCommand)[0].args[0].input;
+    expect(input.ExpressionAttributeValues![':received_amount']).toBe(5500);
+    // não realoca lote
+    expect(input.ExpressionAttributeValues![':lote_id']).toBeUndefined();
   });
 
+  it('waiting→payment-received direto aloca lote e grava valor', async () => {
+    const line = unit({ book_id: 'livro-a#u1', unit_id: 'u1' });
+    ddbMock.on(QueryCommand).resolves({ Items: [line] });
+    mockLotes([LOTE_ANTIGO]);
+    mockPedidosScan([line]);
+
+    const res = await patchUnit({
+      status: 'payment-received',
+      unit_id: 'u1',
+      received_amount: 4000,
+    });
+
+    expect(res.status).toBe(200);
+    const input = ddbMock.commandCalls(UpdateCommand)[0].args[0].input;
+    expect(input.ExpressionAttributeValues![':lote_id']).toBe('lote-antigo');
+    expect(input.ExpressionAttributeValues![':received_amount']).toBe(4000);
+  });
+
+  it('transição inválida (waiting→sent-to-delivery) → 400', async () => {
+    const line = unit({ book_id: 'livro-a#u1', unit_id: 'u1' });
+    ddbMock.on(QueryCommand).resolves({ Items: [line] });
+
+    const res = await patchUnit({ status: 'sent-to-delivery', unit_id: 'u1' });
+    expect(res.status).toBe(400);
+  });
+
+  it('unidade picked_up só pode ir para payment-received', async () => {
+    const line = unit({
+      book_id: 'livro-a#u1',
+      unit_id: 'u1',
+      picked_up: true,
+      lote_id: 'lote-antigo',
+    });
+    ddbMock.on(QueryCommand).resolves({ Items: [line] });
+
+    const reserva = await patchUnit({ status: 'in-reserve', unit_id: 'u1' });
+    expect(reserva.status).toBe(400);
+
+    const pagamento = await patchUnit({
+      status: 'payment-received',
+      unit_id: 'u1',
+      received_amount: 3000,
+    });
+    expect(pagamento.status).toBe(200);
+    const input = ddbMock.commandCalls(UpdateCommand)[0].args[0].input;
+    expect(input.ExpressionAttributeValues![':received_amount']).toBe(3000);
+  });
+});
+
+describe('PATCH — retirado sem pagamento (picked_up)', () => {
+  beforeEach(() => {
+    process.env.LOTES_TABLE_NAME = 'livraria-tb-lotes-test';
+    ddbMock.on(UpdateCommand).resolves({});
+  });
+
+  it('marca retirado de waiting: aloca lote e seta picked_up', async () => {
+    const line = unit({ book_id: 'livro-a#u1', unit_id: 'u1' });
+    ddbMock.on(QueryCommand).resolves({ Items: [line] });
+    mockLotes([LOTE_ANTIGO]);
+    mockPedidosScan([line]);
+
+    const res = await patchUnit({ picked_up: true, unit_id: 'u1' });
+
+    expect(res.status).toBe(200);
+    const input = ddbMock.commandCalls(UpdateCommand)[0].args[0].input;
+    expect(input.ExpressionAttributeValues![':picked_up']).toBe(true);
+    expect(input.ExpressionAttributeValues![':lote_id']).toBe('lote-antigo');
+    expect(input.ExpressionAttributeValues![':status']).toBe('waiting-payment');
+  });
+
+  it('marca retirado de in-reserve: mantém o lote já alocado e volta pra waiting', async () => {
+    const line = unit({
+      book_id: 'livro-a#u1',
+      unit_id: 'u1',
+      status: 'in-reserve',
+      lote_id: 'lote-antigo',
+    });
+    ddbMock.on(QueryCommand).resolves({ Items: [line] });
+
+    const res = await patchUnit({ picked_up: true, unit_id: 'u1' });
+
+    expect(res.status).toBe(200);
+    const input = ddbMock.commandCalls(UpdateCommand)[0].args[0].input;
+    expect(input.ExpressionAttributeValues![':picked_up']).toBe(true);
+    expect(input.ExpressionAttributeValues![':status']).toBe('waiting-payment');
+    // não realoca
+    expect(input.ExpressionAttributeValues![':lote_id']).toBeUndefined();
+  });
+
+  it('sem estoque livre, marcar retirado falha com 400', async () => {
+    const line = unit({ book_id: 'livro-a#u1', unit_id: 'u1' });
+    ddbMock.on(QueryCommand).resolves({ Items: [line] });
+    mockLotes([]);
+    mockPedidosScan([line]);
+
+    const res = await patchUnit({ picked_up: true, unit_id: 'u1' });
+    expect(res.status).toBe(400);
+  });
+
+  it('desfaz retirado (reversível): REMOVE picked_up e lote_id', async () => {
+    const line = unit({
+      book_id: 'livro-a#u1',
+      unit_id: 'u1',
+      picked_up: true,
+      lote_id: 'lote-antigo',
+    });
+    ddbMock.on(QueryCommand).resolves({ Items: [line] });
+
+    const res = await patchUnit({ picked_up: false, unit_id: 'u1' });
+
+    expect(res.status).toBe(200);
+    const input = ddbMock.commandCalls(UpdateCommand)[0].args[0].input;
+    expect(input.UpdateExpression).toMatch(/REMOVE.*picked_up.*lote_id|REMOVE.*lote_id.*picked_up/);
+  });
+
+  it('não desfaz retirado de unidade já paga', async () => {
+    const line = unit({
+      book_id: 'livro-a#u1',
+      unit_id: 'u1',
+      status: 'payment-received',
+      picked_up: true,
+      lote_id: 'lote-antigo',
+      received_amount: 3000,
+    });
+    ddbMock.on(QueryCommand).resolves({ Items: [line] });
+
+    const res = await patchUnit({ picked_up: false, unit_id: 'u1' });
+    expect(res.status).toBe(400);
+  });
+});
+
+describe('PATCH — validações básicas', () => {
   it('retorna 400 sem unit_id', async () => {
     const res = await app.request('/backoffice/pedidos/PED001/status', {
       method: 'PATCH',

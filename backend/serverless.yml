@@ -9,6 +9,9 @@ custom:
     pedidos:
       dev: livraria-tb-pedidos-dev
       prd: livraria-tb-pedidos-prd
+    lotes:
+      dev: livraria-tb-lotes-dev
+      prd: livraria-tb-lotes-prd
   esbuild:
     bundle: true
     minify: false
@@ -27,6 +30,7 @@ provider:
   environment:
     LIVROS_TABLE_NAME: ${self:custom.table.livros.${self:provider.stage}}
     PEDIDOS_TABLE_NAME: ${self:custom.table.pedidos.${self:provider.stage}}
+    LOTES_TABLE_NAME: ${self:custom.table.lotes.${self:provider.stage}}
     LIVRARIA_FRONT_END_API_KEY: ${ssm:/livraria/front-end-api-key}
     BACKOFFICE_KEY: ${ssm:/livraria/backoffice-key}
     JWT_SECRET: ${ssm:/livraria/jwt-secret}
@@ -45,6 +49,7 @@ provider:
           Resource:
             - !GetAtt TabelaLivros.Arn
             - !GetAtt TabelaPedidos.Arn
+            - !GetAtt TabelaLotes.Arn
             - !Sub '${TabelaPedidos.Arn}/index/*'
 
 plugins:
@@ -63,6 +68,18 @@ resources:
       DeletionPolicy: Retain
       Properties:
         TableName: ${self:custom.table.livros.${self:provider.stage}}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: id
+            AttributeType: S
+        KeySchema:
+          - AttributeName: id
+            KeyType: HASH
+    TabelaLotes:
+      Type: AWS::DynamoDB::Table
+      DeletionPolicy: Retain
+      Properties:
+        TableName: ${self:custom.table.lotes.${self:provider.stage}}
         BillingMode: PAY_PER_REQUEST
         AttributeDefinitions:
           - AttributeName: id
