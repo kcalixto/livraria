@@ -1,16 +1,35 @@
 #!/usr/bin/env bash
 # Cria 10 livros mockados no ambiente DEV via API do backoffice.
 # Uso: ./seed-mock-books.sh
-# A api key vem de LIVRARIA_BACKOFFICE_API_KEY ou, se ausente, do SSM.
+# Autentica via JWT: busca a senha do backoffice no SSM, faz login e usa o
+# Bearer token. A api key do front (gate global de todas as rotas) vem de
+# LIVRARIA_FRONT_END_API_KEY ou, se ausente, do SSM.
 set -euo pipefail
 
 API_URL="${API_URL:-https://a07s4i4gvb.execute-api.sa-east-1.amazonaws.com}"
-API_KEY="${LIVRARIA_BACKOFFICE_API_KEY:-$(aws ssm get-parameter \
-  --name /livraria/backoffice-api-key \
+FRONT_KEY="${LIVRARIA_FRONT_END_API_KEY:-$(aws ssm get-parameter \
+  --name /livraria/front-end-api-key \
   --with-decryption \
   --region sa-east-1 \
   --query Parameter.Value \
   --output text)}"
+
+login() {
+  local password
+  password=$(aws ssm get-parameter \
+    --name /livraria/backoffice-key \
+    --with-decryption \
+    --region sa-east-1 \
+    --query Parameter.Value \
+    --output text)
+  curl -s -X POST "$API_URL/backoffice/login" \
+    -H "x-api-key: $FRONT_KEY" \
+    -H 'content-type: application/json' \
+    -d "{\"password\":\"$password\"}" | python3 -c 'import json,sys; print(json.load(sys.stdin)["token"])'
+}
+
+TOKEN=$(login)
+echo "login ok (JWT de 1h obtido)"
 
 create_book() {
   local payload="$1"
@@ -18,7 +37,8 @@ create_book() {
   title=$(printf '%s' "$payload" | sed -E 's/.*"title":"([^"]+)".*/\1/')
   local status
   status=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$API_URL/backoffice/livros" \
-    -H "x-api-key: $API_KEY" \
+    -H "authorization: Bearer $TOKEN" \
+    -H "x-api-key: $FRONT_KEY" \
     -H 'content-type: application/json' \
     -d "$payload")
   echo "[$status] $title"
@@ -45,4 +65,4 @@ create_book '{"title":"A Terra é de Quem Trabalha","author":"Sebastião Lima","
 create_book '{"title":"Vozes do Subúrbio","author":"Amara Teixeira","price":3700,"format":"Crônicas","edition":"1ª edição","year":2024,"pages":184,"description":"Crônicas de trem, de laje e de quintal. Teixeira escreve a periferia por dentro, sem o filtro da reportagem que chega de fora e vai embora antes do anoitecer.\n\nSão textos curtos, de humor seco e ternura afiada, que recusam tanto a miséria quanto o pitoresco.\n\nUm retrato vivo de quem faz a cidade funcionar e raramente aparece nela."}'
 
 echo "Pronto. Catálogo dev:"
-curl -s "$API_URL/livros" | python3 -c "import json,sys; print(len(json.load(sys.stdin)), 'livros no catálogo')"
+curl -s "$API_URL/livros" -H "x-api-key: $FRONT_KEY" | python3 -c "import json,sys; print(len(json.load(sys.stdin)), 'livros no catálogo')"

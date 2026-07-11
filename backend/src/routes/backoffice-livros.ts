@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { DeleteCommand, PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { ConditionalCheckFailedException } from '@aws-sdk/client-dynamodb';
 import { docClient } from '../lib/db';
-import { apiKeyMiddleware } from '../middlewares/api-key';
+import { jwtMiddleware } from '../middlewares/jwt';
 
 const REQUIRED_FIELDS = ['title', 'description', 'price'] as const;
 const OPTIONAL_FIELDS = ['author', 'pages', 'edition', 'year', 'format'] as const;
@@ -14,7 +14,7 @@ function invalidPrice(price: unknown): boolean {
 
 export const backofficeLivros = new Hono();
 
-backofficeLivros.use('*', apiKeyMiddleware);
+backofficeLivros.use('*', jwtMiddleware);
 
 backofficeLivros.post('/', async (c) => {
   const body = await c.req.json().catch(() => null);

@@ -11,6 +11,7 @@ export default defineConfig({
     passWithNoTests: true,
     env: {
       VITE_API_URL: 'http://api.test',
+      VITE_API_KEY: 'test-key',
     },
   },
 })

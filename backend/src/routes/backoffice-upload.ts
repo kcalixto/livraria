@@ -2,14 +2,14 @@ import { Hono } from 'hono';
 import { PutObjectCommand } from '@aws-sdk/client-s3';
 import { s3Client } from '../lib/s3';
 import { bookImageUrl } from '../lib/image-url';
-import { apiKeyMiddleware } from '../middlewares/api-key';
+import { jwtMiddleware } from '../middlewares/jwt';
 
 const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
 
 export const backofficeUpload = new Hono();
 
-backofficeUpload.use('*', apiKeyMiddleware);
+backofficeUpload.use('*', jwtMiddleware);
 
 backofficeUpload.post('/', async (c) => {
   const body = await c.req.json().catch(() => null);

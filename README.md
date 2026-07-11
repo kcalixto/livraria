@@ -22,9 +22,11 @@ Assets (imagens de capa): bucket único `livraria-assets-bucket`, separado por p
 
 GitHub Actions (`.github/workflows/deploy.yml`): testes em todo push/PR; push na `development` → deploy dev; push na `main` → deploy prd. Credenciais AWS nos secrets do repo.
 
-## Segredos (SSM, `sa-east-1`)
+## Auth
 
-`/livraria/backoffice-api-key` (CRUD/upload de livros, header `x-api-key`), `/livraria/backoffice-key` (senha do backoffice), `/livraria/jwt-secret`. Resolvidos em **deploy-time** → rotação exige redeploy.
+- **`x-api-key` (gate global):** TODAS as rotas exigem o header. O valor vem de `/livraria/front-end-api-key` (SSM) → env `LIVRARIA_FRONT_END_API_KEY`, e está embarcado no bundle do front via `VITE_API_KEY` (⚠️ **não é segredo** — é fricção anti-bot; no futuro haverá mais chaves segmentando acesso).
+- **JWT (auth real do backoffice):** senha (`/livraria/backoffice-key`) → `POST /backoffice/login` → Bearer de 1h. Protege pedidos, CRUD de livros e upload de imagem.
+- Demais segredos SSM: `/livraria/jwt-secret`. Resolvidos em **deploy-time** → rotação exige redeploy.
 
 ## Comandos
 
@@ -38,15 +40,18 @@ npm run deploy:dev / deploy:prd
 npm run dev       # localhost:5173 (aponta pra API dev)
 ```
 
-## Gestão de livros (sem tela por hora)
+## Gestão de livros
+
+Pela tela **Livros** do backoffice (`/backoffice/livros` — criar, editar, excluir, subir capa), ou via API com JWT:
 
 ```sh
+TOKEN=$(curl -s -X POST $API/backoffice/login -H "x-api-key: $KEY" -H 'content-type: application/json' -d '{"password":"..."}' | jq -r .token)
 # criar livro
-curl -X POST $API/backoffice/livros -H "x-api-key: $KEY" -H 'content-type: application/json' \
+curl -X POST $API/backoffice/livros -H "authorization: Bearer $TOKEN" -H "x-api-key: $KEY" -H 'content-type: application/json' \
   -d '{"title":"...","description":"par1\n\npar2","price":4200,"author":"...","pages":288,"edition":"2ª","year":2024,"format":"Ensaio"}'
 # subir capa (PNG, máx 2MB)
-curl -X POST $API/backoffice/upload-image -H "x-api-key: $KEY" -H 'content-type: application/json' \
+curl -X POST $API/backoffice/upload-image -H "authorization: Bearer $TOKEN" -H "x-api-key: $KEY" -H 'content-type: application/json' \
   -d "{\"book_id\":\"<id>\",\"image_base64\":\"$(base64 -i capa.png)\"}"
 ```
 
-Preços em **centavos** (int). Estoque é **mockado** (amount aleatório 0–10 por chamada; ESGOTADO quando 0).
+Seed de dados mockados no dev: `backend/scripts/seed-mock-books.sh`. Preços em **centavos** (int). Estoque é **mockado** (amount aleatório 0–10 por chamada; ESGOTADO quando 0).

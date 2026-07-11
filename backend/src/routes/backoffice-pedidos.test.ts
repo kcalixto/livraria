@@ -16,18 +16,19 @@ async function authHeader(opts: { expired?: boolean; secret?: string } = {}) {
     { role: 'admin', exp: opts.expired ? now - 10 : now + 3600 },
     opts.secret ?? 'segredo-jwt-teste',
   );
-  return { authorization: `Bearer ${token}` };
+  return { authorization: `Bearer ${token}`, 'x-api-key': 'chave-front' };
 }
 
 beforeEach(() => {
   ddbMock.reset();
+  process.env.LIVRARIA_FRONT_END_API_KEY = 'chave-front';
   process.env.JWT_SECRET = 'segredo-jwt-teste';
   process.env.PEDIDOS_TABLE_NAME = 'livraria-tb-pedidos-test';
 });
 
 describe('auth JWT nas rotas de pedidos do backoffice', () => {
   it.each<[string, () => Promise<Record<string, string>>]>([
-    ['sem token', async () => ({})],
+    ['sem token', async () => ({ 'x-api-key': 'chave-front' })],
     ['token expirado', () => authHeader({ expired: true })],
     ['token com secret errado', () => authHeader({ secret: 'outro' })],
   ])('retorna 401: %s', async (_label, buildHeaders) => {

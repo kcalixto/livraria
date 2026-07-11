@@ -1231,3 +1231,118 @@ a:hover {
   font-size: 14px;
   font-weight: 600;
 }
+
+/* ── Backoffice: Livros ── */
+.bo-livros__toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 14px;
+}
+.bo-livros__toolbar .btn {
+  display: inline-block;
+}
+.bo-livros__cols,
+.bo-livros__row {
+  display: grid;
+  grid-template-columns: 60px 2.2fr 1.4fr 0.9fr 0.6fr 1.6fr;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 16px;
+}
+.bo-livros__cols {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+}
+.bo-livros__row {
+  border-bottom: 1px solid #e6e0d2;
+}
+.bo-livros__cover {
+  width: 40px;
+  height: 56px;
+  object-fit: cover;
+  border: 1px solid var(--cover-border);
+  border-radius: 2px;
+  background: var(--skeleton-soft);
+}
+.bo-livros__title {
+  font-family: var(--serif);
+  font-size: 15px;
+  font-weight: 600;
+}
+.bo-livros__author {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 13.5px;
+  color: var(--ink-mid);
+}
+.bo-livros__price {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--wine);
+}
+.bo-livros__year {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+.bo-livros__actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.bo-livros__confirm {
+  color: var(--error);
+  border-color: var(--error);
+}
+
+/* ── Backoffice: form de livro ── */
+.livro-form__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: var(--mono);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 20px;
+}
+.livro-form__title {
+  font-weight: 700;
+  color: var(--ink);
+}
+.livro-form {
+  max-width: 640px;
+}
+.livro-form__textarea {
+  font-family: var(--serif);
+  resize: vertical;
+  line-height: 1.5;
+}
+.livro-form__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0 16px;
+}
+.livro-form__file {
+  display: block;
+  font-family: var(--mono);
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+.livro-form__file-ok {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--success);
+  margin-bottom: 8px;
+}
+.livro-form__api-error {
+  margin-bottom: 14px;
+}
+.livro-form .btn--block {
+  margin-top: 10px;
+}

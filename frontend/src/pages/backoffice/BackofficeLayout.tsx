@@ -16,6 +16,9 @@ export function BackofficeLayout() {
         <NavLink to="/backoffice/estoque" className="bo-tab">
           Estoque
         </NavLink>
+        <NavLink to="/backoffice/livros" className="bo-tab">
+          Livros
+        </NavLink>
         <span className="bo-tabs__hint">Status por livro · finalize itens independentes</span>
       </nav>
       <Outlet />

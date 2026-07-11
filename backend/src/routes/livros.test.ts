@@ -6,8 +6,11 @@ import { BOOK_STATUS_AVAILABLE } from '../lib/stock-mock';
 
 const ddbMock = mockClient(DynamoDBDocumentClient);
 
+const KEY_HEADER = { 'x-api-key': 'chave-front' };
+
 beforeEach(() => {
   ddbMock.reset();
+  process.env.LIVRARIA_FRONT_END_API_KEY = 'chave-front';
   process.env.LIVROS_TABLE_NAME = 'livraria-tb-livros-test';
   process.env.ASSETS_S3_BUCKET_NAME = 'livraria-assets-bucket';
   process.env.STAGE = 'dev';
@@ -17,7 +20,7 @@ describe('GET /livros', () => {
   it('retorna lista vazia quando a tabela está vazia', async () => {
     ddbMock.on(ScanCommand).resolves({ Items: [] });
 
-    const res = await app.request('/livros');
+    const res = await app.request('/livros', { headers: KEY_HEADER });
 
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual([]);
@@ -26,7 +29,7 @@ describe('GET /livros', () => {
   it('faz Scan na tabela do env LIVROS_TABLE_NAME', async () => {
     ddbMock.on(ScanCommand).resolves({ Items: [] });
 
-    await app.request('/livros');
+    await app.request('/livros', { headers: KEY_HEADER });
 
     const calls = ddbMock.commandCalls(ScanCommand);
     expect(calls).toHaveLength(1);
@@ -46,7 +49,7 @@ describe('GET /livros', () => {
       ],
     });
 
-    const res = await app.request('/livros');
+    const res = await app.request('/livros', { headers: KEY_HEADER });
     const body = (await res.json()) as Array<Record<string, unknown>>;
 
     expect(res.status).toBe(200);

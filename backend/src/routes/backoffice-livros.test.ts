@@ -7,14 +7,27 @@ import {
   UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
 import { ConditionalCheckFailedException } from '@aws-sdk/client-dynamodb';
+import { sign } from 'hono/jwt';
 import { app } from '../app';
 
 const ddbMock = mockClient(DynamoDBDocumentClient);
-const KEY_HEADER = { 'x-api-key': 'chave-secreta', 'content-type': 'application/json' };
+
+async function authHeaders(): Promise<Record<string, string>> {
+  const token = await sign(
+    { role: 'admin', exp: Math.floor(Date.now() / 1000) + 3600 },
+    'segredo-jwt-teste',
+  );
+  return {
+    'x-api-key': 'chave-front',
+    authorization: `Bearer ${token}`,
+    'content-type': 'application/json',
+  };
+}
 
 beforeEach(() => {
   ddbMock.reset();
-  process.env.LIVRARIA_BACKOFFICE_API_KEY = 'chave-secreta';
+  process.env.LIVRARIA_FRONT_END_API_KEY = 'chave-front';
+  process.env.JWT_SECRET = 'segredo-jwt-teste';
   process.env.LIVROS_TABLE_NAME = 'livraria-tb-livros-test';
 });
 
@@ -30,11 +43,22 @@ describe('POST /backoffice/livros', () => {
     format: '14x21cm',
   };
 
-  it('retorna 401 sem api key', async () => {
+  it('retorna 401 sem JWT (mesmo com api key)', async () => {
     const res = await app.request('/backoffice/livros', {
       method: 'POST',
       body: JSON.stringify(validBody),
-      headers: { 'content-type': 'application/json' },
+      headers: { 'x-api-key': 'chave-front', 'content-type': 'application/json' },
+    });
+    expect(res.status).toBe(401);
+  });
+
+  it('retorna 401 sem api key (mesmo com JWT)', async () => {
+    const headers = await authHeaders();
+    delete headers['x-api-key'];
+    const res = await app.request('/backoffice/livros', {
+      method: 'POST',
+      body: JSON.stringify(validBody),
+      headers,
     });
     expect(res.status).toBe(401);
   });
@@ -45,7 +69,7 @@ describe('POST /backoffice/livros', () => {
     const res = await app.request('/backoffice/livros', {
       method: 'POST',
       body: JSON.stringify(validBody),
-      headers: KEY_HEADER,
+      headers: await authHeaders(),
     });
 
     expect(res.status).toBe(201);
@@ -64,7 +88,7 @@ describe('POST /backoffice/livros', () => {
     const res = await app.request('/backoffice/livros', {
       method: 'POST',
       body: JSON.stringify({ title: 'Sem preço' }),
-      headers: KEY_HEADER,
+      headers: await authHeaders(),
     });
     expect(res.status).toBe(400);
   });
@@ -73,7 +97,7 @@ describe('POST /backoffice/livros', () => {
     const res = await app.request('/backoffice/livros', {
       method: 'POST',
       body: JSON.stringify({ ...validBody, price: 49.9 }),
-      headers: KEY_HEADER,
+      headers: await authHeaders(),
     });
     expect(res.status).toBe(400);
   });
@@ -88,7 +112,7 @@ describe('PUT /backoffice/livros/:id', () => {
     const res = await app.request('/backoffice/livros/b1', {
       method: 'PUT',
       body: JSON.stringify({ title: 'Novo título', price: 6000 }),
-      headers: KEY_HEADER,
+      headers: await authHeaders(),
     });
 
     expect(res.status).toBe(200);
@@ -107,7 +131,7 @@ describe('PUT /backoffice/livros/:id', () => {
     const res = await app.request('/backoffice/livros/nao-existe', {
       method: 'PUT',
       body: JSON.stringify({ title: 'x' }),
-      headers: KEY_HEADER,
+      headers: await authHeaders(),
     });
     expect(res.status).toBe(404);
   });
@@ -116,7 +140,7 @@ describe('PUT /backoffice/livros/:id', () => {
     const res = await app.request('/backoffice/livros/b1', {
       method: 'PUT',
       body: JSON.stringify({ campo_desconhecido: 1 }),
-      headers: KEY_HEADER,
+      headers: await authHeaders(),
     });
     expect(res.status).toBe(400);
   });
@@ -128,7 +152,7 @@ describe('DELETE /backoffice/livros/:id', () => {
 
     const res = await app.request('/backoffice/livros/b1', {
       method: 'DELETE',
-      headers: { 'x-api-key': 'chave-secreta' },
+      headers: await authHeaders(),
     });
 
     expect(res.status).toBe(204);
@@ -137,8 +161,11 @@ describe('DELETE /backoffice/livros/:id', () => {
     expect(input.Key).toEqual({ id: 'b1' });
   });
 
-  it('retorna 401 sem api key', async () => {
-    const res = await app.request('/backoffice/livros/b1', { method: 'DELETE' });
+  it('retorna 401 sem JWT', async () => {
+    const res = await app.request('/backoffice/livros/b1', {
+      method: 'DELETE',
+      headers: { 'x-api-key': 'chave-front' },
+    });
     expect(res.status).toBe(401);
   });
 });

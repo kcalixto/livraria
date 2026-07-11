@@ -8,7 +8,7 @@ import {
 import { app } from '../app';
 
 const ddbMock = mockClient(DynamoDBDocumentClient);
-const JSON_HEADER = { 'content-type': 'application/json' };
+const JSON_HEADER = { 'content-type': 'application/json', 'x-api-key': 'chave-front' };
 
 const validBody = {
   name: 'Fulano',
@@ -23,6 +23,7 @@ const validBody = {
 beforeEach(() => {
   ddbMock.reset();
   ddbMock.on(QueryCommand).resolves({ Items: [] });
+  process.env.LIVRARIA_FRONT_END_API_KEY = 'chave-front';
   process.env.PEDIDOS_TABLE_NAME = 'livraria-tb-pedidos-test';
 });
 

@@ -10,7 +10,7 @@ function buildApp() {
 }
 
 beforeEach(() => {
-  process.env.LIVRARIA_BACKOFFICE_API_KEY = 'chave-secreta';
+  process.env.LIVRARIA_FRONT_END_API_KEY = 'chave-front';
 });
 
 describe('apiKeyMiddleware', () => {
@@ -28,7 +28,7 @@ describe('apiKeyMiddleware', () => {
 
   it('deixa passar com x-api-key correta', async () => {
     const res = await buildApp().request('/protegido', {
-      headers: { 'x-api-key': 'chave-secreta' },
+      headers: { 'x-api-key': 'chave-front' },
     });
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ ok: true });

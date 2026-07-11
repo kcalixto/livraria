@@ -1,0 +1,284 @@
+import { useEffect, useState } from 'react';
+import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
+import { ApiError, apiAuthPost, apiAuthPut, apiGet } from '../../api/client';
+import { clearToken } from '../../backoffice/auth';
+import type { Book } from '../../lib/types';
+
+const MAX_IMAGE_BYTES = 2 * 1024 * 1024;
+
+interface FieldErrors {
+  title?: string;
+  description?: string;
+  price?: string;
+}
+
+function centsToText(cents: number): string {
+  return (cents / 100).toFixed(2).replace('.', ',');
+}
+
+function textToCents(text: string): number | null {
+  const normalized = text.trim().replace(/\./g, '').replace(',', '.');
+  if (!/^\d+(\.\d{1,2})?$/.test(normalized)) return null;
+  return Math.round(parseFloat(normalized) * 100);
+}
+
+async function fileToBase64(file: File): Promise<string> {
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+  return dataUrl.split(',')[1] ?? '';
+}
+
+export function LivroForm() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const editing = Boolean(id);
+
+  const [title, setTitle] = useState('');
+  const [author, setAuthor] = useState('');
+  const [description, setDescription] = useState('');
+  const [priceText, setPriceText] = useState('');
+  const [pages, setPages] = useState('');
+  const [edition, setEdition] = useState('');
+  const [year, setYear] = useState('');
+  const [format, setFormat] = useState('');
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [coverError, setCoverError] = useState('');
+  const [errors, setErrors] = useState<FieldErrors>({});
+  const [apiError, setApiError] = useState(false);
+  const [unauthorized, setUnauthorized] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [loadingBook, setLoadingBook] = useState(editing);
+
+  useEffect(() => {
+    if (!editing) return;
+    apiGet<Book[]>('/livros')
+      .then((books) => {
+        const book = books.find((b) => b.id === id);
+        if (!book) {
+          setApiError(true);
+          return;
+        }
+        setTitle(book.title);
+        setAuthor(book.author ?? '');
+        setDescription(book.description);
+        setPriceText(centsToText(book.price));
+        setPages(book.pages !== undefined ? String(book.pages) : '');
+        setEdition(book.edition ?? '');
+        setYear(book.year !== undefined ? String(book.year) : '');
+        setFormat(book.format ?? '');
+      })
+      .catch((err) => {
+        if (err instanceof ApiError && err.status === 401) {
+          clearToken();
+          setUnauthorized(true);
+          return;
+        }
+        setApiError(true);
+      })
+      .finally(() => setLoadingBook(false));
+  }, [editing, id]);
+
+  function onCoverChange(file: File | null) {
+    setCoverError('');
+    setCoverFile(null);
+    if (!file) return;
+    if (file.type !== 'image/png') {
+      setCoverError('Apenas PNG é aceito.');
+      return;
+    }
+    if (file.size > MAX_IMAGE_BYTES) {
+      setCoverError('A capa deve ter no máximo 2MB.');
+      return;
+    }
+    setCoverFile(file);
+  }
+
+  async function submit(e: { preventDefault: () => void }) {
+    e.preventDefault();
+
+    const nextErrors: FieldErrors = {};
+    const price = textToCents(priceText);
+    if (!title.trim()) nextErrors.title = 'Informe o título.';
+    if (!description.trim()) nextErrors.description = 'Informe a descrição.';
+    if (price === null) nextErrors.price = 'Informe um preço válido (ex.: 49,90).';
+    setErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0 || coverError) return;
+
+    const payload: Record<string, unknown> = {
+      title: title.trim(),
+      description: description.trim(),
+      price,
+    };
+    if (author.trim()) payload.author = author.trim();
+    if (pages.trim()) payload.pages = parseInt(pages, 10);
+    if (edition.trim()) payload.edition = edition.trim();
+    if (year.trim()) payload.year = parseInt(year, 10);
+    if (format.trim()) payload.format = format.trim();
+
+    setSaving(true);
+    setApiError(false);
+    try {
+      let bookId = id;
+      if (editing) {
+        await apiAuthPut(`/backoffice/livros/${id}`, payload);
+      } else {
+        const created = await apiAuthPost<{ id: string }>('/backoffice/livros', payload);
+        bookId = created.id;
+      }
+      if (coverFile && bookId) {
+        await apiAuthPost('/backoffice/upload-image', {
+          book_id: bookId,
+          image_base64: await fileToBase64(coverFile),
+        });
+      }
+      navigate('/backoffice/livros');
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        clearToken();
+        setUnauthorized(true);
+        return;
+      }
+      setApiError(true);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (unauthorized) return <Navigate to="/backoffice" replace />;
+  if (loadingBook) return <div className="bo-loading">Carregando…</div>;
+
+  return (
+    <div className="bo-content">
+      <div className="livro-form__header">
+        <Link to="/backoffice/livros">← Voltar pra lista</Link>
+        <span className="livro-form__title">{editing ? 'Editar livro' : 'Novo livro'}</span>
+      </div>
+
+      <form className="livro-form" onSubmit={(e) => void submit(e)}>
+        <label className="field-label" htmlFor="livro-titulo">
+          Título
+        </label>
+        <input
+          id="livro-titulo"
+          className={`field-input${errors.title ? ' field-input--error' : ''}`}
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+        />
+        {errors.title && <div className="field-error">{errors.title}</div>}
+
+        <label className="field-label" htmlFor="livro-autor">
+          Autor
+        </label>
+        <input
+          id="livro-autor"
+          className="field-input"
+          value={author}
+          onChange={(e) => setAuthor(e.target.value)}
+        />
+
+        <label className="field-label" htmlFor="livro-descricao">
+          Descrição (parágrafos separados por linha em branco)
+        </label>
+        <textarea
+          id="livro-descricao"
+          rows={8}
+          className={`field-input livro-form__textarea${errors.description ? ' field-input--error' : ''}`}
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+        />
+        {errors.description && <div className="field-error">{errors.description}</div>}
+
+        <div className="livro-form__grid">
+          <div>
+            <label className="field-label" htmlFor="livro-preco">
+              Preço (R$)
+            </label>
+            <input
+              id="livro-preco"
+              className={`field-input${errors.price ? ' field-input--error' : ''}`}
+              placeholder="49,90"
+              value={priceText}
+              onChange={(e) => setPriceText(e.target.value)}
+            />
+            {errors.price && <div className="field-error">{errors.price}</div>}
+          </div>
+          <div>
+            <label className="field-label" htmlFor="livro-paginas">
+              Páginas
+            </label>
+            <input
+              id="livro-paginas"
+              className="field-input"
+              inputMode="numeric"
+              value={pages}
+              onChange={(e) => setPages(e.target.value.replace(/\D/g, ''))}
+            />
+          </div>
+          <div>
+            <label className="field-label" htmlFor="livro-edicao">
+              Edição
+            </label>
+            <input
+              id="livro-edicao"
+              className="field-input"
+              placeholder="2ª edição"
+              value={edition}
+              onChange={(e) => setEdition(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="field-label" htmlFor="livro-ano">
+              Ano
+            </label>
+            <input
+              id="livro-ano"
+              className="field-input"
+              inputMode="numeric"
+              value={year}
+              onChange={(e) => setYear(e.target.value.replace(/\D/g, ''))}
+            />
+          </div>
+          <div>
+            <label className="field-label" htmlFor="livro-formato">
+              Formato
+            </label>
+            <input
+              id="livro-formato"
+              className="field-input"
+              placeholder="Ensaio · 14x21cm"
+              value={format}
+              onChange={(e) => setFormat(e.target.value)}
+            />
+          </div>
+        </div>
+
+        <label className="field-label" htmlFor="livro-capa">
+          Capa (PNG, máx 2MB)
+        </label>
+        <input
+          id="livro-capa"
+          type="file"
+          accept="image/png"
+          className="livro-form__file"
+          onChange={(e) => onCoverChange(e.target.files?.[0] ?? null)}
+        />
+        {coverFile && <div className="livro-form__file-ok">✓ {coverFile.name}</div>}
+        {coverError && <div className="field-error">{coverError}</div>}
+
+        {apiError && (
+          <div className="alert alert--error livro-form__api-error">
+            Não foi possível salvar. Tente de novo.
+          </div>
+        )}
+
+        <button className="btn btn--primary btn--block" type="submit" disabled={saving}>
+          {saving ? 'Salvando…' : 'Salvar'}
+        </button>
+      </form>
+    </div>
+  );
+}

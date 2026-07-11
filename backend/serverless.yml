@@ -30,7 +30,7 @@ provider:
     LIVROS_TABLE_NAME: ${self:custom.table.livros.${self:provider.stage}}
     PEDIDOS_TABLE_NAME: ${self:custom.table.pedidos.${self:provider.stage}}
     ASSETS_S3_BUCKET_NAME: ${self:custom.assetsBucket}
-    LIVRARIA_BACKOFFICE_API_KEY: ${ssm:/livraria/backoffice-api-key}
+    LIVRARIA_FRONT_END_API_KEY: ${ssm:/livraria/front-end-api-key}
     BACKOFFICE_KEY: ${ssm:/livraria/backoffice-key}
     JWT_SECRET: ${ssm:/livraria/jwt-secret}
   iam:

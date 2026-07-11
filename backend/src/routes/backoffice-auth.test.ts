@@ -2,9 +2,10 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { verify } from 'hono/jwt';
 import { app } from '../app';
 
-const JSON_HEADER = { 'content-type': 'application/json' };
+const JSON_HEADER = { 'content-type': 'application/json', 'x-api-key': 'chave-front' };
 
 beforeEach(() => {
+  process.env.LIVRARIA_FRONT_END_API_KEY = 'chave-front';
   process.env.BACKOFFICE_KEY = 'senha-do-backoffice';
   process.env.JWT_SECRET = 'segredo-jwt-teste';
 });
@@ -44,12 +45,12 @@ describe('POST /backoffice/login', () => {
     expect(res.status).toBe(400);
   });
 
-  it('não exige api key (rota pública)', async () => {
+  it('não exige JWT, mas exige a api key global', async () => {
     const res = await app.request('/backoffice/login', {
       method: 'POST',
       body: JSON.stringify({ password: 'senha-do-backoffice' }),
-      headers: JSON_HEADER,
+      headers: { 'content-type': 'application/json' },
     });
-    expect(res.status).toBe(200);
+    expect(res.status).toBe(401);
   });
 });
