@@ -1,7 +1,7 @@
 export interface Book {
   id: string;
   title: string;
-  description: string;
+  description?: string;
   price: number; // centavos
   author?: string;
   pages?: number;

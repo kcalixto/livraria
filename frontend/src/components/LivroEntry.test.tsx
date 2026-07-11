@@ -64,6 +64,12 @@ describe('LivroEntry', () => {
     expect(screen.getByText('disponível')).toBeInTheDocument();
   });
 
+  it('renderiza sem descrição (campo opcional)', () => {
+    renderEntry({ ...baseBook, description: undefined });
+    expect(screen.getByRole('heading', { name: 'A Comuna e o Fogo' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /ver mais/i })).not.toBeInTheDocument();
+  });
+
   it('a capa vem de /images/<stage>/<id>.jpg', () => {
     renderEntry(baseBook);
     expect(screen.getByRole('img', { name: /capa de a comuna e o fogo/i })).toHaveAttribute(

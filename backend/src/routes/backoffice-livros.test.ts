@@ -84,13 +84,27 @@ describe('POST /backoffice/livros', () => {
     expect(calls[0].args[0].input.TableName).toBe('livraria-tb-livros-test');
   });
 
-  it('retorna 400 quando faltam campos obrigatórios (title, description, price)', async () => {
+  it('retorna 400 quando faltam campos obrigatórios (title, price)', async () => {
     const res = await app.request('/backoffice/livros', {
       method: 'POST',
       body: JSON.stringify({ title: 'Sem preço' }),
       headers: await authHeaders(),
     });
     expect(res.status).toBe(400);
+  });
+
+  it('cria livro sem descrição (campo opcional)', async () => {
+    ddbMock.on(PutCommand).resolves({});
+
+    const res = await app.request('/backoffice/livros', {
+      method: 'POST',
+      body: JSON.stringify({ title: 'Só título e preço', price: 1000 }),
+      headers: await authHeaders(),
+    });
+
+    expect(res.status).toBe(201);
+    const body = (await res.json()) as Record<string, unknown>;
+    expect(body).not.toHaveProperty('description');
   });
 
   it('retorna 400 quando price não é inteiro (centavos)', async () => {

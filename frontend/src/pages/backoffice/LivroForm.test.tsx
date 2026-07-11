@@ -59,15 +59,32 @@ afterEach(() => {
 });
 
 describe('LivroForm — criar', () => {
-  it('valida campos obrigatórios sem chamar a API', async () => {
+  it('valida campos obrigatórios (título e preço) sem chamar a API', async () => {
     renderForm('/backoffice/livros/novo');
 
     await userEvent.click(screen.getByRole('button', { name: /salvar/i }));
 
     expect(screen.getByText(/informe o título/i)).toBeInTheDocument();
-    expect(screen.getByText(/informe a descrição/i)).toBeInTheDocument();
     expect(screen.getByText(/informe um preço válido/i)).toBeInTheDocument();
+    expect(screen.queryByText(/informe a descrição/i)).not.toBeInTheDocument();
     expect(fetchMock.mock.calls.filter(([, i]) => (i as RequestInit)?.method === 'POST')).toHaveLength(0);
+  });
+
+  it('cria livro sem descrição (campo opcional)', async () => {
+    renderForm('/backoffice/livros/novo');
+
+    await userEvent.type(screen.getByLabelText(/título/i), 'Sem Descrição');
+    await userEvent.type(screen.getByLabelText(/preço/i), '10,00');
+    await userEvent.click(screen.getByRole('button', { name: /salvar/i }));
+
+    expect(await screen.findByText('LISTA LIVROS')).toBeInTheDocument();
+
+    const postCall = fetchMock.mock.calls.find(
+      ([u, i]) => (i as RequestInit)?.method === 'POST' && String(u).endsWith('/backoffice/livros'),
+    );
+    const body = JSON.parse((postCall![1] as RequestInit).body as string);
+    expect(body).toMatchObject({ title: 'Sem Descrição', price: 1000 });
+    expect(body).not.toHaveProperty('description');
   });
 
   it('cria livro convertendo preço de reais para centavos e volta pra lista', async () => {

@@ -4,8 +4,8 @@ import { ConditionalCheckFailedException } from '@aws-sdk/client-dynamodb';
 import { docClient } from '../lib/db';
 import { jwtMiddleware } from '../middlewares/jwt';
 
-const REQUIRED_FIELDS = ['title', 'description', 'price'] as const;
-const OPTIONAL_FIELDS = ['author', 'pages', 'edition', 'year', 'format'] as const;
+const REQUIRED_FIELDS = ['title', 'price'] as const;
+const OPTIONAL_FIELDS = ['description', 'author', 'pages', 'edition', 'year', 'format'] as const;
 const ALL_FIELDS = [...REQUIRED_FIELDS, ...OPTIONAL_FIELDS];
 
 function invalidPrice(price: unknown): boolean {

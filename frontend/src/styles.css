@@ -1261,12 +1261,32 @@ a:hover {
   border-bottom: 1px solid #e6e0d2;
 }
 .bo-livros__cover {
+  display: block;
+  width: 40px;
+  height: 56px;
+}
+.bo-livros__cover img {
   width: 40px;
   height: 56px;
   object-fit: cover;
   border: 1px solid var(--cover-border);
   border-radius: 2px;
   background: var(--skeleton-soft);
+  display: block;
+}
+.bo-livros__cover-fallback {
+  display: block;
+  width: 40px;
+  height: 56px;
+  border: 1px solid var(--cover-border);
+  border-radius: 2px;
+  background: repeating-linear-gradient(
+    135deg,
+    var(--border),
+    var(--border) 4px,
+    #cfc8b8 4px,
+    #cfc8b8 8px
+  );
 }
 .bo-livros__title {
   font-family: var(--serif);
@@ -1364,4 +1384,14 @@ a:hover {
 }
 .livro-form__cover-note {
   margin-bottom: 14px;
+}
+
+/* links com cara de botão: a regra global a:hover não pode vencer a cor do .btn */
+a.btn--primary,
+a.btn--primary:hover {
+  color: var(--wine-fg);
+}
+a.btn--secondary,
+a.btn--secondary:hover {
+  color: var(--ink);
 }

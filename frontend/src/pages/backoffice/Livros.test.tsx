@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { Livros } from './Livros';
@@ -107,10 +107,20 @@ describe('Backoffice — Livros', () => {
   it('a capa da listagem vem de /images/<stage>/<id>.jpg', async () => {
     renderPage();
     await screen.findByText('A Comuna e o Fogo');
-    const covers = document.querySelectorAll('.bo-livros__cover');
+    const covers = document.querySelectorAll('.bo-livros__cover img');
     expect((covers[0] as HTMLImageElement).getAttribute('src')).toBe(
       '/images/dev/47aeb72f-5448-4859-b6b0-13b7079e095f.jpg',
     );
+  });
+
+  it('livro sem capa mostra o fallback listrado na listagem', async () => {
+    renderPage();
+    await screen.findByText('A Comuna e o Fogo');
+
+    const img = document.querySelector('.bo-livros__cover img') as HTMLImageElement;
+    fireEvent.error(img);
+
+    expect(document.querySelector('.bo-livros__cover-fallback')).toBeInTheDocument();
   });
 
   it('401: limpa token e volta pro login', async () => {

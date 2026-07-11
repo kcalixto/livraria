@@ -6,6 +6,21 @@ import { bookCoverPath } from "../../lib/covers";
 import { formatPrice } from "../../lib/format";
 import type { Book } from "../../lib/types";
 
+// capa mini com o mesmo fallback listrado do catálogo quando não há arquivo
+function CoverThumb({ id, title }: { id: string; title: string }) {
+  const [broken, setBroken] = useState(false);
+
+  return (
+    <span className="bo-livros__cover">
+      {broken ? (
+        <span className="bo-livros__cover-fallback" title={title} />
+      ) : (
+        <img src={bookCoverPath(id)} alt="" onError={() => setBroken(true)} />
+      )}
+    </span>
+  );
+}
+
 // id encurtado clicável: copia o uuid completo (nome do arquivo da capa)
 function IdChip({ id }: { id: string }) {
   const [copied, setCopied] = useState(false);
@@ -114,14 +129,7 @@ export function Livros() {
           </div>
           {state.books.map((book) => (
             <div key={book.id} className="bo-livros__row">
-              <img
-                className="bo-livros__cover"
-                src={bookCoverPath(book.id)}
-                alt=""
-                onError={(e) => {
-                  (e.target as HTMLImageElement).style.visibility = "hidden";
-                }}
-              />
+              <CoverThumb id={book.id} title={book.title} />
               <span>
                 <IdChip id={book.id} />
               </span>

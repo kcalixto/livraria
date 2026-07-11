@@ -83,7 +83,7 @@ export function LivroEntry({ book }: { book: Book }) {
           <div className="livro-entry__author">({book.author})</div>
         )}
 
-        <ClampedDescription description={book.description} />
+        {book.description && <ClampedDescription description={book.description} />}
 
         {meta && <div className="livro-entry__meta">{meta}</div>}
 

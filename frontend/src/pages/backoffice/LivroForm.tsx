@@ -6,7 +6,6 @@ import type { Book } from '../../lib/types';
 
 interface FieldErrors {
   title?: string;
-  description?: string;
   price?: string;
 }
 
@@ -50,7 +49,7 @@ export function LivroForm() {
         }
         setTitle(book.title);
         setAuthor(book.author ?? '');
-        setDescription(book.description);
+        setDescription(book.description ?? '');
         setPriceText(centsToText(book.price));
         setPages(book.pages !== undefined ? String(book.pages) : '');
         setEdition(book.edition ?? '');
@@ -74,16 +73,15 @@ export function LivroForm() {
     const nextErrors: FieldErrors = {};
     const price = textToCents(priceText);
     if (!title.trim()) nextErrors.title = 'Informe o título.';
-    if (!description.trim()) nextErrors.description = 'Informe a descrição.';
     if (price === null) nextErrors.price = 'Informe um preço válido (ex.: 49,90).';
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
 
     const payload: Record<string, unknown> = {
       title: title.trim(),
-      description: description.trim(),
       price,
     };
+    if (description.trim()) payload.description = description.trim();
     if (author.trim()) payload.author = author.trim();
     if (pages.trim()) payload.pages = parseInt(pages, 10);
     if (edition.trim()) payload.edition = edition.trim();
@@ -149,11 +147,10 @@ export function LivroForm() {
         <textarea
           id="livro-descricao"
           rows={8}
-          className={`field-input livro-form__textarea${errors.description ? ' field-input--error' : ''}`}
+          className="field-input livro-form__textarea"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
         />
-        {errors.description && <div className="field-error">{errors.description}</div>}
 
         <div className="livro-form__grid">
           <div>
