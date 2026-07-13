@@ -201,12 +201,8 @@ export function Pedidos() {
             />
             Preço social
           </label>
-          <button className="stage-action" onClick={() => void confirmPayment(order, item)}>
-            Confirmar
-          </button>
-          <button className="stage-action" onClick={() => setPayingUnitId(null)}>
-            Cancelar
-          </button>
+          <ActionIcon icon="done" variant="green" label="Confirmar" onClick={() => void confirmPayment(order, item)} />
+          <ActionIcon icon="cancel" variant="gray" label="Cancelar" onClick={() => setPayingUnitId(null)} />
         </span>
       );
     }
@@ -287,15 +283,8 @@ export function Pedidos() {
           return (
             <span className="pay-inline">
               <span className="confirm-inline__hint">Entrega não pode ser desfeita.</span>
-              <button
-                className="stage-action stage-action--danger"
-                onClick={() => void patch(order, item, { status: 'received' }, 'Entregue')}
-              >
-                Confirmar
-              </button>
-              <button className="stage-action" onClick={() => setConfirmingUnitId(null)}>
-                Cancelar
-              </button>
+              <ActionIcon icon="done" variant="red" label="Confirmar" onClick={() => void patch(order, item, { status: 'received' }, 'Entregue')} />
+              <ActionIcon icon="cancel" variant="gray" label="Cancelar" onClick={() => setConfirmingUnitId(null)} />
             </span>
           );
         }
@@ -394,8 +383,10 @@ export function Pedidos() {
                   <span className="confirm-inline__hint">
                     Cancela todas as unidades não finalizadas — não pode ser desfeito.
                   </span>
-                  <button
-                    className="stage-action stage-action--danger"
+                  <ActionIcon
+                    icon="done"
+                    variant="red"
+                    label="Confirmar"
                     onClick={() =>
                       void patchRaw(
                         order.id,
@@ -404,20 +395,18 @@ export function Pedidos() {
                         'Nenhuma unidade cancelável nesse pedido.',
                       )
                     }
-                  >
-                    Confirmar
-                  </button>
-                  <button className="stage-action" onClick={() => setCancellingOrderId(null)}>
-                    Cancelar
-                  </button>
+                  />
+                  <ActionIcon icon="cancel" variant="gray" label="Cancelar" onClick={() => setCancellingOrderId(null)} />
                 </span>
               ) : pickingUpOrderId === order.id ? (
                 <span className="pay-inline">
                   <span className="confirm-inline__hint">
                     Isso muda o status de TODOS os itens do pedido.
                   </span>
-                  <button
-                    className="stage-action stage-action--danger"
+                  <ActionIcon
+                    icon="done"
+                    variant="green"
+                    label="Confirmar"
                     onClick={() =>
                       void patchRaw(
                         order.id,
@@ -425,12 +414,8 @@ export function Pedidos() {
                         `✓ ${shortOrderId(order.id)} → itens retirados sem pagamento`,
                       )
                     }
-                  >
-                    Confirmar
-                  </button>
-                  <button className="stage-action" onClick={() => setPickingUpOrderId(null)}>
-                    Cancelar
-                  </button>
+                  />
+                  <ActionIcon icon="cancel" variant="gray" label="Cancelar" onClick={() => setPickingUpOrderId(null)} />
                 </span>
               ) : (
                 <>
@@ -522,18 +507,8 @@ export function Pedidos() {
                       <span className="confirm-inline__hint">
                         Cancelamento não pode ser desfeito.
                       </span>
-                      <button
-                        className="stage-action stage-action--danger"
-                        onClick={() => void patch(order, item, { cancel: true }, 'Cancelado')}
-                      >
-                        Confirmar
-                      </button>
-                      <button
-                        className="stage-action"
-                        onClick={() => setCancellingUnitId(null)}
-                      >
-                        Cancelar
-                      </button>
+                      <ActionIcon icon="done" variant="red" label="Confirmar" onClick={() => void patch(order, item, { cancel: true }, 'Cancelado')} />
+                      <ActionIcon icon="cancel" variant="gray" label="Cancelar" onClick={() => setCancellingUnitId(null)} />
                     </span>
                   ) : (
                     <>
@@ -574,8 +549,10 @@ export function Pedidos() {
                       }}
                     />
                     <span className="pay-inline">
-                      <button
-                        className="stage-action"
+                      <ActionIcon
+                        icon="done"
+                        variant="green"
+                        label="Salvar"
                         onClick={() =>
                           void patch(
                             order,
@@ -584,12 +561,8 @@ export function Pedidos() {
                             'Observação salva',
                           )
                         }
-                      >
-                        Salvar
-                      </button>
-                      <button className="stage-action" onClick={() => setObsUnitId(null)}>
-                        Cancelar
-                      </button>
+                      />
+                      <ActionIcon icon="cancel" variant="gray" label="Cancelar" onClick={() => setObsUnitId(null)} />
                     </span>
                   </span>
                 </div>

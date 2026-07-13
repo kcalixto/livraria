@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { ApiError, apiGet, apiPost } from '../api/client';
 import { isUnitClosed, isUnitFinalized, STAGES } from '../backoffice/order-status';
 import type { OrderStatus, UnitItem } from '../backoffice/order-status';
@@ -46,7 +47,12 @@ type Result =
   | { kind: 'found'; order: PublicOrder; titles: Map<string, string> };
 
 export function ConsultarPedido() {
-  const [code, setCode] = useState('');
+  const [searchParams] = useSearchParams();
+  // vindo da done-screen: o código chega na query e o input já sai preenchido
+  const [code, setCode] = useState(() => {
+    const fromQuery = searchParams.get('codigo');
+    return fromQuery ? formatOrderCode(fromQuery.toUpperCase()) : '';
+  });
   const [result, setResult] = useState<Result>({ kind: 'idle' });
   // fluxo de solicitação de cancelamento por item (confirmação antes do POST)
   const [confirmingUnitId, setConfirmingUnitId] = useState<string | null>(null);

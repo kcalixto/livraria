@@ -49,6 +49,15 @@ describe('Carrinho', () => {
     expect(screen.getByText('R$ 118,00')).toBeInTheDocument();
   });
 
+  it('cada item mostra a capa do livro (com fallback embutido)', () => {
+    seedCart();
+    renderPage();
+
+    const covers = document.querySelectorAll('.cart-item__cover img');
+    expect(covers).toHaveLength(2);
+    expect((covers[0] as HTMLImageElement).getAttribute('src')).toBe('/images/dev/b1.jpg');
+  });
+
   it('stepper altera quantidade e atualiza subtotal', async () => {
     seedCart();
     renderPage();
@@ -95,6 +104,11 @@ describe('Carrinho', () => {
     expect(await screen.findByText(/pedido enviado/i)).toBeInTheDocument();
     expect(screen.getByText(/AJ3-C9K/)).toBeInTheDocument();
     expect(screen.getByText(/guarde o código/i)).toBeInTheDocument();
+    // acompanhamento já sai com o código na query (prefill da consulta)
+    expect(screen.getByRole('link', { name: /acompanhar pedido/i })).toHaveAttribute(
+      'href',
+      '/pedido?codigo=AJ3C9K',
+    );
     expect(JSON.parse(localStorage.getItem('livraria:carrinho')!)).toEqual([]);
 
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];

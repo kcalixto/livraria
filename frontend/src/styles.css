@@ -513,7 +513,7 @@ a:hover {
 }
 .cart-item {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: auto 1fr auto;
   gap: 18px;
   align-items: center;
   padding: 18px 0;
@@ -573,6 +573,15 @@ a:hover {
   font-weight: 600;
   color: var(--wine);
   text-align: right;
+}
+.cart-item__cover {
+  align-self: start;
+}
+.cart-item__cover .bo-livros__cover,
+.cart-item__cover img,
+.cart-item__cover .bo-livros__cover-fallback {
+  width: 44px;
+  height: 62px;
 }
 .cart__footer {
   padding: 20px 28px 28px;
@@ -2221,6 +2230,7 @@ a.btn--secondary:hover {
 
 /* ── Ícones de ação (Pedidos) ── */
 .action-icon {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -2231,6 +2241,46 @@ a.btn--secondary:hover {
   background: var(--surface-raised);
   cursor: pointer;
   vertical-align: middle;
+}
+/* tooltip do design system: rápido (200ms) e no tom tinta-sobre-papel invertido */
+.action-icon::after {
+  content: attr(aria-label);
+  position: absolute;
+  bottom: calc(100% + 7px);
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+  color: var(--surface);
+  background: var(--ink);
+  border-radius: 4px;
+  padding: 5px 8px;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 30;
+}
+.action-icon::before {
+  content: '';
+  position: absolute;
+  bottom: calc(100% + 2px);
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: var(--ink);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 30;
+}
+.action-icon:hover::after,
+.action-icon:hover::before,
+.action-icon:focus-visible::after,
+.action-icon:focus-visible::before {
+  opacity: 1;
+  transition: opacity 0.12s ease 0.2s;
 }
 .action-icon + .action-icon {
   margin-left: 4px;

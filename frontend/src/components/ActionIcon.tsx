@@ -40,10 +40,10 @@ export function ActionIcon({
   onClick: () => void;
 }) {
   return (
+    // tooltip é CSS puro (::after lê o aria-label) — o title nativo duplicaria
     <button
       className={`action-icon action-icon--${variant}${filled ? ' action-icon--filled' : ''}`}
       aria-label={label}
-      title={label}
       onClick={onClick}
     >
       <svg

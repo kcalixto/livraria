@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { apiPost } from "../api/client";
 import { useCart } from "../cart/CartContext";
+import { CoverThumb } from "../components/CoverThumb";
 import { formatOrderCode, formatPrice } from "../lib/format";
 import { ACTIVE_REGION_VALUE } from "../lib/region";
 
@@ -69,7 +70,7 @@ export function Carrinho() {
             Guarde o código do pedido — ele é a única forma de consultá-lo
             depois!
           </div>
-          <Link to="/pedido" className="order-done__track">
+          <Link to={`/pedido?codigo=${orderId}`} className="order-done__track">
             Acompanhar pedido
           </Link>
         </div>
@@ -110,6 +111,9 @@ export function Carrinho() {
           <div className="cart__items">
             {items.map((item) => (
               <div key={item.book_id} className="cart-item">
+                <span className="cart-item__cover">
+                  <CoverThumb id={item.book_id} title={item.title} />
+                </span>
                 <div>
                   <div className="cart-item__title">{item.title}</div>
                   <div className="cart-item__controls">

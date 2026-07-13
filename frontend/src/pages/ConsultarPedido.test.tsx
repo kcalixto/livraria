@@ -134,6 +134,20 @@ describe('Loja — Consultar pedido', () => {
     expect(screen.queryByRole('button', { name: /solicitar cancelamento/i })).not.toBeInTheDocument();
   });
 
+  it('query ?codigo= pré-preenche o input formatado (vindo da done-screen)', async () => {
+    render(
+      <MemoryRouter initialEntries={['/pedido?codigo=AJ3C9K']}>
+        <CartProvider>
+          <ConsultarPedido />
+        </CartProvider>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByLabelText(/código do pedido/i)).toHaveValue('AJ3-C9K');
+    // só preenche — não consulta sozinho
+    expect(screen.queryByText('#AJ3-C9K')).not.toBeInTheDocument();
+  });
+
   it('código inexistente mostra erro amigável', async () => {
     stubFetch(404);
     renderPage();
