@@ -12,6 +12,9 @@ export function Header() {
         <Link to="/" className="site-header__brand">
           Livraria Local
         </Link>
+        <Link to="/pedido" className="site-header__consulta">
+          consultar pedido
+        </Link>
         <Link to="/carrinho" className="cart-button">
           <span>Carrinho</span>
           {count > 0 && <span className="cart-button__count">{count}</span>}

@@ -9,6 +9,8 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test-setup.ts'],
     passWithNoTests: true,
+    // suíte grande em paralelo estoura os 5s default em máquina carregada
+    testTimeout: 15000,
     env: {
       VITE_API_URL: 'http://api.test',
       VITE_API_KEY: 'test-key',

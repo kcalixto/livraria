@@ -106,3 +106,31 @@ pedidos.post('/', async (c) => {
 
   return c.json({ id }, 201);
 });
+
+// Consulta pública por código: o código de 6 chars é a única credencial,
+// então a resposta NÃO expõe name/contact nem valores — só status e observação.
+pedidos.get('/:id', async (c) => {
+  const id = c.req.param('id').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+
+  const result = await docClient.send(
+    new QueryCommand({
+      TableName: process.env.PEDIDOS_TABLE_NAME,
+      KeyConditionExpression: 'id = :id',
+      ExpressionAttributeValues: { ':id': id },
+    }),
+  );
+  const lines = result.Items ?? [];
+  if (lines.length === 0) return c.json({ error: 'not found' }, 404);
+
+  const items = lines.map((line) => {
+    const item: Record<string, unknown> = {
+      title_id: line.title_id,
+      status: line.status,
+    };
+    if (line.picked_up !== undefined) item.picked_up = line.picked_up;
+    if (line.observation !== undefined) item.observation = line.observation;
+    return item;
+  });
+
+  return c.json({ id, created_at: lines[0].created_at, items });
+});

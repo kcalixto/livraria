@@ -17,8 +17,12 @@ const UNIT_FIELDS = [
   'received_amount',
   'picked_up',
   'paid_at',
+  'observation',
   'updated_at',
 ] as const;
+
+// observação livre do operador, visível na consulta pública do pedido
+const MAX_OBSERVATION_CHARS = 1000;
 
 // Matriz de transições (CLAUDE.md). Reversas existem porque erro humano
 // acontece: liberar reserva e desfazer retirado devolvem a unidade ao lote.
@@ -116,8 +120,12 @@ backofficePedidos.patch('/:id/status', async (c) => {
   }
 
   const isPickupToggle = typeof body.picked_up === 'boolean';
-  if (!isPickupToggle && !isOrderStatus(body.status)) {
+  const isObservation = !isPickupToggle && typeof body.observation === 'string';
+  if (!isPickupToggle && !isObservation && !isOrderStatus(body.status)) {
     return c.json({ error: 'status must be a valid order status' }, 400);
+  }
+  if (isObservation && body.observation.length > MAX_OBSERVATION_CHARS) {
+    return c.json({ error: `observation must be at most ${MAX_OBSERVATION_CHARS} characters` }, 400);
   }
 
   const id = c.req.param('id');
@@ -132,6 +140,17 @@ backofficePedidos.patch('/:id/status', async (c) => {
   if (!line) return c.json({ error: 'not found' }, 404);
 
   const current = String(line.status) as OrderStatus;
+
+  if (isObservation) {
+    const observation = String(body.observation).trim();
+    if (observation === '') {
+      // limpar = remover o atributo
+      await applyUpdate(id, line.book_id, { sets: {}, removes: ['observation'] });
+      return c.json({ id, unit_id: body.unit_id, observation: null });
+    }
+    await applyUpdate(id, line.book_id, { sets: { observation }, removes: [] });
+    return c.json({ id, unit_id: body.unit_id, observation });
+  }
 
   if (isPickupToggle) {
     if (body.picked_up === true) {

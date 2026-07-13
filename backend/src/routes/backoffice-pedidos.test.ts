@@ -407,3 +407,60 @@ describe('PATCH — validações básicas', () => {
     expect(res.status).toBe(400);
   });
 });
+
+describe('PATCH — observação por unidade', () => {
+  beforeEach(() => {
+    ddbMock.on(UpdateCommand).resolves({});
+  });
+
+  it('grava a observação da unidade (trim aplicado)', async () => {
+    ddbMock.on(QueryCommand).resolves({
+      Items: [unit({ book_id: 'livro-a#u1', unit_id: 'u1' })],
+    });
+
+    const res = await patchUnit({ unit_id: 'u1', observation: '  Entregar após as 18h  ' });
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({
+      id: 'PED001',
+      unit_id: 'u1',
+      observation: 'Entregar após as 18h',
+    });
+    const input = ddbMock.commandCalls(UpdateCommand)[0].args[0].input;
+    expect(input.ExpressionAttributeValues![':observation']).toBe('Entregar após as 18h');
+    // não mexe em status
+    expect(input.ExpressionAttributeValues![':status']).toBeUndefined();
+  });
+
+  it('observação vazia REMOVE o atributo', async () => {
+    ddbMock.on(QueryCommand).resolves({
+      Items: [unit({ book_id: 'livro-a#u1', unit_id: 'u1', observation: 'antiga' })],
+    });
+
+    const res = await patchUnit({ unit_id: 'u1', observation: '   ' });
+
+    expect(res.status).toBe(200);
+    const input = ddbMock.commandCalls(UpdateCommand)[0].args[0].input;
+    expect(input.UpdateExpression).toContain('REMOVE #observation');
+  });
+
+  it('rejeita observação acima de 1000 caracteres', async () => {
+    ddbMock.on(QueryCommand).resolves({
+      Items: [unit({ book_id: 'livro-a#u1', unit_id: 'u1' })],
+    });
+
+    const res = await patchUnit({ unit_id: 'u1', observation: 'x'.repeat(1001) });
+    expect(res.status).toBe(400);
+    expect(ddbMock.commandCalls(UpdateCommand)).toHaveLength(0);
+  });
+
+  it('GET agrupado expõe observation na unidade', async () => {
+    ddbMock.on(ScanCommand).resolves({
+      Items: [unit({ book_id: 'livro-a#u1', unit_id: 'u1', observation: 'Cliente avisado' })],
+    });
+
+    const res = await app.request('/backoffice/pedidos', { headers: await authHeader() });
+    const orders = (await res.json()) as Array<{ items: Array<Record<string, unknown>> }>;
+    expect(orders[0].items[0]).toHaveProperty('observation', 'Cliente avisado');
+  });
+});

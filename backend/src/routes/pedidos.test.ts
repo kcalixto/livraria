@@ -149,3 +149,75 @@ describe('POST /pedidos (linhas por unidade)', () => {
     expect(ddbMock.commandCalls(QueryCommand)).toHaveLength(2);
   });
 });
+
+describe('GET /pedidos/:id (consulta pública por código)', () => {
+  const lines = [
+    {
+      id: 'AJ3C9K',
+      book_id: 'livro-a#u1',
+      title_id: 'livro-a',
+      unit_id: 'u1',
+      name: 'Camarada Rosa',
+      contact: '(11) 9 8888-0000',
+      region: 'SP, Capital - Zona Sul',
+      status: 'sent-to-delivery',
+      observation: 'Sai na quinta',
+      created_at: '2026-07-09T14:00:00.000Z',
+    },
+    {
+      id: 'AJ3C9K',
+      book_id: 'livro-b#u2',
+      title_id: 'livro-b',
+      unit_id: 'u2',
+      name: 'Camarada Rosa',
+      contact: '(11) 9 8888-0000',
+      region: 'SP, Capital - Zona Sul',
+      status: 'payment-received',
+      picked_up: true,
+      created_at: '2026-07-09T14:00:00.000Z',
+    },
+  ];
+
+  it('retorna status e observação por unidade, SEM name/contact', async () => {
+    ddbMock.on(QueryCommand).resolves({ Items: lines });
+
+    const res = await app.request('/pedidos/AJ3C9K', { headers: JSON_HEADER });
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as Record<string, unknown>;
+    expect(body).toMatchObject({ id: 'AJ3C9K', created_at: '2026-07-09T14:00:00.000Z' });
+    expect(body).not.toHaveProperty('name');
+    expect(body).not.toHaveProperty('contact');
+
+    const items = body.items as Array<Record<string, unknown>>;
+    expect(items).toHaveLength(2);
+    expect(items[0]).toMatchObject({
+      title_id: 'livro-a',
+      status: 'sent-to-delivery',
+      observation: 'Sai na quinta',
+    });
+    expect(items[1]).toMatchObject({ title_id: 'livro-b', picked_up: true });
+    for (const item of items) {
+      expect(item).not.toHaveProperty('name');
+      expect(item).not.toHaveProperty('contact');
+      expect(item).not.toHaveProperty('received_amount');
+    }
+  });
+
+  it('normaliza o código (hífen e minúsculas)', async () => {
+    ddbMock.on(QueryCommand).resolves({ Items: lines });
+
+    const res = await app.request('/pedidos/aj3-c9k', { headers: JSON_HEADER });
+
+    expect(res.status).toBe(200);
+    const query = ddbMock.commandCalls(QueryCommand)[0].args[0].input;
+    expect(query.ExpressionAttributeValues![':id']).toBe('AJ3C9K');
+  });
+
+  it('404 quando o código não existe', async () => {
+    ddbMock.on(QueryCommand).resolves({ Items: [] });
+
+    const res = await app.request('/pedidos/XXXXXX', { headers: JSON_HEADER });
+    expect(res.status).toBe(404);
+  });
+});

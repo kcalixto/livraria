@@ -448,6 +448,54 @@ describe('Backoffice — Pedidos (linhas por unidade)', () => {
     expect(screen.getByText('R$ 142,00')).toBeInTheDocument();
   });
 
+  it('Adicionar observação abre textarea inline e faz PATCH com o texto', async () => {
+    stubFetch([
+      order('PED001', [{ unit_id: 'u1', title_id: 'b1', status: 'waiting-payment' }]),
+    ]);
+    renderPage();
+
+    await userEvent.click(
+      await screen.findByRole('button', { name: /adicionar observação/i }),
+    );
+    // ainda não chamou PATCH
+    expect(fetchMock.mock.calls.filter(([, i]) => i?.method === 'PATCH')).toHaveLength(0);
+
+    await userEvent.type(screen.getByLabelText(/observação/i), 'Entregar após as 18h');
+    await userEvent.click(screen.getByRole('button', { name: /^salvar$/i }));
+
+    const patchCall = fetchMock.mock.calls.find(([, init]) => init?.method === 'PATCH');
+    expect(patchCall).toBeTruthy();
+    expect(JSON.parse((patchCall![1] as RequestInit).body as string)).toEqual({
+      observation: 'Entregar após as 18h',
+      unit_id: 'u1',
+    });
+  });
+
+  it('unidade com observação mostra o texto clampado em 200 chars com ver mais/ver menos', async () => {
+    const longa = 'obs '.repeat(80).trim(); // ~319 chars
+    stubFetch([
+      order('PED001', [
+        {
+          unit_id: 'u1',
+          title_id: 'b1',
+          status: 'waiting-payment',
+          observation: longa,
+        } as UnitItem & { observation: string },
+      ]),
+    ]);
+    renderPage();
+
+    await screen.findByText('Camarada Rosa');
+    // clampado: não mostra o texto inteiro, tem "ver mais"
+    expect(screen.queryByText(longa)).not.toBeInTheDocument();
+    const verMais = screen.getByRole('button', { name: /ver mais/i });
+    await userEvent.click(verMais);
+    expect(screen.getByText(new RegExp(longa.slice(-20)))).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /ver menos/i })).toBeInTheDocument();
+    // ação vira "Editar observação"
+    expect(screen.getByRole('button', { name: /editar observação/i })).toBeInTheDocument();
+  });
+
   it('token expirado (401): limpa token e volta pro login', async () => {
     vi.stubGlobal(
       'fetch',

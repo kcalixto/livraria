@@ -2154,3 +2154,149 @@ a.btn--secondary:hover {
 .stock-sort-btn:hover {
   color: var(--wine);
 }
+
+/* ── Observação por unidade (backoffice) ── */
+.order-card__obs {
+  padding: 0 24px 12px;
+}
+.order-card__obs-cell {
+  display: block;
+}
+.obs-textarea {
+  font-size: 14px;
+  margin-bottom: 8px;
+  resize: vertical;
+}
+.order-card__obs-text {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink-mid);
+  background: var(--surface-header);
+  border-left: 3px solid var(--border);
+  padding: 8px 12px;
+}
+.order-card__obs-text p {
+  margin: 0 0 6px;
+}
+.order-card__obs-text p:last-child {
+  margin-bottom: 0;
+}
+
+/* ── Loja: consulta pública de pedido ── */
+.site-header__consulta {
+  font-family: var(--mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-mid);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  margin-right: 14px;
+}
+.site-header__consulta:hover {
+  color: var(--wine);
+}
+.consulta {
+  max-width: 560px;
+  margin: 40px auto 64px;
+  padding: 0 16px;
+}
+.consulta__title {
+  font-family: var(--serif);
+  font-size: 26px;
+  margin: 0 0 6px;
+}
+.consulta__sub {
+  font-size: 14px;
+  color: var(--ink-soft);
+  margin: 0 0 22px;
+}
+.consulta__form {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+.consulta__field {
+  flex: 1;
+}
+.consulta__field .field-input {
+  margin-bottom: 0;
+  font-family: var(--mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.consulta__alert {
+  margin-top: 16px;
+}
+.consulta__result {
+  margin-top: 28px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--input-bg);
+}
+.consulta__order-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-header);
+}
+.consulta__order-id {
+  font-family: var(--mono);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--wine);
+}
+.consulta__order-date {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+}
+.consulta__unit {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+}
+.consulta__unit:last-child {
+  border-bottom: none;
+}
+.consulta__unit-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+}
+.consulta__unit-title {
+  font-family: var(--serif);
+  font-size: 15.5px;
+  font-weight: 600;
+}
+.consulta__unit-status {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--success);
+  white-space: nowrap;
+}
+.consulta__unit-obs {
+  margin-top: 8px;
+  font-size: 13.5px;
+  color: var(--ink-body);
+}
+.consulta__unit-obs p {
+  margin: 0 0 6px;
+}
+.order-done__track {
+  display: inline-block;
+  margin-top: 14px;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--wine);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}

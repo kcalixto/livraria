@@ -1,57 +1,17 @@
 import { useState } from "react";
 import { useCart } from "../cart/CartContext";
 import { bookCoverPath } from "../lib/covers";
-import { buildMeta, formatPrice, splitParagraphs } from "../lib/format";
+import { buildMeta, formatPrice } from "../lib/format";
 import type { Book } from "../lib/types";
+import { ClampedText } from "./ClampedText";
 import { StockBadge } from "./StockBadge";
 import { StatusTag } from "./StatusTag";
 
 const DESCRIPTION_CLAMP = 220;
 
 function ClampedDescription({ description }: { description: string }) {
-  const [expanded, setExpanded] = useState(false);
-  const paragraphs = splitParagraphs(description);
-  const plain = paragraphs.join(" ");
-
-  if (plain.length <= DESCRIPTION_CLAMP) {
-    return (
-      <div className="livro-entry__desc">
-        {paragraphs.map((para, i) => (
-          <p key={i}>{para}</p>
-        ))}
-      </div>
-    );
-  }
-
-  if (!expanded) {
-    return (
-      <div className="livro-entry__desc">
-        <p>
-          {plain.slice(0, DESCRIPTION_CLAMP).trimEnd()}…{" "}
-          <button className="ver-mais" onClick={() => setExpanded(true)}>
-            ver mais
-          </button>
-        </p>
-      </div>
-    );
-  }
-
   return (
-    <div className="livro-entry__desc">
-      {paragraphs.map((para, i) => (
-        <p key={i}>
-          {para}
-          {i === paragraphs.length - 1 && (
-            <>
-              {" "}
-              <button className="ver-mais" onClick={() => setExpanded(false)}>
-                ver menos
-              </button>
-            </>
-          )}
-        </p>
-      ))}
-    </div>
+    <ClampedText text={description} limit={DESCRIPTION_CLAMP} className="livro-entry__desc" />
   );
 }
 

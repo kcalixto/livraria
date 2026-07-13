@@ -66,9 +66,12 @@ export function Carrinho() {
             Pedido <strong>#{formatOrderCode(orderId)}</strong>
           </div>
           <div className="alert alert--error order-done__warning">
-            Guarde o código do pedido — não será possível consultá-lo de outra
-            forma depois!
+            Guarde o código do pedido — ele é a única forma de consultá-lo
+            depois!
           </div>
+          <Link to="/pedido" className="order-done__track">
+            Acompanhar pedido
+          </Link>
         </div>
       </div>
     );

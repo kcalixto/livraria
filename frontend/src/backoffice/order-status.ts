@@ -13,6 +13,7 @@ export interface UnitItem {
   received_amount?: number;
   picked_up?: boolean;
   paid_at?: string;
+  observation?: string; // escrita pelo operador; visível na consulta pública
   updated_at?: string;
 }
 

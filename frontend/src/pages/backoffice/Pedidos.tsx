@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { RedirectToLogin } from '../../components/RedirectToLogin';
 import { ApiError, apiAuthPatch } from '../../api/client';
 import { centsToText, formatPrice, normalizeText, textToCents } from '../../lib/format';
@@ -11,6 +11,7 @@ import {
 } from '../../backoffice/order-status';
 import type { Order, UnitItem } from '../../backoffice/order-status';
 import { useOrders } from '../../backoffice/useOrders';
+import { ClampedText } from '../../components/ClampedText';
 import { ContactLink } from '../../components/ContactLink';
 import { Toast } from '../../components/Toast';
 import type { ToastData } from '../../components/Toast';
@@ -53,6 +54,8 @@ export function Pedidos() {
   const [toast, setToast] = useState<ToastData | null>(null);
   const [payingUnitId, setPayingUnitId] = useState<string | null>(null);
   const [confirmingUnitId, setConfirmingUnitId] = useState<string | null>(null);
+  const [obsUnitId, setObsUnitId] = useState<string | null>(null);
+  const [obsText, setObsText] = useState('');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [payText, setPayText] = useState('');
@@ -86,6 +89,7 @@ export function Pedidos() {
       setToast({ kind: 'success', message: `✓ ${shortOrderId(order.id)} · ${book?.title ?? item.title_id} → ${doneLabel}` });
       setPayingUnitId(null);
       setConfirmingUnitId(null);
+      setObsUnitId(null);
       await reload();
     } catch (err) {
       if (err instanceof ApiError && err.status === 400) {
@@ -94,6 +98,11 @@ export function Pedidos() {
       }
       setToast({ kind: 'error', message: 'Não foi possível atualizar o status. Tente de novo.' });
     }
+  }
+
+  function openObservation(item: UnitItem) {
+    setObsText(item.observation ?? '');
+    setObsUnitId(item.unit_id);
   }
 
   function openPayment(item: UnitItem) {
@@ -334,7 +343,8 @@ export function Pedidos() {
           {order.items.map((item) => {
             const book = books.get(item.title_id);
             return (
-              <div key={item.unit_id} className="order-card__row" role="row">
+              <Fragment key={item.unit_id}>
+              <div className="order-card__row" role="row">
                 <span className="order-card__book" role="cell">
                   {book?.title ?? item.title_id}
                   {book?.amount === 0 && item.status === 'waiting-payment' && !item.picked_up && (
@@ -363,8 +373,59 @@ export function Pedidos() {
                 <StatusCell item={item} />
                 <span className="t-right order-card__actions" role="cell">
                   {renderActions(order, item)}
+                  {obsUnitId !== item.unit_id && (
+                    <button className="stage-action" onClick={() => openObservation(item)}>
+                      {item.observation ? 'Editar observação' : 'Adicionar observação'}
+                    </button>
+                  )}
                 </span>
               </div>
+              {obsUnitId === item.unit_id ? (
+                <div className="order-card__obs" role="row">
+                  <span className="order-card__obs-cell" role="cell">
+                    <textarea
+                      className="field-input obs-textarea"
+                      aria-label="Observação"
+                      rows={3}
+                      autoFocus
+                      value={obsText}
+                      onChange={(e) => setObsText(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Escape') setObsUnitId(null);
+                      }}
+                    />
+                    <span className="pay-inline">
+                      <button
+                        className="stage-action"
+                        onClick={() =>
+                          void patch(
+                            order,
+                            item,
+                            { observation: obsText.trim() },
+                            'Observação salva',
+                          )
+                        }
+                      >
+                        Salvar
+                      </button>
+                      <button className="stage-action" onClick={() => setObsUnitId(null)}>
+                        Cancelar
+                      </button>
+                    </span>
+                  </span>
+                </div>
+              ) : item.observation ? (
+                <div className="order-card__obs" role="row">
+                  <span className="order-card__obs-cell" role="cell">
+                    <ClampedText
+                      text={item.observation}
+                      limit={200}
+                      className="order-card__obs-text"
+                    />
+                  </span>
+                </div>
+              ) : null}
+              </Fragment>
             );
           })}
         </div>

@@ -5,6 +5,7 @@ import './styles.css';
 import { CartProvider } from './cart/CartContext';
 import { Catalogo } from './pages/Catalogo';
 import { Carrinho } from './pages/Carrinho';
+import { ConsultarPedido } from './pages/ConsultarPedido';
 import { Login } from './pages/backoffice/Login';
 import { BackofficeLayout } from './pages/backoffice/BackofficeLayout';
 import { Pedidos } from './pages/backoffice/Pedidos';
@@ -23,6 +24,7 @@ createRoot(document.getElementById('root')!).render(
         <Routes>
           <Route path="/" element={<Catalogo />} />
           <Route path="/carrinho" element={<Carrinho />} />
+          <Route path="/pedido" element={<ConsultarPedido />} />
           <Route path="/backoffice" element={<Login />} />
           <Route element={<BackofficeLayout />}>
             <Route path="/backoffice/pedidos" element={<Pedidos />} />
