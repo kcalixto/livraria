@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { RedirectToLogin } from '../../components/RedirectToLogin';
 import { ApiError, apiAuthGet } from '../../api/client';
 import { clearToken } from '../../backoffice/auth';
+import { Toast } from '../../components/Toast';
+import type { ToastData } from '../../components/Toast';
 import { formatLoteDate } from '../../backoffice/lotes';
 import type { Lote } from '../../backoffice/lotes';
 import { formatPrice } from '../../lib/format';
@@ -14,7 +16,13 @@ type State =
   | { kind: 'ready'; lotes: Lote[] };
 
 export function Lotes() {
+  const location = useLocation();
   const [state, setState] = useState<State>({ kind: 'loading' });
+  // "Lote registrado" vindo do form via navigation state
+  const [toast, setToast] = useState<ToastData | null>(() => {
+    const message = (location.state as { toast?: string } | null)?.toast;
+    return message ? { kind: 'success', message } : null;
+  });
 
   const load = useCallback(async () => {
     setState({ kind: 'loading' });
@@ -50,6 +58,7 @@ export function Lotes() {
 
   return (
     <div className="bo-content">
+      {toast && <Toast toast={toast} onDone={() => setToast(null)} />}
       <div className="bo-livros__toolbar">
         <Link to="/backoffice/lotes/novo" className="btn btn--primary">
           Novo lote
@@ -67,6 +76,7 @@ export function Lotes() {
             <span>Data</span>
             <span>Região</span>
             <span className="t-center">Livros</span>
+            <span className="t-center">Restante</span>
             <span>Gasto</span>
             <span>Vendido</span>
             <span className="t-right">Saldo</span>
@@ -83,6 +93,13 @@ export function Lotes() {
                 <span className="lotes-table__date">{formatLoteDate(lote.date)}</span>
                 <span className="lotes-table__region">{lote.region}</span>
                 <span className="t-center lotes-table__count">{lote.total_books ?? 0}</span>
+                <span className="t-center">
+                  {lote.total_remaining === 0 ? (
+                    <span className="badge badge--zero">Esgotado</span>
+                  ) : (
+                    <span className="lotes-table__remaining">{lote.total_remaining ?? '—'}</span>
+                  )}
+                </span>
                 <span className="lotes-table__cost">{formatPrice(lote.total_cost)}</span>
                 <span className="lotes-table__sold">{formatPrice(sold)}</span>
                 <span

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { Livros } from './Livros';
@@ -39,9 +39,9 @@ function stubFetch() {
   vi.stubGlobal('fetch', fetchMock);
 }
 
-function renderPage() {
+function renderPage(state?: Record<string, unknown>) {
   return render(
-    <MemoryRouter initialEntries={['/backoffice/livros']}>
+    <MemoryRouter initialEntries={[{ pathname: '/backoffice/livros', state }]}>
       <Routes>
         <Route path="/backoffice" element={<div>LOGIN PAGE</div>} />
         <Route path="/backoffice/livros" element={<Livros />} />
@@ -73,6 +73,24 @@ describe('Backoffice — Livros', () => {
   it('tem link para criar novo livro', async () => {
     renderPage();
     expect(await screen.findByRole('link', { name: /novo livro/i })).toBeInTheDocument();
+  });
+
+  it('ordena por título e busca filtra a lista', async () => {
+    renderPage();
+    await screen.findByText('A Comuna e o Fogo');
+
+    // ordenados alfabeticamente (fixture vem A Comuna / O Pão — já em ordem;
+    // valida via DOM que A Comuna vem antes)
+    const titles = Array.from(document.querySelectorAll('.bo-livros__title')).map(
+      (t) => t.textContent,
+    );
+    expect(titles).toEqual([...titles].sort((a, b) => a!.localeCompare(b!)));
+
+    await userEvent.type(screen.getByPlaceholderText(/buscar por título/i), 'pão');
+    await waitFor(() =>
+      expect(screen.queryByText('A Comuna e o Fogo')).not.toBeInTheDocument(),
+    );
+    expect(screen.getByText('O Pão e as Rosas')).toBeInTheDocument();
   });
 
   it('não tem botão de excluir (exclusão é segmentada por chave admin, via curl)', async () => {
@@ -111,6 +129,22 @@ describe('Backoffice — Livros', () => {
     fireEvent.error(img);
 
     expect(document.querySelector('.bo-livros__cover-fallback')).toBeInTheDocument();
+  });
+
+  it('livro sem capa ganha badge "sem capa" na linha', async () => {
+    renderPage();
+    await screen.findByText('A Comuna e o Fogo');
+
+    const img = document.querySelector('.bo-livros__cover img') as HTMLImageElement;
+    fireEvent.error(img);
+
+    expect(await screen.findByText(/sem capa/i)).toBeInTheDocument();
+  });
+
+  it('mostra toast de sucesso vindo do form (navigation state)', async () => {
+    renderPage({ toast: 'Livro salvo' });
+    await screen.findByText('A Comuna e o Fogo');
+    expect(screen.getByText(/livro salvo/i)).toBeInTheDocument();
   });
 
   it('401: limpa token e volta pro login', async () => {

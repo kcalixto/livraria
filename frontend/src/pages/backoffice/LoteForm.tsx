@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { ApiError, apiAuthPost, apiGet } from '../../api/client';
 import { clearToken } from '../../backoffice/auth';
+import { useDirtyGuard } from '../../backoffice/useDirtyGuard';
 import { formatPrice } from '../../lib/format';
 import { ACTIVE_REGION, ACTIVE_REGION_VALUE } from '../../lib/region';
 import type { Book } from '../../lib/types';
@@ -29,6 +30,9 @@ export function LoteForm() {
   const [unauthorized, setUnauthorized] = useState(false);
   const [saving, setSaving] = useState(false);
   const searchAreaRef = useRef<HTMLDivElement>(null);
+
+  // lote com livros adicionados = trabalho em andamento
+  useDirtyGuard(selected.size > 0);
 
   useEffect(() => {
     apiGet<Book[]>('/livros')
@@ -77,9 +81,9 @@ export function LoteForm() {
     [selected, bookOf],
   );
 
+  // dropdown fica aberto: o fluxo comum é adicionar vários livros em sequência
   function addBook(id: string) {
     setSelected((prev) => new Map(prev).set(id, 1));
-    setSearchOpen(false);
     setSearch('');
   }
 
@@ -111,7 +115,7 @@ export function LoteForm() {
         books: entries.map(([book_id, amount]) => ({ book_id, amount })),
         total_cost: totalCost,
       });
-      navigate('/backoffice/lotes');
+      navigate('/backoffice/lotes', { state: { toast: 'Lote registrado' } });
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         clearToken();

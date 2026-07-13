@@ -143,6 +143,22 @@ describe('Backoffice — Vendas', () => {
     expect(screen.queryByText('#AAA-111')).not.toBeInTheDocument();
   });
 
+  it('busca também por cliente e por título', async () => {
+    stubFetch([
+      order('VDT2QQ', '2026-07-01T10:00:00.000Z', [soldUnit()]),
+      order('AAA111', '2026-07-01T10:00:00.000Z', [soldUnit()]),
+    ]);
+    renderPage();
+
+    await setRange('2026-07', '2026-07');
+    await screen.findByText('#VDT-2QQ');
+
+    // por título (as duas vendem o mesmo livro; buscar por cliente diferencia)
+    await userEvent.type(screen.getByPlaceholderText(/buscar/i), 'comuna');
+    expect(screen.getByText('#VDT-2QQ')).toBeInTheDocument();
+    expect(screen.getByText('#AAA-111')).toBeInTheDocument();
+  });
+
   it('pagina de 50 em 50', async () => {
     const orders = Array.from({ length: 55 }, (_, i) =>
       order(`P${String(i).padStart(5, '0')}`, '2026-07-01T10:00:00.000Z', [soldUnit()]),

@@ -116,6 +116,27 @@ describe('LivroForm — criar', () => {
     expect(headers.authorization).toBe('Bearer jwt-abc');
   });
 
+  it('form sujo bloqueia beforeunload; limpo e pós-salvar não bloqueiam', async () => {
+    renderForm('/backoffice/livros/novo');
+
+    const clean = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(clean);
+    expect(clean.defaultPrevented).toBe(false);
+
+    await userEvent.type(screen.getByLabelText(/título/i), 'Rascunho');
+    const dirty = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(dirty);
+    expect(dirty.defaultPrevented).toBe(true);
+
+    await userEvent.type(screen.getByLabelText(/preço/i), '10,00');
+    await userEvent.click(screen.getByRole('button', { name: /salvar/i }));
+    await screen.findByText('LISTA LIVROS');
+
+    const afterSave = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(afterSave);
+    expect(afterSave.defaultPrevented).toBe(false);
+  });
+
   it('não tem campo de upload de capa e mostra o lembrete de build', () => {
     renderForm('/backoffice/livros/novo');
 

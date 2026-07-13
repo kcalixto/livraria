@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { RedirectToLogin } from '../../components/RedirectToLogin';
 import { ApiError, apiGet } from "../../api/client";
 import { clearToken } from "../../backoffice/auth";
 import { CoverThumb } from "../../components/CoverThumb";
-import { formatPrice } from "../../lib/format";
+import { Toast } from "../../components/Toast";
+import type { ToastData } from "../../components/Toast";
+import { formatPrice, normalizeText } from "../../lib/format";
 import type { Book } from "../../lib/types";
 
 // id encurtado clicável: copia o uuid completo (nome do arquivo da capa)
@@ -31,7 +33,16 @@ type State =
   | { kind: "ready"; books: Book[] };
 
 export function Livros() {
+  const location = useLocation();
   const [state, setState] = useState<State>({ kind: "loading" });
+  const [search, setSearch] = useState("");
+  // "Livro salvo" vindo do form via navigation state
+  const [toast, setToast] = useState<ToastData | null>(() => {
+    const message = (location.state as { toast?: string } | null)?.toast;
+    return message ? { kind: "success", message } : null;
+  });
+  // ids cuja capa falhou em carregar (detecção via onError do thumb)
+  const [brokenCovers, setBrokenCovers] = useState<Set<string>>(new Set());
 
   const load = useCallback(async () => {
     setState({ kind: "loading" });
@@ -69,9 +80,21 @@ export function Livros() {
     );
   }
 
+  const query = normalizeText(search.trim());
+  const books = state.books
+    .filter((b) => !query || normalizeText(b.title).includes(query))
+    .sort((a, b) => a.title.localeCompare(b.title, "pt-BR"));
+
   return (
     <div className="bo-content">
+      {toast && <Toast toast={toast} onDone={() => setToast(null)} />}
       <div className="bo-livros__toolbar">
+        <input
+          className="field-input bo-livros__search"
+          placeholder="Buscar por título…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
         <Link to="/backoffice/livros/novo" className="btn btn--primary">
           Novo livro
         </Link>
@@ -81,6 +104,11 @@ export function Livros() {
         <div className="bo-empty">
           <div className="bo-empty__title">Nenhum livro cadastrado</div>
           <div className="bo-empty__sub">Crie o primeiro em "Novo livro".</div>
+        </div>
+      ) : books.length === 0 ? (
+        <div className="bo-empty">
+          <div className="bo-empty__title">Nenhum livro encontrado</div>
+          <div className="bo-empty__sub">Ajuste a busca por título.</div>
         </div>
       ) : (
         <div className="bo-livros">
@@ -93,13 +121,26 @@ export function Livros() {
             <span>Ano</span>
             <span className="t-right">Ações</span>
           </div>
-          {state.books.map((book) => (
+          {books.map((book) => (
             <div key={book.id} className="bo-livros__row">
-              <CoverThumb id={book.id} title={book.title} />
+              <CoverThumb
+                id={book.id}
+                title={book.title}
+                onBroken={(id) =>
+                  setBrokenCovers((prev) => new Set(prev).add(id))
+                }
+              />
               <span>
                 <IdChip id={book.id} />
               </span>
-              <span className="bo-livros__title">{book.title}</span>
+              <span className="bo-livros__title">
+                {book.title}
+                {brokenCovers.has(book.id) && (
+                  <span className="badge badge--low bo-livros__no-cover">
+                    sem capa
+                  </span>
+                )}
+              </span>
               <span className="bo-livros__author">{book.author ?? "—"}</span>
               <span className="bo-livros__price">
                 {formatPrice(book.price)}

@@ -107,6 +107,10 @@ backofficeLotes.get('/', async (c) => {
     .map((lote) => ({
       ...lote,
       total_books: lote.books.reduce((sum, b) => sum + b.amount, 0),
+      total_remaining: Object.values(stock.lotes[lote.id]?.books ?? {}).reduce(
+        (sum, b) => sum + b.remaining,
+        0,
+      ),
       sold_value: stock.lotes[lote.id]?.sold_value ?? 0,
       transactions_total: transactionsTotal(lote),
     }));

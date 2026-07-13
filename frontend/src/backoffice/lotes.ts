@@ -10,6 +10,7 @@ export interface Lote {
   books: LoteBook[];
   total_cost: number; // centavos
   total_books?: number;
+  total_remaining?: number; // Σ restante dos livros do lote
   sold_value?: number; // centavos (Σ received_amount das unidades do lote)
 }
 

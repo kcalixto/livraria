@@ -14,6 +14,7 @@ interface UnitItem {
   title_id: string;
   status: string;
   picked_up?: boolean;
+  received_amount?: number;
 }
 
 function order(id: string, items: UnitItem[], over: Record<string, unknown> = {}) {
@@ -394,6 +395,57 @@ describe('Backoffice — Pedidos (linhas por unidade)', () => {
       status: 'payment-received',
       received_amount: 4200,
     });
+  });
+
+  it('Marcar entregue exige confirmação inline (irreversível)', async () => {
+    stubFetch([
+      order('PED001', [{ unit_id: 'u1', title_id: 'b1', status: 'sent-to-delivery' }]),
+    ]);
+    renderPage();
+
+    await userEvent.click(await screen.findByRole('button', { name: /marcar entregue/i }));
+    // ainda não chamou a API: pede confirmação
+    expect(fetchMock.mock.calls.find(([, i]) => i?.method === 'PATCH')).toBeUndefined();
+
+    await userEvent.click(screen.getByRole('button', { name: /^confirmar$/i }));
+    const patchCall = fetchMock.mock.calls.find(([, init]) => init?.method === 'PATCH');
+    expect(JSON.parse((patchCall![1] as RequestInit).body as string)).toEqual({
+      status: 'received',
+      unit_id: 'u1',
+    });
+  });
+
+  it('fila de pendentes ordenada do mais antigo pro mais novo, com contagem', async () => {
+    stubFetch([
+      order('NOVO01', [{ unit_id: 'u1', title_id: 'b1', status: 'waiting-payment' }], {
+        created_at: '2026-07-12T10:00:00.000Z',
+      }),
+      order('VELHO1', [{ unit_id: 'u2', title_id: 'b1', status: 'waiting-payment' }], {
+        created_at: '2026-07-01T10:00:00.000Z',
+      }),
+    ]);
+    renderPage();
+
+    await screen.findByText('#NOV-O01');
+    const ids = Array.from(document.querySelectorAll('.order-card__id')).map(
+      (e) => e.textContent,
+    );
+    expect(ids).toEqual(['#VEL-HO1', '#NOV-O01']); // mais antigo primeiro
+    expect(screen.getByText(/2 pedidos pendentes/i)).toBeInTheDocument();
+  });
+
+  it('total do cabeçalho usa o valor recebido quando existir (doações)', async () => {
+    stubFetch([
+      order('PED001', [
+        { unit_id: 'u1', title_id: 'b1', status: 'payment-received', received_amount: 10000 } as UnitItem & { received_amount: number },
+        { unit_id: 'u2', title_id: 'b1', status: 'waiting-payment' },
+      ]),
+    ]);
+    renderPage();
+
+    await screen.findByText('Camarada Rosa');
+    // 100,00 (recebido) + 42,00 (preço da unidade não paga)
+    expect(screen.getByText('R$ 142,00')).toBeInTheDocument();
   });
 
   it('token expirado (401): limpa token e volta pro login', async () => {

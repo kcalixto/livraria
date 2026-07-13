@@ -16,12 +16,13 @@ import { Toast } from '../../components/Toast';
 import type { ToastData } from '../../components/Toast';
 import type { BookInfo } from '../../backoffice/useOrders';
 
+// doações já registradas entram pelo valor recebido, não pelo preço de tabela
 function orderTotal(order: Order, books: Map<string, BookInfo>): string {
   let total = 0;
   for (const item of order.items) {
     const book = books.get(item.title_id);
-    if (!book) return '—';
-    total += book.price;
+    if (item.received_amount === undefined && !book) return '—';
+    total += item.received_amount ?? book!.price;
   }
   return formatPrice(total);
 }
@@ -51,6 +52,7 @@ export function Pedidos() {
   const { loading, refreshing, error, unauthorized, orders, books, reload } = useOrders();
   const [toast, setToast] = useState<ToastData | null>(null);
   const [payingUnitId, setPayingUnitId] = useState<string | null>(null);
+  const [confirmingUnitId, setConfirmingUnitId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [payText, setPayText] = useState('');
@@ -68,7 +70,9 @@ export function Pedidos() {
       return o.items.some((i) =>
         normalizeText(books.get(i.title_id)?.title ?? '').includes(query),
       );
-    });
+    })
+    // fila de atendimento: o pedido mais antigo primeiro
+    .sort((a, b) => a.created_at.localeCompare(b.created_at));
 
   if (unauthorized) return <RedirectToLogin />;
 
@@ -81,6 +85,7 @@ export function Pedidos() {
       const book = books.get(item.title_id);
       setToast({ kind: 'success', message: `✓ ${shortOrderId(order.id)} · ${book?.title ?? item.title_id} → ${doneLabel}` });
       setPayingUnitId(null);
+      setConfirmingUnitId(null);
       await reload();
     } catch (err) {
       if (err instanceof ApiError && err.status === 400) {
@@ -215,11 +220,25 @@ export function Pedidos() {
           </button>
         );
       case 'sent-to-delivery':
+        // única transição irreversível — confirma inline antes do PATCH
+        if (confirmingUnitId === item.unit_id) {
+          return (
+            <span className="pay-inline">
+              <span className="confirm-inline__hint">Entrega não pode ser desfeita.</span>
+              <button
+                className="stage-action stage-action--danger"
+                onClick={() => void patch(order, item, { status: 'received' }, 'Entregue')}
+              >
+                Confirmar
+              </button>
+              <button className="stage-action" onClick={() => setConfirmingUnitId(null)}>
+                Cancelar
+              </button>
+            </span>
+          );
+        }
         return (
-          <button
-            className="stage-action"
-            onClick={() => void patch(order, item, { status: 'received' }, 'Entregue')}
-          >
+          <button className="stage-action" onClick={() => setConfirmingUnitId(item.unit_id)}>
             Marcar entregue
           </button>
         );
@@ -277,10 +296,15 @@ export function Pedidos() {
         </button>
       </div>
 
-      {pending.length === 0 && (
+      {pending.length === 0 ? (
         <div className="bo-empty">
           <div className="bo-empty__title">Nenhum pedido pendente</div>
           <div className="bo-empty__sub">Tudo em dia por aqui.</div>
+        </div>
+      ) : (
+        <div className="pending-count">
+          {pending.length} pedido{pending.length === 1 ? '' : 's'} pendente
+          {pending.length === 1 ? '' : 's'}
         </div>
       )}
 

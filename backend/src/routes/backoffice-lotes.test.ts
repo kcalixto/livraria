@@ -157,6 +157,18 @@ describe('GET /backoffice/lotes', () => {
       sold_value: 5500,
     });
   });
+
+  it('expõe total_remaining por lote (soma do restante dos livros)', async () => {
+    const res = await app.request(`/backoffice/lotes?region=${encodeURIComponent(REGION)}`, {
+      headers: await authHeaders(),
+    });
+
+    const body = (await res.json()) as Array<Record<string, unknown>>;
+    // lote-b: 2 adquiridos, nada consumido
+    expect(body[0].total_remaining).toBe(2);
+    // lote-a: 5 adquiridos − 1 vendido − 1 reservado = 3
+    expect(body[1].total_remaining).toBe(3);
+  });
 });
 
 describe('POST /backoffice/lotes/:id/transacoes', () => {

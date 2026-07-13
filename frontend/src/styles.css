@@ -2048,3 +2048,72 @@ a.btn--secondary:hover {
   font-weight: 700;
   color: var(--success);
 }
+
+/* ── UX nível 2 ── */
+.bo-tabs__divider {
+  width: 1px;
+  height: 18px;
+  background: var(--border);
+  align-self: center;
+  margin: 0 4px;
+}
+.pending-count {
+  font-family: var(--mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+  margin-bottom: 12px;
+}
+.confirm-inline__hint {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--warn);
+  white-space: nowrap;
+}
+.stage-action--danger {
+  color: var(--error);
+  border-color: var(--error-border);
+}
+.badge--zero {
+  color: var(--error);
+  background: var(--error-bg);
+  border: 1px solid var(--error-border);
+}
+.bo-livros__search {
+  margin-bottom: 0;
+  flex: 1;
+  min-width: 200px;
+  max-width: 380px;
+}
+/* toolbar de Livros ganha a busca à esquerda (base em ~l.1214) */
+.bo-livros__toolbar {
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.bo-livros__no-cover {
+  margin-left: 8px;
+  font-size: 10px;
+}
+.stock-counters {
+  font-family: var(--mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-soft);
+  margin-bottom: 10px;
+}
+.stock-counters__zeroed {
+  color: var(--error);
+  font-weight: 600;
+}
+.stock-counters__low {
+  color: var(--warn);
+}
+.stock-counters__link {
+  margin-left: 12px;
+  color: var(--wine);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}

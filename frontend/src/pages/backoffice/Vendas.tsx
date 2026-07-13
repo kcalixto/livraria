@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { RedirectToLogin } from '../../components/RedirectToLogin';
-import { centsToText, formatPrice } from '../../lib/format';
+import { centsToText, formatPrice, normalizeText } from '../../lib/format';
 import { formatOrderDate, isUnitFinalized, shortOrderId } from '../../backoffice/order-status';
 import type { Order, UnitItem } from '../../backoffice/order-status';
 import { useOrders } from '../../backoffice/useOrders';
@@ -53,7 +53,8 @@ export function Vendas() {
 
   // todas as unidades finalizadas do período filtrado (CSV usa a lista cheia)
   const filtered = useMemo(() => {
-    const query = normalizeId(search);
+    const queryId = normalizeId(search);
+    const query = normalizeText(search.trim());
     const rows: SaleRow[] = orders.flatMap((order) =>
       order.items.filter(isUnitFinalized).map((item) => ({ order, item })),
     );
@@ -62,11 +63,15 @@ export function Vendas() {
         const month = finalizedAt(row).slice(0, 7);
         if (monthStart && month < monthStart) return false;
         if (monthEnd && month > monthEnd) return false;
-        if (query && !normalizeId(row.order.id).includes(query)) return false;
-        return true;
+        if (!query) return true;
+        // id (hífen-insensível), cliente, contato ou título
+        if (queryId && normalizeId(row.order.id).includes(queryId)) return true;
+        if (normalizeText(row.order.name).includes(query)) return true;
+        if (normalizeText(row.order.contact).includes(query)) return true;
+        return normalizeText(books.get(row.item.title_id)?.title ?? '').includes(query);
       })
       .sort((a, b) => finalizedAt(b).localeCompare(finalizedAt(a)));
-  }, [orders, monthStart, monthEnd, search]);
+  }, [orders, books, monthStart, monthEnd, search]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount - 1);
@@ -154,12 +159,12 @@ export function Vendas() {
         </div>
         <div className="sales-filters__search">
           <label className="field-label" htmlFor="vendas-busca">
-            Pedido
+            Busca
           </label>
           <input
             id="vendas-busca"
             className="field-input"
-            placeholder="Buscar por id (com ou sem hífen)"
+            placeholder="Buscar por id, cliente ou título"
             value={search}
             onChange={(e) => {
               setSearch(e.target.value);

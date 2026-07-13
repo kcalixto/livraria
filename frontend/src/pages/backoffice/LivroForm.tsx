@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { ApiError, apiAuthPost, apiAuthPut, apiGet } from '../../api/client';
 import { clearToken } from '../../backoffice/auth';
+import { useDirtyGuard } from '../../backoffice/useDirtyGuard';
 import { centsToText, textToCents } from '../../lib/format';
 import type { Book } from '../../lib/types';
 
@@ -30,6 +31,11 @@ export function LivroForm() {
   const [saving, setSaving] = useState(false);
   const [loadingBook, setLoadingBook] = useState(editing);
 
+  // sujo = campos diferentes do estado inicial (vazio ao criar, carregado ao editar)
+  const snapshot = JSON.stringify([title, author, description, priceText, pages, edition, year, format]);
+  const baselineRef = useRef(JSON.stringify(['', '', '', '', '', '', '', '']));
+  useDirtyGuard(snapshot !== baselineRef.current);
+
   useEffect(() => {
     if (!editing) return;
     apiGet<Book[]>('/livros')
@@ -47,6 +53,16 @@ export function LivroForm() {
         setEdition(book.edition ?? '');
         setYear(book.year !== undefined ? String(book.year) : '');
         setFormat(book.format ?? '');
+        baselineRef.current = JSON.stringify([
+          book.title,
+          book.author ?? '',
+          book.description ?? '',
+          centsToText(book.price),
+          book.pages !== undefined ? String(book.pages) : '',
+          book.edition ?? '',
+          book.year !== undefined ? String(book.year) : '',
+          book.format ?? '',
+        ]);
       })
       .catch((err) => {
         if (err instanceof ApiError && err.status === 401) {
@@ -88,7 +104,7 @@ export function LivroForm() {
       } else {
         await apiAuthPost('/backoffice/livros', payload);
       }
-      navigate('/backoffice/livros');
+      navigate('/backoffice/livros', { state: { toast: 'Livro salvo' } });
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         clearToken();

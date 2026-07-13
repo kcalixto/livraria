@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { RedirectToLogin } from '../../components/RedirectToLogin';
 import { ApiError, apiAuthGet, apiGet } from '../../api/client';
 import { clearToken } from '../../backoffice/auth';
@@ -87,15 +88,45 @@ export function Estoque() {
   }
 
   const query = normalize(debouncedSearch.trim());
-  const rows = state.rows.filter((row) => {
-    if (!query) return true;
-    const title = state.titles.get(row.book_id) ?? row.book_id;
-    return normalize(title).includes(query);
-  });
+  const rows = state.rows
+    .filter((row) => {
+      if (!query) return true;
+      const title = state.titles.get(row.book_id) ?? row.book_id;
+      return normalize(title).includes(query);
+    })
+    // zerados no topo: são os que pedem ação (registrar lote)
+    .sort((a, b) => {
+      const az = a.available === 0 ? 0 : 1;
+      const bz = b.available === 0 ? 0 : 1;
+      return az - bz;
+    });
+
+  const zeroed = state.rows.filter((r) => r.available === 0).length;
+  const low = state.rows.filter((r) => r.available > 0 && r.available <= 3).length;
 
   return (
     <div className="bo-content">
       <div className="stock-region">Saldo real · {ACTIVE_REGION}</div>
+      {(zeroed > 0 || low > 0) && (
+        <div className="stock-counters">
+          {zeroed > 0 && (
+            <span className="stock-counters__zeroed">
+              {zeroed} zerado{zeroed === 1 ? '' : 's'}
+            </span>
+          )}
+          {zeroed > 0 && low > 0 && ' · '}
+          {low > 0 && (
+            <span className="stock-counters__low">
+              {low} baixo{low === 1 ? '' : 's'}
+            </span>
+          )}
+          {zeroed > 0 && (
+            <Link to="/backoffice/lotes/novo" className="stock-counters__link">
+              Registrar lote
+            </Link>
+          )}
+        </div>
+      )}
       <input
         className="field-input stock-search"
         placeholder="Buscar por título…"

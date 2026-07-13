@@ -57,6 +57,36 @@ describe('Backoffice — Novo lote', () => {
     expect(screen.getByText('A Comuna e o Fogo')).toBeInTheDocument();
   });
 
+  it('dropdown continua aberto após Adicionar (vários livros em sequência)', async () => {
+    renderPage();
+    await openSearch();
+
+    const row = screen.getByText('A Comuna e o Fogo').closest('.lote-form__available-row')!;
+    await userEvent.click(row.querySelector('button')!);
+
+    // ainda dá pra adicionar o próximo sem refocar a busca
+    expect(screen.getByText('O Pão e as Rosas')).toBeInTheDocument();
+    expect(screen.getByText('Manual do Agitador Cultural')).toBeInTheDocument();
+  });
+
+  it('form sujo bloqueia beforeunload; limpo não bloqueia', async () => {
+    renderPage();
+    await screen.findByPlaceholderText(/buscar por título/i);
+
+    const clean = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(clean);
+    expect(clean.defaultPrevented).toBe(false);
+
+    const search = await openSearch();
+    await userEvent.type(search, 'comuna');
+    const row = screen.getByText('A Comuna e o Fogo').closest('.lote-form__available-row')!;
+    await userEvent.click(row.querySelector('button')!);
+
+    const dirty = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(dirty);
+    expect(dirty.defaultPrevented).toBe(true);
+  });
+
   it('busca por título filtra os livros disponíveis', async () => {
     renderPage();
     const search = await openSearch();

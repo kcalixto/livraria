@@ -30,20 +30,22 @@ export function BackofficeLayout() {
   return (
     <div className="page page--wide">
       <nav className="bo-tabs">
+        {/* operação diária | gestão de acervo */}
         <NavLink to="/backoffice/pedidos" className="bo-tab">
           Pedidos
         </NavLink>
         <NavLink to="/backoffice/vendas" className="bo-tab">
           Vendas
         </NavLink>
+        <span className="bo-tabs__divider" aria-hidden="true" />
         <NavLink to="/backoffice/estoque" className="bo-tab">
           Estoque
         </NavLink>
-        <NavLink to="/backoffice/livros" className="bo-tab">
-          Livros
-        </NavLink>
         <NavLink to="/backoffice/lotes" className="bo-tab">
           Lotes
+        </NavLink>
+        <NavLink to="/backoffice/livros" className="bo-tab">
+          Livros
         </NavLink>
         <span className="bo-tabs__region">
           <RegionPicker />

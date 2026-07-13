@@ -57,6 +57,47 @@ describe('Backoffice — Estoque real', () => {
     expect(cells).not.toContain('5');
   });
 
+  it('mostra contador de baixos quando não há zerados', async () => {
+    renderPage();
+    await screen.findByText('A Comuna e o Fogo');
+
+    // fixture: b1 available 2 e b2 available 1 — dois baixos, nenhum zerado
+    expect(screen.getByText(/2 baixos/i)).toBeInTheDocument();
+    expect(screen.queryByText(/zerado/i)).not.toBeInTheDocument();
+  });
+
+  it('título zerado sobe pro topo com link de registrar lote', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation((url: string) => {
+        if (String(url).includes('/backoffice/estoque')) {
+          return Promise.resolve(
+            new Response(
+              JSON.stringify([
+                { book_id: 'b1', acquired: 5, reserved: 0, picked_up: 0, sold: 1, available: 4 },
+                { book_id: 'b2', acquired: 2, reserved: 0, picked_up: 0, sold: 2, available: 0 },
+              ]),
+              { status: 200 },
+            ),
+          );
+        }
+        return Promise.resolve(new Response(JSON.stringify(livros), { status: 200 }));
+      }),
+    );
+    renderPage();
+
+    await screen.findByText('O Pão e as Rosas');
+    const rowTitles = Array.from(document.querySelectorAll('.stock-table__title')).map(
+      (t) => t.textContent,
+    );
+    expect(rowTitles[0]).toBe('O Pão e as Rosas'); // zerado primeiro
+    expect(screen.getByText(/1 zerado/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /registrar lote/i })).toHaveAttribute(
+      'href',
+      '/backoffice/lotes/novo',
+    );
+  });
+
   it('busca por título filtra com debounce', async () => {
     renderPage();
     await screen.findByText('A Comuna e o Fogo');
