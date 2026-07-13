@@ -567,6 +567,20 @@ describe('Backoffice — Pedidos (linhas por unidade)', () => {
     expect(screen.getByText(/cancelamento solicitado/i)).toBeInTheDocument();
   });
 
+  it('total do cabeçalho ignora unidades canceladas', async () => {
+    stubFetch([
+      order('PED001', [
+        { unit_id: 'u1', title_id: 'b1', status: 'waiting-payment' },
+        { unit_id: 'u2', title_id: 'b2', status: 'cancelled' },
+      ]),
+    ]);
+    renderPage();
+
+    await screen.findByText('Camarada Rosa');
+    // só a unidade ativa (42,00); a cancelada (38,00) fica fora
+    expect(screen.getByText('R$ 42,00', { selector: '.order-card__total' })).toBeInTheDocument();
+  });
+
   it('pedido 100% cancelado sai da fila de Pedidos', async () => {
     stubFetch([
       order('PED001', [{ unit_id: 'u1', title_id: 'b1', status: 'cancelled' }]),

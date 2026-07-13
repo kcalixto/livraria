@@ -20,10 +20,12 @@ import { Toast } from '../../components/Toast';
 import type { ToastData } from '../../components/Toast';
 import type { BookInfo } from '../../backoffice/useOrders';
 
-// doações já registradas entram pelo valor recebido, não pelo preço de tabela
+// doações já registradas entram pelo valor recebido, não pelo preço de tabela;
+// unidades canceladas ficam fora do total
 function orderTotal(order: Order, books: Map<string, BookInfo>): string {
   let total = 0;
   for (const item of order.items) {
+    if (item.status === 'cancelled') continue;
     const book = books.get(item.title_id);
     if (item.received_amount === undefined && !book) return '—';
     total += item.received_amount ?? book!.price;
