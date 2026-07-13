@@ -10,6 +10,7 @@ const livros = [
     title: 'A Comuna e o Fogo',
     author: 'Aurélio Bandeira',
     price: 4200,
+    social_price: 3000,
     year: 2023,
     description: 'x',
     amount: 3,
@@ -20,6 +21,7 @@ const livros = [
     title: 'O Pão e as Rosas',
     author: 'Beatriz Andrade',
     price: 3800,
+    social_price: 2500,
     year: 2024,
     description: 'y',
     amount: 1,
@@ -61,13 +63,15 @@ afterEach(() => {
 });
 
 describe('Backoffice — Livros', () => {
-  it('lista os livros com título, autor e preço formatado', async () => {
+  it('lista os livros com título, autor, preço e preço social formatados', async () => {
     renderPage();
 
     expect(await screen.findByText('A Comuna e o Fogo')).toBeInTheDocument();
     expect(screen.getByText('O Pão e as Rosas')).toBeInTheDocument();
     expect(screen.getByText('Aurélio Bandeira')).toBeInTheDocument();
     expect(screen.getByText('R$ 42,00')).toBeInTheDocument();
+    expect(screen.getByText('P. social')).toBeInTheDocument();
+    expect(screen.getByText('R$ 30,00')).toBeInTheDocument();
   });
 
   it('tem link para criar novo livro', async () => {

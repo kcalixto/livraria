@@ -5,6 +5,7 @@ import { clearToken } from '../../backoffice/auth';
 import { useDirtyGuard } from '../../backoffice/useDirtyGuard';
 import { formatPrice } from '../../lib/format';
 import { ACTIVE_REGION, ACTIVE_REGION_VALUE } from '../../lib/region';
+import { socialPriceOf } from '../../lib/types';
 import type { Book } from '../../lib/types';
 
 function todayISO(): string {
@@ -24,6 +25,8 @@ export function LoteForm() {
   const [search, setSearch] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
   const [selected, setSelected] = useState<Map<string, number>>(new Map());
+  // linhas compradas pelo preço social (o custo real pago no lote)
+  const [socialCost, setSocialCost] = useState<Set<string>>(new Set());
   const [date, setDate] = useState(todayISO());
   const [booksError, setBooksError] = useState('');
   const [apiError, setApiError] = useState(false);
@@ -71,15 +74,25 @@ export function LoteForm() {
     );
   }, [books, search, selected]);
 
-  // custo do lote é CALCULADO: Σ preço do catálogo × quantidade
-  const totalCost = useMemo(
-    () =>
-      [...selected.entries()].reduce(
-        (sum, [id, amount]) => sum + (bookOf(id)?.price ?? 0) * amount,
-        0,
-      ),
-    [selected, bookOf],
+  // custo do lote é CALCULADO: Σ preço (cheio ou social, por linha) × quantidade
+  const unitCost = (id: string): number => {
+    const book = bookOf(id);
+    if (!book) return 0;
+    return socialCost.has(id) ? socialPriceOf(book) : book.price;
+  };
+  const totalCost = [...selected.entries()].reduce(
+    (sum, [id, amount]) => sum + unitCost(id) * amount,
+    0,
   );
+
+  function toggleSocialCost(id: string) {
+    setSocialCost((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   // dropdown fica aberto: o fluxo comum é adicionar vários livros em sequência
   function addBook(id: string) {
@@ -210,8 +223,16 @@ export function LoteForm() {
               return (
                 <div key={id} className="lote-form__selected-row">
                   <span className="lote-form__selected-title">{title}</span>
+                  <label className="lote-form__social-toggle">
+                    <input
+                      type="checkbox"
+                      checked={socialCost.has(id)}
+                      onChange={() => toggleSocialCost(id)}
+                    />
+                    custo social
+                  </label>
                   <span className="lote-form__selected-subtotal">
-                    {book ? formatPrice(book.price * amount) : '—'}
+                    {book ? formatPrice(unitCost(id) * amount) : '—'}
                   </span>
                   <span className="stepper">
                     <button

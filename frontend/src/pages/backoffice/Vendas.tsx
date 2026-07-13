@@ -92,7 +92,7 @@ export function Vendas() {
 
   function exportCsv() {
     const header =
-      'pedido;cliente;contato;livro;valor_recebido;data_pedido;data_pagamento;data_finalizacao';
+      'pedido;cliente;contato;livro;valor_recebido;preco_social;data_pedido;data_pagamento;data_finalizacao';
     const lines = filtered.map(({ order, item }) => {
       const book = books.get(item.title_id);
       const value =
@@ -107,6 +107,7 @@ export function Vendas() {
         csvEscape(order.contact),
         csvEscape(book?.title ?? item.title_id),
         value,
+        item.social_price ? 'sim' : 'nao',
         csvDate(order.created_at),
         csvDate(item.paid_at),
         csvDate(item.updated_at),
@@ -216,7 +217,12 @@ export function Vendas() {
                 <span className="sales-table__books" role="cell">
                   {books.get(item.title_id)?.title ?? item.title_id}
                 </span>
-                <span className="sales-table__total" role="cell">{saleValue({ order, item }, books)}</span>
+                <span className="sales-table__total" role="cell">
+                  {saleValue({ order, item }, books)}
+                  {item.social_price && (
+                    <span className="badge badge--low sales-table__social">social</span>
+                  )}
+                </span>
                 <span className="sales-table__date" role="cell">{formatOrderDate(order.created_at)}</span>
                 <span className="sales-table__date" role="cell">
                   {item.updated_at ? formatOrderDate(item.updated_at) : '—'}

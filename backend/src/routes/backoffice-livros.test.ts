@@ -37,6 +37,7 @@ describe('POST /backoffice/livros', () => {
     title: 'O Capital',
     description: 'Par 1.\n\nPar 2.',
     price: 5000,
+    social_price: 3500,
     author: 'Karl Marx',
     pages: 300,
     edition: '2ª',
@@ -99,7 +100,7 @@ describe('POST /backoffice/livros', () => {
 
     const res = await app.request('/backoffice/livros', {
       method: 'POST',
-      body: JSON.stringify({ title: 'Só título e preço', price: 1000 }),
+      body: JSON.stringify({ title: 'Só título e preço', price: 1000, social_price: 800 }),
       headers: await authHeaders(),
     });
 
@@ -115,6 +116,24 @@ describe('POST /backoffice/livros', () => {
       headers: await authHeaders(),
     });
     expect(res.status).toBe(400);
+  });
+
+  it('retorna 400 sem social_price (obrigatório) e quando social_price é inválido', async () => {
+    const semSocial = { ...validBody } as Record<string, unknown>;
+    delete semSocial.social_price;
+    const res1 = await app.request('/backoffice/livros', {
+      method: 'POST',
+      body: JSON.stringify(semSocial),
+      headers: await authHeaders(),
+    });
+    expect(res1.status).toBe(400);
+
+    const res2 = await app.request('/backoffice/livros', {
+      method: 'POST',
+      body: JSON.stringify({ ...validBody, social_price: 35.5 }),
+      headers: await authHeaders(),
+    });
+    expect(res2.status).toBe(400);
   });
 });
 
@@ -136,6 +155,15 @@ describe('PUT /backoffice/livros/:id', () => {
     const input = ddbMock.commandCalls(UpdateCommand)[0].args[0].input;
     expect(input.TableName).toBe('livraria-tb-livros-test');
     expect(input.ConditionExpression).toContain('attribute_exists');
+  });
+
+  it('retorna 400 quando social_price do PUT é inválido', async () => {
+    const res = await app.request('/backoffice/livros/b1', {
+      method: 'PUT',
+      body: JSON.stringify({ social_price: -1 }),
+      headers: await authHeaders(),
+    });
+    expect(res.status).toBe(400);
   });
 
   it('retorna 404 quando o livro não existe', async () => {

@@ -408,6 +408,65 @@ describe('PATCH — validações básicas', () => {
   });
 });
 
+describe('PATCH — pagamento com preço social', () => {
+  beforeEach(() => {
+    process.env.LOTES_TABLE_NAME = 'livraria-tb-lotes-test';
+    ddbMock.on(UpdateCommand).resolves({});
+  });
+
+  it('grava social_price: true na unidade quando o pagamento é social', async () => {
+    const line = unit({
+      book_id: 'livro-a#u1',
+      unit_id: 'u1',
+      status: 'in-reserve',
+      lote_id: 'lote-antigo',
+    });
+    ddbMock.on(QueryCommand).resolves({ Items: [line] });
+
+    const res = await patchUnit({
+      status: 'payment-received',
+      unit_id: 'u1',
+      received_amount: 2500,
+      social_price: true,
+    });
+
+    expect(res.status).toBe(200);
+    const input = ddbMock.commandCalls(UpdateCommand)[0].args[0].input;
+    expect(input.ExpressionAttributeValues![':social_price']).toBe(true);
+    expect(input.ExpressionAttributeValues![':received_amount']).toBe(2500);
+  });
+
+  it('sem a flag, não grava social_price', async () => {
+    const line = unit({
+      book_id: 'livro-a#u1',
+      unit_id: 'u1',
+      status: 'in-reserve',
+      lote_id: 'lote-antigo',
+    });
+    ddbMock.on(QueryCommand).resolves({ Items: [line] });
+
+    const res = await patchUnit({
+      status: 'payment-received',
+      unit_id: 'u1',
+      received_amount: 2500,
+    });
+
+    expect(res.status).toBe(200);
+    const input = ddbMock.commandCalls(UpdateCommand)[0].args[0].input;
+    expect(input.ExpressionAttributeValues![':social_price']).toBeUndefined();
+  });
+
+  it('GET agrupado expõe social_price na unidade', async () => {
+    ddbMock.on(ScanCommand).resolves({
+      Items: [unit({ book_id: 'livro-a#u1', unit_id: 'u1', social_price: true })],
+    });
+
+    const res = await app.request('/backoffice/pedidos', { headers: await authHeader() });
+    const orders = (await res.json()) as Array<{ items: Array<Record<string, unknown>> }>;
+    expect(orders[0].items[0]).toHaveProperty('social_price', true);
+  });
+});
+
 describe('PATCH — observação por unidade', () => {
   beforeEach(() => {
     ddbMock.on(UpdateCommand).resolves({});

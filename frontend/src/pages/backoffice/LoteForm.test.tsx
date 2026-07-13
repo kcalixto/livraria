@@ -5,9 +5,9 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { LoteForm } from './LoteForm';
 
 const livros = [
-  { id: 'b1', title: 'A Comuna e o Fogo', price: 4200, amount: 0, status: 'disponível' },
-  { id: 'b2', title: 'O Pão e as Rosas', price: 3800, amount: 0, status: 'disponível' },
-  { id: 'b3', title: 'Manual do Agitador Cultural', price: 3400, amount: 0, status: 'disponível' },
+  { id: 'b1', title: 'A Comuna e o Fogo', price: 4200, social_price: 3000, amount: 0, status: 'disponível' },
+  { id: 'b2', title: 'O Pão e as Rosas', price: 3800, social_price: 2000, amount: 0, status: 'disponível' },
+  { id: 'b3', title: 'Manual do Agitador Cultural', price: 3400, social_price: 3400, amount: 0, status: 'disponível' },
 ];
 
 let fetchMock: ReturnType<typeof vi.fn>;
@@ -67,6 +67,25 @@ describe('Backoffice — Novo lote', () => {
     // ainda dá pra adicionar o próximo sem refocar a busca
     expect(screen.getByText('O Pão e as Rosas')).toBeInTheDocument();
     expect(screen.getByText('Manual do Agitador Cultural')).toBeInTheDocument();
+  });
+
+  it('checkbox "custo social" por linha usa o preço social no total do lote', async () => {
+    renderPage();
+    await openSearch();
+    const row = screen.getByText('A Comuna e o Fogo').closest('.lote-form__available-row')!;
+    await userEvent.click(row.querySelector('button')!);
+
+    // preço cheio por padrão
+    expect(screen.getByText('R$ 42,00', { selector: '.lote-form__total' })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('checkbox', { name: /custo social/i }));
+    expect(screen.getByText('R$ 30,00', { selector: '.lote-form__total' })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /salvar lote/i }));
+    const postCall = fetchMock.mock.calls.find(
+      ([, i]) => (i as RequestInit)?.method === 'POST',
+    );
+    expect(JSON.parse((postCall![1] as RequestInit).body as string).total_cost).toBe(3000);
   });
 
   it('form sujo bloqueia beforeunload; limpo não bloqueia', async () => {

@@ -9,6 +9,7 @@ const existingBook = {
   title: 'A Comuna e o Fogo',
   author: 'Aurélio Bandeira',
   price: 4200,
+  social_price: 3000,
   pages: 288,
   edition: '2ª edição',
   year: 2023,
@@ -66,6 +67,7 @@ describe('LivroForm — criar', () => {
 
     expect(screen.getByText(/informe o título/i)).toBeInTheDocument();
     expect(screen.getByText(/informe um preço válido/i)).toBeInTheDocument();
+    expect(screen.getByText(/informe um preço social válido/i)).toBeInTheDocument();
     expect(screen.queryByText(/informe a descrição/i)).not.toBeInTheDocument();
     expect(fetchMock.mock.calls.filter(([, i]) => (i as RequestInit)?.method === 'POST')).toHaveLength(0);
   });
@@ -74,7 +76,8 @@ describe('LivroForm — criar', () => {
     renderForm('/backoffice/livros/novo');
 
     await userEvent.type(screen.getByLabelText(/título/i), 'Sem Descrição');
-    await userEvent.type(screen.getByLabelText(/preço/i), '10,00');
+    await userEvent.type(screen.getByLabelText('Preço (R$)'), '10,00');
+    await userEvent.type(screen.getByLabelText('Preço social (R$)'), '8,00');
     await userEvent.click(screen.getByRole('button', { name: /salvar/i }));
 
     expect(await screen.findByText('LISTA LIVROS')).toBeInTheDocument();
@@ -83,7 +86,7 @@ describe('LivroForm — criar', () => {
       ([u, i]) => (i as RequestInit)?.method === 'POST' && String(u).endsWith('/backoffice/livros'),
     );
     const body = JSON.parse((postCall![1] as RequestInit).body as string);
-    expect(body).toMatchObject({ title: 'Sem Descrição', price: 1000 });
+    expect(body).toMatchObject({ title: 'Sem Descrição', price: 1000, social_price: 800 });
     expect(body).not.toHaveProperty('description');
   });
 
@@ -93,7 +96,8 @@ describe('LivroForm — criar', () => {
     await userEvent.type(screen.getByLabelText(/título/i), 'Livro Novo');
     await userEvent.type(screen.getByLabelText(/autor/i), 'Autora Nova');
     await userEvent.type(screen.getByLabelText(/descrição/i), 'Par A.\n\nPar B.');
-    await userEvent.type(screen.getByLabelText(/preço/i), '49,90');
+    await userEvent.type(screen.getByLabelText('Preço (R$)'), '49,90');
+    await userEvent.type(screen.getByLabelText('Preço social (R$)'), '35,00');
     await userEvent.type(screen.getByLabelText(/páginas/i), '200');
     await userEvent.type(screen.getByLabelText(/ano/i), '2026');
     await userEvent.click(screen.getByRole('button', { name: /salvar/i }));
@@ -109,6 +113,7 @@ describe('LivroForm — criar', () => {
       title: 'Livro Novo',
       author: 'Autora Nova',
       price: 4990,
+      social_price: 3500,
       pages: 200,
       year: 2026,
     });
@@ -128,7 +133,8 @@ describe('LivroForm — criar', () => {
     window.dispatchEvent(dirty);
     expect(dirty.defaultPrevented).toBe(true);
 
-    await userEvent.type(screen.getByLabelText(/preço/i), '10,00');
+    await userEvent.type(screen.getByLabelText('Preço (R$)'), '10,00');
+    await userEvent.type(screen.getByLabelText('Preço social (R$)'), '10,00');
     await userEvent.click(screen.getByRole('button', { name: /salvar/i }));
     await screen.findByText('LISTA LIVROS');
 
@@ -154,7 +160,7 @@ describe('LivroForm — editar', () => {
 
     const titulo = await screen.findByLabelText(/título/i);
     expect(titulo).toHaveValue('A Comuna e o Fogo');
-    expect(screen.getByLabelText(/preço/i)).toHaveValue('42,00');
+    expect(screen.getByLabelText('Preço (R$)')).toHaveValue('42,00');
 
     await userEvent.clear(titulo);
     await userEvent.type(titulo, 'Título Editado');
@@ -168,5 +174,33 @@ describe('LivroForm — editar', () => {
     const body = JSON.parse((putCall![1] as RequestInit).body as string);
     expect(body.title).toBe('Título Editado');
     expect(body.price).toBe(4200);
+  });
+  it('edita: carrega o preço social e o envia no PUT', async () => {
+    renderForm('/backoffice/livros/b1/editar');
+
+    const social = await screen.findByLabelText('Preço social (R$)');
+    expect(social).toHaveValue('30,00');
+
+    await userEvent.clear(social);
+    await userEvent.type(social, '25,00');
+    await userEvent.click(screen.getByRole('button', { name: /salvar/i }));
+    await screen.findByText('LISTA LIVROS');
+
+    const putCall = fetchMock.mock.calls.find(([, i]) => (i as RequestInit)?.method === 'PUT');
+    const body = JSON.parse((putCall![1] as RequestInit).body as string);
+    expect(body.social_price).toBe(2500);
+  });
+
+  it('livro antigo sem preço social pré-preenche com o preço cheio', async () => {
+    const legado = { ...existingBook, social_price: undefined };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation(() =>
+        Promise.resolve(new Response(JSON.stringify([legado]), { status: 200 })),
+      ),
+    );
+    renderForm('/backoffice/livros/b1/editar');
+
+    expect(await screen.findByLabelText('Preço social (R$)')).toHaveValue('42,00');
   });
 });

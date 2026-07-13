@@ -4,11 +4,13 @@ import { ApiError, apiAuthPost, apiAuthPut, apiGet } from '../../api/client';
 import { clearToken } from '../../backoffice/auth';
 import { useDirtyGuard } from '../../backoffice/useDirtyGuard';
 import { centsToText, textToCents } from '../../lib/format';
+import { socialPriceOf } from '../../lib/types';
 import type { Book } from '../../lib/types';
 
 interface FieldErrors {
   title?: string;
   price?: string;
+  social_price?: string;
 }
 
 
@@ -21,6 +23,7 @@ export function LivroForm() {
   const [author, setAuthor] = useState('');
   const [description, setDescription] = useState('');
   const [priceText, setPriceText] = useState('');
+  const [socialPriceText, setSocialPriceText] = useState('');
   const [pages, setPages] = useState('');
   const [edition, setEdition] = useState('');
   const [year, setYear] = useState('');
@@ -32,8 +35,8 @@ export function LivroForm() {
   const [loadingBook, setLoadingBook] = useState(editing);
 
   // sujo = campos diferentes do estado inicial (vazio ao criar, carregado ao editar)
-  const snapshot = JSON.stringify([title, author, description, priceText, pages, edition, year, format]);
-  const baselineRef = useRef(JSON.stringify(['', '', '', '', '', '', '', '']));
+  const snapshot = JSON.stringify([title, author, description, priceText, socialPriceText, pages, edition, year, format]);
+  const baselineRef = useRef(JSON.stringify(['', '', '', '', '', '', '', '', '']));
   useDirtyGuard(snapshot !== baselineRef.current);
 
   useEffect(() => {
@@ -49,6 +52,8 @@ export function LivroForm() {
         setAuthor(book.author ?? '');
         setDescription(book.description ?? '');
         setPriceText(centsToText(book.price));
+        // legado sem preço social: pré-preenche com o cheio
+        setSocialPriceText(centsToText(socialPriceOf(book)));
         setPages(book.pages !== undefined ? String(book.pages) : '');
         setEdition(book.edition ?? '');
         setYear(book.year !== undefined ? String(book.year) : '');
@@ -58,6 +63,7 @@ export function LivroForm() {
           book.author ?? '',
           book.description ?? '',
           centsToText(book.price),
+          centsToText(socialPriceOf(book)),
           book.pages !== undefined ? String(book.pages) : '',
           book.edition ?? '',
           book.year !== undefined ? String(book.year) : '',
@@ -80,14 +86,19 @@ export function LivroForm() {
 
     const nextErrors: FieldErrors = {};
     const price = textToCents(priceText);
+    const socialPrice = textToCents(socialPriceText);
     if (!title.trim()) nextErrors.title = 'Informe o título.';
     if (price === null) nextErrors.price = 'Informe um preço válido (ex.: 49,90).';
+    if (socialPrice === null) {
+      nextErrors.social_price = 'Informe um preço social válido (ex.: 35,00).';
+    }
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) return;
 
     const payload: Record<string, unknown> = {
       title: title.trim(),
       price,
+      social_price: socialPrice,
     };
     if (description.trim()) payload.description = description.trim();
     if (author.trim()) payload.author = author.trim();
@@ -173,6 +184,19 @@ export function LivroForm() {
               onChange={(e) => setPriceText(e.target.value)}
             />
             {errors.price && <div className="field-error">{errors.price}</div>}
+          </div>
+          <div>
+            <label className="field-label" htmlFor="livro-preco-social">
+              Preço social (R$)
+            </label>
+            <input
+              id="livro-preco-social"
+              className={`field-input${errors.social_price ? ' field-input--error' : ''}`}
+              placeholder="35,00"
+              value={socialPriceText}
+              onChange={(e) => setSocialPriceText(e.target.value)}
+            />
+            {errors.social_price && <div className="field-error">{errors.social_price}</div>}
           </div>
           <div>
             <label className="field-label" htmlFor="livro-paginas">

@@ -5,8 +5,8 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { Pedidos } from './Pedidos';
 
 const livros = [
-  { id: 'b1', title: 'A Comuna e o Fogo', price: 4200, description: '', amount: 3, status: 'disponível' },
-  { id: 'b2', title: 'O Pão e as Rosas', price: 3800, description: '', amount: 0, status: 'disponível' },
+  { id: 'b1', title: 'A Comuna e o Fogo', price: 4200, social_price: 3000, description: '', amount: 3, status: 'disponível' },
+  { id: 'b2', title: 'O Pão e as Rosas', price: 3800, social_price: 2000, description: '', amount: 0, status: 'disponível' },
 ];
 
 interface UnitItem {
@@ -446,6 +446,35 @@ describe('Backoffice — Pedidos (linhas por unidade)', () => {
     await screen.findByText('Camarada Rosa');
     // 100,00 (recebido) + 42,00 (preço da unidade não paga)
     expect(screen.getByText('R$ 142,00')).toBeInTheDocument();
+  });
+
+  it('checkbox Preço social preenche o input com o preço social e grava a flag no PATCH', async () => {
+    stubFetch([
+      order('PED001', [{ unit_id: 'u1', title_id: 'b1', status: 'waiting-payment' }]),
+    ]);
+    renderPage();
+
+    await userEvent.click(await screen.findByRole('button', { name: /confirmar pagamento/i }));
+    const input = screen.getByLabelText(/valor recebido/i);
+    expect(input).toHaveValue('42,00');
+
+    const checkbox = screen.getByRole('checkbox', { name: /preço social/i });
+    await userEvent.click(checkbox);
+    expect(input).toHaveValue('30,00');
+
+    // desmarcar volta ao preço cheio; input segue editável
+    await userEvent.click(checkbox);
+    expect(input).toHaveValue('42,00');
+    await userEvent.click(checkbox);
+
+    await userEvent.click(screen.getByRole('button', { name: /^confirmar$/i }));
+    const patchCall = fetchMock.mock.calls.find(([, init]) => init?.method === 'PATCH');
+    expect(JSON.parse((patchCall![1] as RequestInit).body as string)).toEqual({
+      status: 'payment-received',
+      received_amount: 3000,
+      social_price: true,
+      unit_id: 'u1',
+    });
   });
 
   it('Adicionar observação abre textarea inline e faz PATCH com o texto', async () => {

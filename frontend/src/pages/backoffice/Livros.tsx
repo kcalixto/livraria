@@ -7,6 +7,7 @@ import { CoverThumb } from "../../components/CoverThumb";
 import { Toast } from "../../components/Toast";
 import type { ToastData } from "../../components/Toast";
 import { formatPrice, normalizeText } from "../../lib/format";
+import { socialPriceOf } from "../../lib/types";
 import type { Book } from "../../lib/types";
 
 // id encurtado clicável: copia o uuid completo (nome do arquivo da capa)
@@ -118,6 +119,7 @@ export function Livros() {
             <span role="columnheader">Título</span>
             <span role="columnheader">Autor</span>
             <span role="columnheader">Preço</span>
+            <span role="columnheader">P. social</span>
             <span role="columnheader">Ano</span>
             <span className="t-right" role="columnheader">Ações</span>
           </div>
@@ -145,6 +147,9 @@ export function Livros() {
               <span className="bo-livros__author" role="cell">{book.author ?? "—"}</span>
               <span className="bo-livros__price" role="cell">
                 {formatPrice(book.price)}
+              </span>
+              <span className="bo-livros__price bo-livros__social-price" role="cell">
+                {formatPrice(socialPriceOf(book))}
               </span>
               <span className="bo-livros__year" role="cell">{book.year ?? "—"}</span>
               <span className="t-right bo-livros__actions" role="cell">

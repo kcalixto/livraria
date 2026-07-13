@@ -14,6 +14,7 @@ interface SaleUnit {
   status: string;
   picked_up?: boolean;
   received_amount?: number;
+  social_price?: boolean;
   paid_at?: string;
   updated_at?: string;
 }
@@ -159,6 +160,20 @@ describe('Backoffice — Vendas', () => {
     expect(screen.getByText('#AAA-111')).toBeInTheDocument();
   });
 
+  it('venda com preço social ganha badge "social"', async () => {
+    stubFetch([
+      order('PED001', '2026-07-01T10:00:00.000Z', [
+        soldUnit({ received_amount: 3000, social_price: true }),
+        soldUnit({ received_amount: 4200 }),
+      ]),
+    ]);
+    renderPage();
+
+    await setRange('2026-07', '2026-07');
+    await screen.findAllByText('#PED-001');
+    expect(screen.getAllByText(/social/i)).toHaveLength(1);
+  });
+
   it('pagina de 50 em 50', async () => {
     const orders = Array.from({ length: 55 }, (_, i) =>
       order(`P${String(i).padStart(5, '0')}`, '2026-07-01T10:00:00.000Z', [soldUnit()]),
@@ -181,7 +196,11 @@ describe('Backoffice — Vendas', () => {
     });
     const orders = Array.from({ length: 55 }, (_, i) =>
       order(`P${String(i).padStart(5, '0')}`, '2026-07-01T10:00:00.000Z', [
-        soldUnit({ received_amount: 10000, paid_at: '2026-07-05T12:00:00.000Z' }),
+        soldUnit({
+          received_amount: 10000,
+          paid_at: '2026-07-05T12:00:00.000Z',
+          social_price: i === 0,
+        }),
       ]),
     );
     stubFetch(orders);
@@ -206,11 +225,12 @@ describe('Backoffice — Vendas', () => {
     vi.stubGlobal('Blob', FakeBlob as never);
 
     await userEvent.click(screen.getByRole('button', { name: /exportar csv/i }));
-    // cabeçalho com data de pagamento
-    expect(capturedCsv).toContain('pedido;cliente;contato;livro;valor_recebido;data_pedido;data_pagamento;data_finalizacao');
+    // cabeçalho com data de pagamento e flag de preço social
+    expect(capturedCsv).toContain('pedido;cliente;contato;livro;valor_recebido;preco_social;data_pedido;data_pagamento;data_finalizacao');
     // TODAS as 55 linhas do período, ignorando a paginação
     expect(capturedCsv!.trim().split('\n')).toHaveLength(56);
-    expect(capturedCsv).toContain('100,00');
+    expect(capturedCsv).toContain('100,00;sim');
+    expect(capturedCsv).toContain('100,00;nao');
     expect(capturedCsv).toContain('05/07/2026'); // data de pagamento
   });
 });

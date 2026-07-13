@@ -11,6 +11,7 @@ export interface UnitItem {
   status: OrderStatus;
   lote_id?: string;
   received_amount?: number;
+  social_price?: boolean; // venda feita com preço social
   picked_up?: boolean;
   paid_at?: string;
   observation?: string; // escrita pelo operador; visível na consulta pública

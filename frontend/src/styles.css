@@ -1222,7 +1222,7 @@ a:hover {
 .bo-livros__cols,
 .bo-livros__row {
   display: grid;
-  grid-template-columns: 60px 90px 2fr 1.3fr 0.9fr 0.6fr 1.6fr;
+  grid-template-columns: 60px 90px 2fr 1.3fr 0.9fr 0.9fr 0.6fr 1.6fr;
   gap: 12px;
   align-items: center;
   padding: 10px 16px;
@@ -2154,6 +2154,30 @@ a.btn--secondary:hover {
 }
 .stock-sort-btn:hover {
   color: var(--wine);
+}
+
+/* ── Preço social ── */
+.pay-inline__social,
+.lote-form__social-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-mid);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.pay-inline__social input,
+.lote-form__social-toggle input {
+  accent-color: var(--wine);
+  cursor: pointer;
+}
+.sales-table__social {
+  margin-left: 6px;
+  font-size: 9.5px;
 }
 
 /* ── Observação por unidade (backoffice) ── */

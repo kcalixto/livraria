@@ -2,6 +2,7 @@ import { Fragment, useState } from 'react';
 import { RedirectToLogin } from '../../components/RedirectToLogin';
 import { ApiError, apiAuthPatch } from '../../api/client';
 import { centsToText, formatPrice, normalizeText, textToCents } from '../../lib/format';
+import { socialPriceOf } from '../../lib/types';
 import {
   formatOrderDate,
   isDelivered,
@@ -59,6 +60,7 @@ export function Pedidos() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [payText, setPayText] = useState('');
+  const [paySocial, setPaySocial] = useState(false);
   // busca por código/nome/contato/título + chip de status
   const query = normalizeText(search.trim());
   const queryId = search.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
@@ -107,9 +109,17 @@ export function Pedidos() {
 
   function openPayment(item: UnitItem) {
     const book = books.get(item.title_id);
+    setPaySocial(false);
     setPayText(book ? centsToText(book.price) : '');
     setPayingUnitId(item.unit_id);
-      }
+  }
+
+  // atalho de digitação + rastro: preenche com o preço social e marca a venda
+  function toggleSocial(item: UnitItem, checked: boolean) {
+    const book = books.get(item.title_id);
+    setPaySocial(checked);
+    if (book) setPayText(centsToText(checked ? socialPriceOf(book) : book.price));
+  }
 
   async function confirmPayment(order: Order, item: UnitItem) {
     const cents = textToCents(payText);
@@ -120,7 +130,11 @@ export function Pedidos() {
     await patch(
       order,
       item,
-      { status: 'payment-received', received_amount: cents },
+      {
+        status: 'payment-received',
+        received_amount: cents,
+        ...(paySocial && { social_price: true }),
+      },
       'Pagamento efetuado',
     );
   }
@@ -144,6 +158,14 @@ export function Pedidos() {
               if (e.key === 'Escape') setPayingUnitId(null);
             }}
           />
+          <label className="pay-inline__social">
+            <input
+              type="checkbox"
+              checked={paySocial}
+              onChange={(e) => toggleSocial(item, e.target.checked)}
+            />
+            Preço social
+          </label>
           <button className="stage-action" onClick={() => void confirmPayment(order, item)}>
             Confirmar
           </button>

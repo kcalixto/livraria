@@ -18,6 +18,7 @@ const UNIT_FIELDS = [
   'picked_up',
   'paid_at',
   'observation',
+  'social_price',
   'updated_at',
 ] as const;
 
@@ -204,6 +205,8 @@ backofficePedidos.patch('/:id/status', async (c) => {
     }
     spec.sets.received_amount = body.received_amount;
     spec.sets.paid_at = new Date().toISOString(); // data do pagamento (relatórios)
+    // venda com preço social: rastreável nos relatórios
+    if (body.social_price === true) spec.sets.social_price = true;
   }
 
   // entrada em estado que deduz estoque, ainda sem lote → aloca FIFO

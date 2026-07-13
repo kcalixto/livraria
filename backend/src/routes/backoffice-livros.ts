@@ -5,7 +5,8 @@ import { docClient } from '../lib/db';
 import { adminApiKeyMiddleware } from '../middlewares/admin-api-key';
 import { jwtMiddleware } from '../middlewares/jwt';
 
-const REQUIRED_FIELDS = ['title', 'price'] as const;
+// social_price: preço pra quem não pode pagar o cheio (regra da livraria social)
+const REQUIRED_FIELDS = ['title', 'price', 'social_price'] as const;
 const OPTIONAL_FIELDS = ['description', 'author', 'pages', 'edition', 'year', 'format'] as const;
 const ALL_FIELDS = [...REQUIRED_FIELDS, ...OPTIONAL_FIELDS];
 
@@ -27,6 +28,9 @@ backofficeLivros.post('/', async (c) => {
   }
   if (invalidPrice(body.price)) {
     return c.json({ error: 'price must be a non-negative integer (cents)' }, 400);
+  }
+  if (invalidPrice(body.social_price)) {
+    return c.json({ error: 'social_price must be a non-negative integer (cents)' }, 400);
   }
 
   const now = new Date().toISOString();
@@ -55,6 +59,9 @@ backofficeLivros.put('/:id', async (c) => {
   }
   if (body.price !== undefined && invalidPrice(body.price)) {
     return c.json({ error: 'price must be a non-negative integer (cents)' }, 400);
+  }
+  if (body.social_price !== undefined && invalidPrice(body.social_price)) {
+    return c.json({ error: 'social_price must be a non-negative integer (cents)' }, 400);
   }
 
   const setParts = updates.map((f) => `#${f} = :${f}`);
