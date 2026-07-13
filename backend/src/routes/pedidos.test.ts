@@ -80,19 +80,23 @@ describe('POST /pedidos (linhas por unidade)', () => {
       method: 'POST',
       body: JSON.stringify({
         ...validBody,
-        items: [{ book_id: 'livro-a', amount: 60 }],
+        // teto do pedido é 40 unidades (20 por título)
+        items: [
+          { book_id: 'livro-a', amount: 20 },
+          { book_id: 'livro-b', amount: 20 },
+        ],
       }),
       headers: JSON_HEADER,
     });
 
     expect(res.status).toBe(201);
     const batches = ddbMock.commandCalls(BatchWriteCommand);
-    expect(batches).toHaveLength(3); // 25 + 25 + 10
+    expect(batches).toHaveLength(2); // 25 + 15
     const sizes = batches.map(
       (b) => b.args[0].input.RequestItems!['livraria-tb-pedidos-test'].length,
     );
-    expect(sizes).toEqual([25, 25, 10]);
-    expect(writtenItems()).toHaveLength(60);
+    expect(sizes).toEqual([25, 15]);
+    expect(writtenItems()).toHaveLength(40);
   });
 
   it('soma amounts de book_id repetido antes de explodir', async () => {
@@ -293,5 +297,58 @@ describe('POST /pedidos/:id/cancelamento (solicitação pública por item)', () 
     const res = await app.request('/pedidos/AJ3C9K', { headers: JSON_HEADER });
     const body = (await res.json()) as { items: Array<Record<string, unknown>> };
     expect(body.items[0]).toMatchObject({ unit_id: 'u1', cancel_requested: true });
+  });
+});
+
+describe('POST /pedidos — limites e sanitização (anti-abuso)', () => {
+  beforeEach(() => {
+    ddbMock.on(BatchWriteCommand).resolves({});
+  });
+
+  it.each([
+    ['name com 81 chars', { ...validBody, name: 'x'.repeat(81) }],
+    ['contact com 121 chars', { ...validBody, contact: 'y'.repeat(121) }],
+    ['region com 61 chars', { ...validBody, region: 'z'.repeat(61) }],
+    [
+      'mais de 40 unidades no total',
+      {
+        ...validBody,
+        items: [
+          { book_id: 'livro-a', amount: 20 },
+          { book_id: 'livro-b', amount: 20 },
+          { book_id: 'livro-c', amount: 1 },
+        ],
+      },
+    ],
+    ['mais de 20 unidades de um título', { ...validBody, items: [{ book_id: 'livro-a', amount: 21 }] }],
+  ])('retorna 400: %s', async (_label, body) => {
+    const res = await app.request('/pedidos', {
+      method: 'POST',
+      body: JSON.stringify(body),
+      headers: JSON_HEADER,
+    });
+    expect(res.status).toBe(400);
+    expect(ddbMock.commandCalls(BatchWriteCommand)).toHaveLength(0);
+  });
+
+  it('remove caracteres de controle de name/contact antes de gravar', async () => {
+    const res = await app.request('/pedidos', {
+      method: 'POST',
+      body: JSON.stringify({ ...validBody, name: 'Fula no', contact: 'a@b.c' }),
+      headers: JSON_HEADER,
+    });
+
+    expect(res.status).toBe(201);
+    const item = writtenItems()[0];
+    expect(item.name).toBe('Fulano');
+    expect(item.contact).toBe('a@b.c');
+  });
+});
+
+describe('GET /pedidos/:id — código malformado não consulta o banco', () => {
+  it.each([['AB'], ['ABCDEFGH'], ['%20%20']])('404 imediato para %s', async (raw) => {
+    const res = await app.request(`/pedidos/${raw}`, { headers: JSON_HEADER });
+    expect(res.status).toBe(404);
+    expect(ddbMock.commandCalls(QueryCommand)).toHaveLength(0);
   });
 });

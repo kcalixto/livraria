@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { RedirectToLogin } from '../../components/RedirectToLogin';
+import { csvEscape } from '../../lib/csv';
 import { centsToText, formatPrice, normalizeText } from '../../lib/format';
 import { formatOrderDate, isUnitClosed, shortOrderId } from '../../backoffice/order-status';
 import type { Order, UnitItem } from '../../backoffice/order-status';
@@ -45,9 +46,6 @@ function csvDate(iso: string | undefined): string {
   return `${dd}/${mm}/${d.getFullYear()}`;
 }
 
-function csvEscape(value: string): string {
-  return /[;"\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
-}
 
 export function Vendas() {
   const { loading, error, unauthorized, orders, books, reload } = useOrders();

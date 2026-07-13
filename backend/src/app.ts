@@ -11,8 +11,21 @@ import { backofficePedidos } from "./routes/backoffice-pedidos";
 
 export const app = new Hono();
 
-// TODO: fix me
-app.use("*", cors({ origin: "*" }));
+// CORS restrito aos sites da livraria + dev local. Só afeta browsers —
+// curl/scripts (seed, admin) não passam por CORS. (typo do bucket prd é real)
+const ALLOWED_ORIGINS = [
+  "http://livraria-serverless-deployment-dev.s3-website-sa-east-1.amazonaws.com",
+  "http://livraria-serverless-deplyment-prd.s3-website-sa-east-1.amazonaws.com",
+];
+app.use(
+  "*",
+  cors({
+    origin: (origin) =>
+      ALLOWED_ORIGINS.includes(origin) || origin.startsWith("http://localhost:")
+        ? origin
+        : null,
+  }),
+);
 
 // Gate global: toda rota exige a chave de api do front (o cors responde o
 // preflight OPTIONS antes de chegar aqui). Auth real do backoffice é o JWT.

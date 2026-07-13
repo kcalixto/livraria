@@ -4,6 +4,7 @@ import { RedirectToLogin } from '../../components/RedirectToLogin';
 import { ApiError, apiAuthGet, apiGet } from '../../api/client';
 import { clearToken } from '../../backoffice/auth';
 import { CoverThumb } from '../../components/CoverThumb';
+import { csvEscape } from '../../lib/csv';
 import { ACTIVE_REGION } from '../../lib/region';
 import type { Book } from '../../lib/types';
 
@@ -37,9 +38,6 @@ interface Sort {
   dir: 'asc' | 'desc';
 }
 
-function csvEscape(value: string): string {
-  return /[;"\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
-}
 
 function qtyClass(qty: number): string {
   if (qty === 0) return 'stock-qty--zero';

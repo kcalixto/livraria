@@ -7,6 +7,16 @@ const ORDER_CODE_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
 const ORDER_CODE_LENGTH = 6;
 const MAX_CODE_ATTEMPTS = 5;
 
+// limites anti-abuso da rota pública (pedido-bomba / payload gigante)
+const FIELD_LIMITS = { name: 80, contact: 120, region: 60 } as const;
+const MAX_UNITS_PER_ORDER = 40;
+const MAX_UNITS_PER_TITLE = 20;
+
+// caracteres de controle não têm uso legítimo em nome/contato
+function stripControlChars(text: string): string {
+  return [...text].filter((ch) => ch.charCodeAt(0) >= 0x20 && ch.charCodeAt(0) !== 0x7f).join('');
+}
+
 function generateOrderCode(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(ORDER_CODE_LENGTH));
   return [...bytes].map((b) => ORDER_CODE_CHARS[b % ORDER_CODE_CHARS.length]).join('');
@@ -58,6 +68,9 @@ pedidos.post('/', async (c) => {
     if (typeof body[field] !== 'string' || body[field].trim() === '') {
       return c.json({ error: `${field} is required` }, 400);
     }
+    if (body[field].length > FIELD_LIMITS[field]) {
+      return c.json({ error: `${field} must be at most ${FIELD_LIMITS[field]} characters` }, 400);
+    }
   }
   const items = parseItems(body.items);
   if (!items) {
@@ -65,6 +78,13 @@ pedidos.post('/', async (c) => {
       { error: 'items must be a non-empty list with book_id and integer amount >= 1' },
       400,
     );
+  }
+  if (items.some(({ amount }) => amount > MAX_UNITS_PER_TITLE)) {
+    return c.json({ error: `at most ${MAX_UNITS_PER_TITLE} units per title` }, 400);
+  }
+  const totalUnits = items.reduce((sum, { amount }) => sum + amount, 0);
+  if (totalUnits > MAX_UNITS_PER_ORDER) {
+    return c.json({ error: `at most ${MAX_UNITS_PER_ORDER} units per order` }, 400);
   }
 
   const id = await uniqueOrderCode();
@@ -83,9 +103,9 @@ pedidos.post('/', async (c) => {
             book_id: `${book_id}#${unitId}`,
             title_id: book_id,
             unit_id: unitId,
-            name: body.name,
-            contact: body.contact,
-            region: body.region,
+            name: stripControlChars(body.name),
+            contact: stripControlChars(body.contact),
+            region: stripControlChars(body.region),
             status: ORDER_STATUS_WAITING_PAYMENT,
             created_at: now,
             updated_at: now,
@@ -127,6 +147,8 @@ async function queryOrderLines(id: string) {
 // e o unit_id (endereço do item pra solicitar cancelamento).
 pedidos.get('/:id', async (c) => {
   const id = normalizeCode(c.req.param('id'));
+  // código fora do formato nem consulta o banco (reduz brute-force barato)
+  if (!/^[A-Z0-9]{6}$/.test(id)) return c.json({ error: 'not found' }, 404);
 
   const lines = await queryOrderLines(id);
   if (lines.length === 0) return c.json({ error: 'not found' }, 404);
@@ -155,6 +177,7 @@ pedidos.post('/:id/cancelamento', async (c) => {
   }
 
   const id = normalizeCode(c.req.param('id'));
+  if (!/^[A-Z0-9]{6}$/.test(id)) return c.json({ error: 'not found' }, 404);
   const lines = await queryOrderLines(id);
   if (lines.length === 0) return c.json({ error: 'not found' }, 404);
 
