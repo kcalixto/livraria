@@ -635,6 +635,37 @@ describe('Backoffice — Pedidos (linhas por unidade)', () => {
     });
   });
 
+  it('Verificar resumo abre modal agrupado; Copiar escreve no clipboard; overlay fecha', async () => {
+    const user = userEvent.setup();
+    stubFetch([
+      order('PED001', [
+        { unit_id: 'u1', title_id: 'b1', status: 'waiting-payment' },
+        { unit_id: 'u2', title_id: 'b1', status: 'payment-received', received_amount: 10000 },
+        { unit_id: 'u3', title_id: 'b2', status: 'cancelled' },
+      ]),
+    ]);
+    renderPage();
+
+    await user.click(await screen.findByRole('button', { name: /verificar resumo/i }));
+
+    const modal = await screen.findByRole('dialog');
+    // agrupado por título: 2× A Comuna (42,00 + 100,00), cancelado fora
+    expect(modal.textContent).toContain('2× A Comuna e o Fogo');
+    expect(modal.textContent).toContain('R$ 142,00');
+    expect(modal.textContent).not.toContain('O Pão e as Rosas');
+
+    await user.click(screen.getByRole('button', { name: /^copiar$/i }));
+    const copied = await navigator.clipboard.readText();
+    expect(copied).toContain('#PED-001');
+    expect(copied).toContain('2× A Comuna e o Fogo — R$ 142,00');
+    expect(copied).toContain('Total: R$ 142,00');
+    expect(await screen.findByText(/copiado/i)).toBeInTheDocument();
+
+    // clicar no overlay (fora do conteúdo) fecha
+    await user.click(document.querySelector('.modal-overlay')!);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
   it('token expirado (401): limpa token e volta pro login', async () => {
     vi.stubGlobal(
       'fetch',

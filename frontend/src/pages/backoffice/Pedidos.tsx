@@ -12,8 +12,10 @@ import {
 } from '../../backoffice/order-status';
 import type { Order, UnitItem } from '../../backoffice/order-status';
 import { useOrders } from '../../backoffice/useOrders';
+import { ActionIcon } from '../../components/ActionIcon';
 import { ClampedText } from '../../components/ClampedText';
 import { ContactLink } from '../../components/ContactLink';
+import { OrderSummaryModal } from '../../components/OrderSummaryModal';
 import { Toast } from '../../components/Toast';
 import type { ToastData } from '../../components/Toast';
 import type { BookInfo } from '../../backoffice/useOrders';
@@ -69,6 +71,7 @@ export function Pedidos() {
   const [cancellingUnitId, setCancellingUnitId] = useState<string | null>(null);
   const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null);
   const [pickingUpOrderId, setPickingUpOrderId] = useState<string | null>(null);
+  const [summaryOrderId, setSummaryOrderId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [payText, setPayText] = useState('');
@@ -211,15 +214,13 @@ export function Pedidos() {
     if (item.picked_up) {
       return (
         <>
-          <button className="stage-action" onClick={() => openPayment(item)}>
-            Confirmar pagamento
-          </button>
-          <button
-            className="stage-action"
+          <ActionIcon icon="pay" variant="green" label="Confirmar pagamento" onClick={() => openPayment(item)} />
+          <ActionIcon
+            icon="undo"
+            variant="gray"
+            label="Desfazer retirado"
             onClick={() => void patch(order, item, { picked_up: false }, 'Retirada desfeita')}
-          >
-            Desfazer retirado
-          </button>
+          />
         </>
       );
     }
@@ -228,59 +229,55 @@ export function Pedidos() {
       case 'waiting-payment':
         return (
           <>
-            <button
-              className="stage-action"
+            <ActionIcon
+              icon="reserve"
+              variant="teal"
+              label="Reservar"
               onClick={() => void patch(order, item, { status: 'in-reserve' }, 'Em Reserva')}
-            >
-              Reservar
-            </button>
-            <button className="stage-action" onClick={() => openPayment(item)}>
-              Confirmar pagamento
-            </button>
-            <button
-              className="stage-action"
+            />
+            <ActionIcon icon="pay" variant="green" label="Confirmar pagamento" onClick={() => openPayment(item)} />
+            <ActionIcon
+              icon="pickup"
+              variant="amber"
+              label="Retirado s/ pagamento"
               onClick={() =>
                 void patch(order, item, { picked_up: true }, 'Retirado sem pagamento')
               }
-            >
-              Retirado s/ pagamento
-            </button>
+            />
           </>
         );
       case 'in-reserve':
         return (
           <>
-            <button className="stage-action" onClick={() => openPayment(item)}>
-              Confirmar pagamento
-            </button>
-            <button
-              className="stage-action"
+            <ActionIcon icon="pay" variant="green" label="Confirmar pagamento" onClick={() => openPayment(item)} />
+            <ActionIcon
+              icon="release"
+              variant="gray"
+              label="Liberar reserva"
               onClick={() =>
                 void patch(order, item, { status: 'waiting-payment' }, 'Reserva liberada')
               }
-            >
-              Liberar reserva
-            </button>
-            <button
-              className="stage-action"
+            />
+            <ActionIcon
+              icon="pickup"
+              variant="amber"
+              label="Retirado s/ pagamento"
               onClick={() =>
                 void patch(order, item, { picked_up: true }, 'Retirado sem pagamento')
               }
-            >
-              Retirado s/ pagamento
-            </button>
+            />
           </>
         );
       case 'payment-received':
         return (
-          <button
-            className="stage-action"
+          <ActionIcon
+            icon="deliver"
+            variant="blue"
+            label="Enviar p/ entrega"
             onClick={() =>
               void patch(order, item, { status: 'sent-to-delivery' }, 'Enviado para entrega')
             }
-          >
-            Enviar p/ entrega
-          </button>
+          />
         );
       case 'sent-to-delivery':
         // única transição irreversível — confirma inline antes do PATCH
@@ -301,9 +298,12 @@ export function Pedidos() {
           );
         }
         return (
-          <button className="stage-action" onClick={() => setConfirmingUnitId(item.unit_id)}>
-            Marcar entregue
-          </button>
+          <ActionIcon
+            icon="done"
+            variant="forest"
+            label="Marcar entregue"
+            onClick={() => setConfirmingUnitId(item.unit_id)}
+          />
         );
       default:
         return <span className="stage-action stage-action--done">Concluído</span>;
@@ -432,23 +432,31 @@ export function Pedidos() {
                 </span>
               ) : (
                 <>
+                  <ActionIcon
+                    icon="summary"
+                    variant="ink"
+                    label="Verificar resumo"
+                    onClick={() => setSummaryOrderId(order.id)}
+                  />
                   {order.items.some(
                     (i) =>
                       !i.picked_up &&
                       (i.status === 'waiting-payment' || i.status === 'in-reserve'),
                   ) && (
-                    <button
-                      className="stage-action"
+                    <ActionIcon
+                      icon="pickup"
+                      variant="amber"
+                      label="Retirado s/ pagamento (todos)"
                       onClick={() => setPickingUpOrderId(order.id)}
-                    >
-                      Retirado s/ pagamento (todos)
-                    </button>
+                    />
                   )}
                   {order.items.some(
                     (i) => i.picked_up && i.status === 'waiting-payment',
                   ) && (
-                    <button
-                      className="stage-action"
+                    <ActionIcon
+                      icon="undo"
+                      variant="gray"
+                      label="Desfazer retirada (todos)"
                       onClick={() =>
                         void patchRaw(
                           order.id,
@@ -456,16 +464,14 @@ export function Pedidos() {
                           `✓ ${shortOrderId(order.id)} → retiradas desfeitas`,
                         )
                       }
-                    >
-                      Desfazer retirada (todos)
-                    </button>
+                    />
                   )}
-                  <button
-                    className="stage-action stage-action--danger"
+                  <ActionIcon
+                    icon="cancel"
+                    variant="red"
+                    label="Cancelar itens do pedido"
                     onClick={() => setCancellingOrderId(order.id)}
-                  >
-                    Cancelar itens do pedido
-                  </button>
+                  />
                 </>
               )}
             </span>
@@ -531,17 +537,21 @@ export function Pedidos() {
                     <>
                       {renderActions(order, item)}
                       {item.status !== 'cancelled' && obsUnitId !== item.unit_id && (
-                        <button className="stage-action" onClick={() => openObservation(item)}>
-                          {item.observation ? 'Editar observação' : 'Adicionar observação'}
-                        </button>
+                        <ActionIcon
+                          icon="note"
+                          variant="gray"
+                          filled={Boolean(item.observation)}
+                          label={item.observation ? 'Editar observação' : 'Adicionar observação'}
+                          onClick={() => openObservation(item)}
+                        />
                       )}
                       {!isUnitClosed(item) && payingUnitId !== item.unit_id && (
-                        <button
-                          className="stage-action stage-action--danger"
+                        <ActionIcon
+                          icon="cancel"
+                          variant="red"
+                          label="Cancelar item"
                           onClick={() => setCancellingUnitId(item.unit_id)}
-                        >
-                          Cancelar item
-                        </button>
+                        />
                       )}
                     </>
                   )}
@@ -597,6 +607,18 @@ export function Pedidos() {
           })}
         </div>
       ))}
+
+      {summaryOrderId &&
+        (() => {
+          const order = orders.find((o) => o.id === summaryOrderId);
+          return order ? (
+            <OrderSummaryModal
+              order={order}
+              books={books}
+              onClose={() => setSummaryOrderId(null)}
+            />
+          ) : null;
+        })()}
     </div>
   );
 }

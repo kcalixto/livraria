@@ -2219,6 +2219,133 @@ a.btn--secondary:hover {
   font-size: 10.5px;
 }
 
+/* ── Ícones de ação (Pedidos) ── */
+.action-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--border-input);
+  border-radius: 5px;
+  background: var(--surface-raised);
+  cursor: pointer;
+  vertical-align: middle;
+}
+.action-icon + .action-icon {
+  margin-left: 4px;
+}
+.action-icon:hover {
+  border-color: currentColor;
+  background: var(--input-bg);
+}
+.action-icon--teal { color: #2a6a66; }
+.action-icon--green { color: var(--success); }
+.action-icon--amber { color: var(--warn); }
+.action-icon--gray { color: var(--ink-mid); }
+.action-icon--blue { color: #2c4f7c; }
+.action-icon--forest { color: #2c5c2c; }
+.action-icon--red { color: var(--error); }
+.action-icon--ink { color: var(--ink); }
+
+/* ── Modal de resumo do pedido ── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(28, 26, 22, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+.modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  width: min(440px, calc(100vw - 32px));
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 12px 40px rgba(28, 26, 22, 0.25);
+}
+.modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-header);
+  border-radius: 8px 8px 0 0;
+}
+.modal__title {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 700;
+}
+.modal__close {
+  font-size: 20px;
+  line-height: 1;
+  color: var(--ink-mid);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 6px;
+}
+.modal__close:hover {
+  color: var(--ink);
+}
+.modal__body {
+  padding: 14px 18px;
+  overflow-y: auto;
+}
+.modal__line {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 0;
+  font-size: 14px;
+  color: var(--ink-body);
+}
+.modal__line-value {
+  font-family: var(--mono);
+  font-size: 13px;
+  white-space: nowrap;
+}
+.modal__empty {
+  font-size: 13px;
+  color: var(--ink-soft);
+  padding: 8px 0;
+}
+.modal__total {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 10px;
+  padding-top: 12px;
+  border-top: 2px solid var(--ink);
+  font-family: var(--mono);
+  font-size: 14px;
+  font-weight: 700;
+}
+.modal__footer {
+  padding: 12px 18px 16px;
+}
+
+/* mobile: o modal vira bottom-sheet (contexto preservado, Copiar sempre à mão) */
+@media (max-width: 700px) {
+  .modal-overlay {
+    align-items: flex-end;
+  }
+  .modal {
+    width: 100vw;
+    max-height: 85vh;
+    border-radius: 12px 12px 0 0;
+    border-bottom: none;
+  }
+  .modal__header {
+    border-radius: 12px 12px 0 0;
+  }
+}
+
 /* ── Observação por unidade (backoffice) ── */
 .order-card__obs {
   padding: 0 24px 12px;
