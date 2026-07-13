@@ -221,3 +221,77 @@ describe('GET /pedidos/:id (consulta pública por código)', () => {
     expect(res.status).toBe(404);
   });
 });
+
+describe('POST /pedidos/:id/cancelamento (solicitação pública por item)', () => {
+  const lines = [
+    {
+      id: 'AJ3C9K',
+      book_id: 'livro-a#u1',
+      title_id: 'livro-a',
+      unit_id: 'u1',
+      status: 'waiting-payment',
+      region: 'SP, Capital - Zona Sul',
+      created_at: '2026-07-09T14:00:00.000Z',
+    },
+    {
+      id: 'AJ3C9K',
+      book_id: 'livro-b#u2',
+      title_id: 'livro-b',
+      unit_id: 'u2',
+      status: 'received',
+      region: 'SP, Capital - Zona Sul',
+      created_at: '2026-07-09T14:00:00.000Z',
+    },
+  ];
+
+  async function requestCancel(code: string, body: Record<string, unknown>) {
+    return app.request(`/pedidos/${code}/cancelamento`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+      headers: JSON_HEADER,
+    });
+  }
+
+  it('marca cancel_requested na unidade (código com hífen/minúsculas)', async () => {
+    const { UpdateCommand } = await import('@aws-sdk/lib-dynamodb');
+    ddbMock.on(QueryCommand).resolves({ Items: lines });
+    ddbMock.on(UpdateCommand).resolves({});
+
+    const res = await requestCancel('aj3-c9k', { unit_id: 'u1' });
+
+    expect(res.status).toBe(200);
+    const input = ddbMock.commandCalls(UpdateCommand)[0].args[0].input;
+    expect(input.Key).toEqual({ id: 'AJ3C9K', book_id: 'livro-a#u1' });
+    expect(input.ExpressionAttributeValues![':cancel_requested']).toBe(true);
+    expect(input.ExpressionAttributeValues![':cancel_requested_at']).toBeTruthy();
+  });
+
+  it('400 pra unidade finalizada, já solicitada ou sem unit_id; 404 pra inexistentes', async () => {
+    const { UpdateCommand } = await import('@aws-sdk/lib-dynamodb');
+    ddbMock.on(UpdateCommand).resolves({});
+
+    ddbMock.on(QueryCommand).resolves({ Items: lines });
+    expect((await requestCancel('AJ3C9K', { unit_id: 'u2' })).status).toBe(400); // finalizada
+    expect((await requestCancel('AJ3C9K', {})).status).toBe(400); // sem unit_id
+    expect((await requestCancel('AJ3C9K', { unit_id: 'nao-tem' })).status).toBe(404);
+
+    ddbMock.on(QueryCommand).resolves({
+      Items: [{ ...lines[0], cancel_requested: true }],
+    });
+    expect((await requestCancel('AJ3C9K', { unit_id: 'u1' })).status).toBe(400); // já solicitada
+
+    ddbMock.on(QueryCommand).resolves({ Items: [] });
+    expect((await requestCancel('XXXXXX', { unit_id: 'u1' })).status).toBe(404);
+    expect(ddbMock.commandCalls(UpdateCommand)).toHaveLength(0);
+  });
+
+  it('GET público expõe unit_id e cancel_requested por item', async () => {
+    ddbMock.on(QueryCommand).resolves({
+      Items: [{ ...lines[0], cancel_requested: true }],
+    });
+
+    const res = await app.request('/pedidos/AJ3C9K', { headers: JSON_HEADER });
+    const body = (await res.json()) as { items: Array<Record<string, unknown>> };
+    expect(body.items[0]).toMatchObject({ unit_id: 'u1', cancel_requested: true });
+  });
+});

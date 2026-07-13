@@ -3,7 +3,8 @@ export type OrderStatus =
   | 'in-reserve'
   | 'payment-received'
   | 'sent-to-delivery'
-  | 'received';
+  | 'received'
+  | 'cancelled';
 
 export interface UnitItem {
   unit_id: string;
@@ -15,6 +16,7 @@ export interface UnitItem {
   picked_up?: boolean;
   paid_at?: string;
   observation?: string; // escrita pelo operador; visível na consulta pública
+  cancel_requested?: boolean; // cliente pediu cancelamento na consulta pública
   updated_at?: string;
 }
 
@@ -32,6 +34,7 @@ interface StageInfo {
   index: number;
   label: string;
   exceptional?: boolean; // fora do fluxo sequencial (como picked_up)
+  pill?: string; // variação visual própria (default: reserve quando exceptional)
 }
 
 // Fluxo NORMAL tem 4 estágios; "Em Reserva" é estado excepcional que ocupa a
@@ -44,6 +47,7 @@ export const STAGES: Record<OrderStatus, StageInfo> = {
   'payment-received': { index: 1, label: 'Pagamento efetuado' },
   'sent-to-delivery': { index: 2, label: 'Enviado para entrega' },
   received: { index: 3, label: 'Entregue' },
+  cancelled: { index: 0, label: 'Cancelado', exceptional: true, pill: 'cancelled' },
 };
 
 // unidade finalizada = aparece em Vendas
@@ -56,6 +60,11 @@ export function isUnitFinalized(item: UnitItem): boolean {
 
 export function isDelivered(order: Order): boolean {
   return order.items.every(isUnitFinalized);
+}
+
+// fechada = saiu do fluxo operacional (venda concluída OU cancelada)
+export function isUnitClosed(item: UnitItem): boolean {
+  return item.status === 'cancelled' || isUnitFinalized(item);
 }
 
 export function formatOrderDate(iso: string): string {

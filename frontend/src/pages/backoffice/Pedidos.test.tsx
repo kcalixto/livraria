@@ -525,6 +525,75 @@ describe('Backoffice — Pedidos (linhas por unidade)', () => {
     expect(screen.getByRole('button', { name: /editar observação/i })).toBeInTheDocument();
   });
 
+  it('Cancelar item exige confirmação e faz PATCH {cancel, unit_id}', async () => {
+    stubFetch([
+      order('PED001', [
+        { unit_id: 'u1', title_id: 'b1', status: 'waiting-payment' },
+        { unit_id: 'u2', title_id: 'b1', status: 'waiting-payment' },
+      ]),
+    ]);
+    renderPage();
+
+    const cancelButtons = await screen.findAllByRole('button', { name: /cancelar item/i });
+    await userEvent.click(cancelButtons[0]);
+    expect(fetchMock.mock.calls.filter(([, i]) => i?.method === 'PATCH')).toHaveLength(0);
+
+    await userEvent.click(screen.getByRole('button', { name: /^confirmar$/i }));
+    const patchCall = fetchMock.mock.calls.find(([, init]) => init?.method === 'PATCH');
+    expect(JSON.parse((patchCall![1] as RequestInit).body as string)).toEqual({
+      cancel: true,
+      unit_id: 'u1',
+    });
+  });
+
+  it('unidade cancelada em pedido misto: pill Cancelado, sem ações; badge de solicitação', async () => {
+    stubFetch([
+      order('PED001', [
+        { unit_id: 'u1', title_id: 'b1', status: 'cancelled' },
+        {
+          unit_id: 'u2',
+          title_id: 'b1',
+          status: 'waiting-payment',
+          cancel_requested: true,
+        } as UnitItem & { cancel_requested: boolean },
+      ]),
+    ]);
+    renderPage();
+
+    await screen.findByText('Camarada Rosa');
+    expect(screen.getByText('Cancelado')).toBeInTheDocument();
+    // unidade cancelada não tem ações (só a pendente tem)
+    expect(screen.getAllByRole('button', { name: /reservar/i })).toHaveLength(1);
+    expect(screen.getByText(/cancelamento solicitado/i)).toBeInTheDocument();
+  });
+
+  it('pedido 100% cancelado sai da fila de Pedidos', async () => {
+    stubFetch([
+      order('PED001', [{ unit_id: 'u1', title_id: 'b1', status: 'cancelled' }]),
+    ]);
+    renderPage();
+
+    expect(await screen.findByText(/nenhum pedido pendente/i)).toBeInTheDocument();
+  });
+
+  it('Cancelar itens do pedido (header) confirma e faz PATCH {cancel} sem unit_id', async () => {
+    stubFetch([
+      order('PED001', [
+        { unit_id: 'u1', title_id: 'b1', status: 'waiting-payment' },
+        { unit_id: 'u2', title_id: 'b1', status: 'in-reserve' },
+      ]),
+    ]);
+    renderPage();
+
+    await userEvent.click(
+      await screen.findByRole('button', { name: /cancelar itens do pedido/i }),
+    );
+    await userEvent.click(screen.getByRole('button', { name: /^confirmar$/i }));
+
+    const patchCall = fetchMock.mock.calls.find(([, init]) => init?.method === 'PATCH');
+    expect(JSON.parse((patchCall![1] as RequestInit).body as string)).toEqual({ cancel: true });
+  });
+
   it('token expirado (401): limpa token e volta pro login', async () => {
     vi.stubGlobal(
       'fetch',

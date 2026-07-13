@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { ApiError, apiGet } from '../api/client';
-import { isUnitFinalized, STAGES } from '../backoffice/order-status';
+import { ApiError, apiGet, apiPost } from '../api/client';
+import { isUnitClosed, isUnitFinalized, STAGES } from '../backoffice/order-status';
 import type { OrderStatus, UnitItem } from '../backoffice/order-status';
 import { ClampedText } from '../components/ClampedText';
 import { Header } from '../components/Header';
@@ -11,10 +11,12 @@ const OBSERVATION_CLAMP = 200;
 
 // resposta pública: sem name/contact/valores (o código é a única credencial)
 interface PublicUnit {
+  unit_id: string;
   title_id: string;
   status: OrderStatus;
   picked_up?: boolean;
   observation?: string;
+  cancel_requested?: boolean;
 }
 
 interface PublicOrder {
@@ -24,6 +26,7 @@ interface PublicOrder {
 }
 
 function statusLabel(item: PublicUnit): string {
+  if (item.status === 'cancelled') return 'Cancelado';
   if (isUnitFinalized(item as UnitItem)) return 'Entregue';
   return STAGES[item.status].label;
 }
@@ -45,6 +48,31 @@ type Result =
 export function ConsultarPedido() {
   const [code, setCode] = useState('');
   const [result, setResult] = useState<Result>({ kind: 'idle' });
+  // fluxo de solicitação de cancelamento por item (confirmação antes do POST)
+  const [confirmingUnitId, setConfirmingUnitId] = useState<string | null>(null);
+  const [cancelError, setCancelError] = useState(false);
+
+  async function requestCancel(order: PublicOrder, item: PublicUnit) {
+    setCancelError(false);
+    try {
+      await apiPost(`/pedidos/${order.id}/cancelamento`, { unit_id: item.unit_id });
+      setConfirmingUnitId(null);
+      setResult((prev) => {
+        if (prev.kind !== 'found') return prev;
+        return {
+          ...prev,
+          order: {
+            ...prev.order,
+            items: prev.order.items.map((u) =>
+              u.unit_id === item.unit_id ? { ...u, cancel_requested: true } : u,
+            ),
+          },
+        };
+      });
+    } catch {
+      setCancelError(true);
+    }
+  }
 
   async function consult(e: { preventDefault: () => void }) {
     e.preventDefault();
@@ -125,12 +153,18 @@ export function ConsultarPedido() {
               </span>
             </div>
             {result.order.items.map((item, i) => (
-              <div key={i} className="consulta__unit">
+              <div key={item.unit_id ?? i} className="consulta__unit">
                 <div className="consulta__unit-head">
                   <span className="consulta__unit-title">
                     {result.titles.get(item.title_id) ?? 'Livro'}
                   </span>
-                  <span className="consulta__unit-status">{statusLabel(item)}</span>
+                  <span
+                    className={`consulta__unit-status${
+                      item.status === 'cancelled' ? ' consulta__unit-status--cancelled' : ''
+                    }`}
+                  >
+                    {statusLabel(item)}
+                  </span>
                 </div>
                 {item.observation && (
                   <ClampedText
@@ -139,8 +173,44 @@ export function ConsultarPedido() {
                     className="consulta__unit-obs"
                   />
                 )}
+                {item.cancel_requested && item.status !== 'cancelled' && (
+                  <div className="consulta__cancel-note">
+                    Cancelamento solicitado — a livraria vai te procurar.
+                  </div>
+                )}
+                {!isUnitClosed(item as UnitItem) &&
+                  !item.cancel_requested &&
+                  (confirmingUnitId === item.unit_id ? (
+                    <div className="consulta__cancel-confirm">
+                      <span>Solicitar o cancelamento deste item?</span>
+                      <button
+                        className="btn btn--secondary consulta__cancel-btn"
+                        onClick={() => void requestCancel(result.order, item)}
+                      >
+                        Confirmar
+                      </button>
+                      <button
+                        className="btn btn--secondary consulta__cancel-btn"
+                        onClick={() => setConfirmingUnitId(null)}
+                      >
+                        Voltar
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      className="ver-mais consulta__cancel-link"
+                      onClick={() => setConfirmingUnitId(item.unit_id)}
+                    >
+                      solicitar cancelamento
+                    </button>
+                  ))}
               </div>
             ))}
+            {cancelError && (
+              <div className="alert alert--error consulta__alert" role="alert">
+                Não foi possível registrar a solicitação. Tente de novo.
+              </div>
+            )}
           </div>
         )}
       </div>

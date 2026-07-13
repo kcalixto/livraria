@@ -46,6 +46,7 @@ const SOLD_STATUSES = new Set(['payment-received', 'sent-to-delivery', 'received
 // retirado-sem-pagamento seguram a unidade; pago/entregue é venda.
 export function classifyUnit(unit: Record<string, unknown>): UnitClass {
   const status = String(unit.status ?? '');
+  if (status === 'cancelled') return 'none'; // cancelada devolve ao lote
   if (SOLD_STATUSES.has(status)) return 'sold';
   if (unit.picked_up === true) return 'picked_up';
   if (status === 'in-reserve') return 'reserved';

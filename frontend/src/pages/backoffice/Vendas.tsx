@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { RedirectToLogin } from '../../components/RedirectToLogin';
 import { centsToText, formatPrice, normalizeText } from '../../lib/format';
-import { formatOrderDate, isUnitFinalized, shortOrderId } from '../../backoffice/order-status';
+import { formatOrderDate, isUnitClosed, shortOrderId } from '../../backoffice/order-status';
 import type { Order, UnitItem } from '../../backoffice/order-status';
 import { useOrders } from '../../backoffice/useOrders';
 import type { BookInfo } from '../../backoffice/useOrders';
@@ -26,7 +26,12 @@ function normalizeId(text: string): string {
   return text.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
 }
 
+function isCancelledRow(row: SaleRow): boolean {
+  return row.item.status === 'cancelled';
+}
+
 function saleValue(row: SaleRow, books: Map<string, BookInfo>): string {
+  if (isCancelledRow(row)) return '—';
   if (row.item.received_amount !== undefined) return formatPrice(row.item.received_amount);
   const book = books.get(row.item.title_id);
   return book ? formatPrice(book.price) : '—';
@@ -55,8 +60,9 @@ export function Vendas() {
   const filtered = useMemo(() => {
     const queryId = normalizeId(search);
     const query = normalizeText(search.trim());
+    // fechadas = vendas concluídas + canceladas (canceladas ficam fora do total)
     const rows: SaleRow[] = orders.flatMap((order) =>
-      order.items.filter(isUnitFinalized).map((item) => ({ order, item })),
+      order.items.filter(isUnitClosed).map((item) => ({ order, item })),
     );
     return rows
       .filter((row) => {
@@ -92,11 +98,13 @@ export function Vendas() {
 
   function exportCsv() {
     const header =
-      'pedido;cliente;contato;livro;valor_recebido;preco_social;data_pedido;data_pagamento;data_finalizacao';
+      'pedido;cliente;contato;livro;valor_recebido;preco_social;data_pedido;data_pagamento;data_finalizacao;status';
     const lines = filtered.map(({ order, item }) => {
       const book = books.get(item.title_id);
-      const value =
-        item.received_amount !== undefined
+      const cancelled = item.status === 'cancelled';
+      const value = cancelled
+        ? ''
+        : item.received_amount !== undefined
           ? centsToText(item.received_amount)
           : book
             ? centsToText(book.price)
@@ -111,6 +119,7 @@ export function Vendas() {
         csvDate(order.created_at),
         csvDate(item.paid_at),
         csvDate(item.updated_at),
+        cancelled ? 'cancelado' : 'concluido',
       ].join(';');
     });
     // BOM pro Excel pt-BR reconhecer UTF-8
@@ -191,12 +200,14 @@ export function Vendas() {
             </span>
             <span className="sales-summary__total">
               {formatPrice(
-                filtered.reduce(
-                  (sum, { item }) =>
-                    sum +
-                    (item.received_amount ?? books.get(item.title_id)?.price ?? 0),
-                  0,
-                ),
+                filtered
+                  .filter((row) => !isCancelledRow(row))
+                  .reduce(
+                    (sum, { item }) =>
+                      sum +
+                      (item.received_amount ?? books.get(item.title_id)?.price ?? 0),
+                    0,
+                  ),
               )}
             </span>
           </div>
@@ -228,7 +239,11 @@ export function Vendas() {
                   {item.updated_at ? formatOrderDate(item.updated_at) : '—'}
                 </span>
                 <span className="t-right" role="cell">
-                  <span className="badge badge--ok sales-table__status">Concluído</span>
+                  {item.status === 'cancelled' ? (
+                    <span className="badge badge--zero sales-table__status">Cancelado</span>
+                  ) : (
+                    <span className="badge badge--ok sales-table__status">Concluído</span>
+                  )}
                 </span>
               </div>
             ))}

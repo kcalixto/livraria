@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { QueryCommand, ScanCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { docClient } from '../lib/db';
-import { isOrderStatus } from '../lib/order-status';
+import { isOrderStatus, isUnitFinalized } from '../lib/order-status';
 import type { OrderStatus } from '../lib/order-status';
 import { computeStock } from '../lib/stock';
 import { jwtMiddleware } from '../middlewares/jwt';
@@ -19,6 +19,7 @@ const UNIT_FIELDS = [
   'paid_at',
   'observation',
   'social_price',
+  'cancel_requested',
   'updated_at',
 ] as const;
 
@@ -33,6 +34,7 @@ const TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   'payment-received': ['sent-to-delivery'],
   'sent-to-delivery': ['received'],
   received: [],
+  cancelled: [], // terminal; cancelamento não é reversível (decisão do dono)
 };
 const PICKED_UP_TRANSITIONS: Record<string, OrderStatus[]> = {
   'waiting-payment': ['payment-received'],
@@ -113,16 +115,32 @@ backofficePedidos.get('/', async (c) => {
   return c.json(orders);
 });
 
+// cancelável = ainda não virou venda nem já foi cancelada
+function isCancellable(line: Record<string, unknown>): boolean {
+  return line.status !== 'cancelled' && !isUnitFinalized(line);
+}
+
+// cancelar devolve a unidade ao lote e limpa a retirada/solicitação
+function cancelSpec(): UpdateSpec {
+  return {
+    sets: { status: 'cancelled' },
+    removes: ['lote_id', 'picked_up', 'cancel_requested'],
+  };
+}
+
 backofficePedidos.patch('/:id/status', async (c) => {
   const body = await c.req.json().catch(() => null);
   if (!body) return c.json({ error: 'invalid json' }, 400);
-  if (typeof body.unit_id !== 'string' || body.unit_id === '') {
+
+  const isCancel = body.cancel === true;
+  // ações em nível de pedido (cancel sem unit_id) dispensam o unit_id
+  if (!isCancel && (typeof body.unit_id !== 'string' || body.unit_id === '')) {
     return c.json({ error: 'unit_id is required' }, 400);
   }
 
-  const isPickupToggle = typeof body.picked_up === 'boolean';
-  const isObservation = !isPickupToggle && typeof body.observation === 'string';
-  if (!isPickupToggle && !isObservation && !isOrderStatus(body.status)) {
+  const isPickupToggle = !isCancel && typeof body.picked_up === 'boolean';
+  const isObservation = !isCancel && !isPickupToggle && typeof body.observation === 'string';
+  if (!isCancel && !isPickupToggle && !isObservation && !isOrderStatus(body.status)) {
     return c.json({ error: 'status must be a valid order status' }, 400);
   }
   if (isObservation && body.observation.length > MAX_OBSERVATION_CHARS) {
@@ -137,8 +155,31 @@ backofficePedidos.patch('/:id/status', async (c) => {
       ExpressionAttributeValues: { ':id': id },
     }),
   );
-  const line = (existing.Items ?? []).find((item) => item.unit_id === body.unit_id);
+  const lines = existing.Items ?? [];
+  if (lines.length === 0) return c.json({ error: 'not found' }, 404);
+
+  if (isCancel && !body.unit_id) {
+    // cancela o pedido: todas as unidades ainda não finalizadas
+    const eligible = lines.filter(isCancellable);
+    if (eligible.length === 0) {
+      return c.json({ error: 'no cancellable units in this order' }, 400);
+    }
+    for (const unitLine of eligible) {
+      await applyUpdate(id, unitLine.book_id, cancelSpec());
+    }
+    return c.json({ id, cancelled: eligible.length });
+  }
+
+  const line = lines.find((item) => item.unit_id === body.unit_id);
   if (!line) return c.json({ error: 'not found' }, 404);
+
+  if (isCancel) {
+    if (!isCancellable(line)) {
+      return c.json({ error: 'unit is finalized or already cancelled' }, 400);
+    }
+    await applyUpdate(id, line.book_id, cancelSpec());
+    return c.json({ id, unit_id: body.unit_id, status: 'cancelled' });
+  }
 
   const current = String(line.status) as OrderStatus;
 

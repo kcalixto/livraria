@@ -174,6 +174,23 @@ describe('Backoffice — Vendas', () => {
     expect(screen.getAllByText(/social/i)).toHaveLength(1);
   });
 
+  it('unidade cancelada aparece com badge Cancelado, valor — e fora do total', async () => {
+    stubFetch([
+      order('PED001', '2026-07-01T10:00:00.000Z', [
+        soldUnit({ received_amount: 4200 }),
+        soldUnit({ status: 'cancelled', received_amount: undefined }),
+      ]),
+    ]);
+    renderPage();
+
+    await setRange('2026-07', '2026-07');
+    await screen.findAllByText('#PED-001');
+
+    expect(screen.getByText('Cancelado')).toBeInTheDocument();
+    // total só com a venda concluída
+    expect(screen.getByText('R$ 42,00', { selector: '.sales-summary *' })).toBeInTheDocument();
+  });
+
   it('pagina de 50 em 50', async () => {
     const orders = Array.from({ length: 55 }, (_, i) =>
       order(`P${String(i).padStart(5, '0')}`, '2026-07-01T10:00:00.000Z', [soldUnit()]),
@@ -226,7 +243,8 @@ describe('Backoffice — Vendas', () => {
 
     await userEvent.click(screen.getByRole('button', { name: /exportar csv/i }));
     // cabeçalho com data de pagamento e flag de preço social
-    expect(capturedCsv).toContain('pedido;cliente;contato;livro;valor_recebido;preco_social;data_pedido;data_pagamento;data_finalizacao');
+    expect(capturedCsv).toContain('pedido;cliente;contato;livro;valor_recebido;preco_social;data_pedido;data_pagamento;data_finalizacao;status');
+    expect(capturedCsv).toContain(';concluido');
     // TODAS as 55 linhas do período, ignorando a paginação
     expect(capturedCsv!.trim().split('\n')).toHaveLength(56);
     expect(capturedCsv).toContain('100,00;sim');

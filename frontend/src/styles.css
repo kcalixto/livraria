@@ -2180,6 +2180,45 @@ a.btn--secondary:hover {
   font-size: 9.5px;
 }
 
+/* ── Cancelamento ── */
+.stage-pill--cancelled {
+  color: var(--error);
+  background: var(--error-bg);
+  border-color: var(--error-border);
+}
+.unit-cancel-badge {
+  margin-left: 8px;
+  font-size: 10px;
+}
+.order-card__order-actions {
+  margin-left: auto;
+}
+.consulta__unit-status--cancelled {
+  color: var(--error);
+}
+.consulta__cancel-note {
+  margin-top: 8px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--warn);
+}
+.consulta__cancel-link {
+  margin-top: 8px;
+}
+.consulta__cancel-confirm {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+  font-size: 13px;
+  color: var(--ink-body);
+}
+.consulta__cancel-btn {
+  padding: 6px 12px;
+  font-size: 10.5px;
+}
+
 /* ── Observação por unidade (backoffice) ── */
 .order-card__obs {
   padding: 0 24px 12px;

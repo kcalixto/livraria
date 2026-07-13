@@ -5,7 +5,7 @@ import { centsToText, formatPrice, normalizeText, textToCents } from '../../lib/
 import { socialPriceOf } from '../../lib/types';
 import {
   formatOrderDate,
-  isDelivered,
+  isUnitClosed,
   shortOrderId,
   STAGE_COUNT,
   STAGES,
@@ -31,21 +31,30 @@ function orderTotal(order: Order, books: Map<string, BookInfo>): string {
 
 function StatusCell({ item }: { item: UnitItem }) {
   const stage = STAGES[item.status];
-  const pillClass = stage.exceptional ? 'stage-pill--reserve' : `stage-pill--${stage.index}`;
+  const pillClass = stage.pill
+    ? `stage-pill--${stage.pill}`
+    : stage.exceptional
+      ? 'stage-pill--reserve'
+      : `stage-pill--${stage.index}`;
   return (
     <span role="cell">
       <span className={`stage-pill ${pillClass}`}>{stage.label}</span>
       {item.picked_up && (
         <span className="badge badge--low unit-picked-badge">retirado sem pagamento</span>
       )}
-      <span className="stage-segs" aria-hidden="true">
-        {Array.from({ length: STAGE_COUNT }, (_, i) => (
-          <span
-            key={i}
-            className={`stage-seg${i <= stage.index ? ` stage-seg--on-${stage.index}` : ''}`}
-          />
-        ))}
-      </span>
+      {item.cancel_requested && item.status !== 'cancelled' && (
+        <span className="badge badge--zero unit-cancel-badge">cancelamento solicitado</span>
+      )}
+      {item.status !== 'cancelled' && (
+        <span className="stage-segs" aria-hidden="true">
+          {Array.from({ length: STAGE_COUNT }, (_, i) => (
+            <span
+              key={i}
+              className={`stage-seg${i <= stage.index ? ` stage-seg--on-${stage.index}` : ''}`}
+            />
+          ))}
+        </span>
+      )}
     </span>
   );
 }
@@ -57,6 +66,8 @@ export function Pedidos() {
   const [confirmingUnitId, setConfirmingUnitId] = useState<string | null>(null);
   const [obsUnitId, setObsUnitId] = useState<string | null>(null);
   const [obsText, setObsText] = useState('');
+  const [cancellingUnitId, setCancellingUnitId] = useState<string | null>(null);
+  const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [payText, setPayText] = useState('');
@@ -65,7 +76,8 @@ export function Pedidos() {
   const query = normalizeText(search.trim());
   const queryId = search.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
   const pending = orders
-    .filter((o) => !isDelivered(o))
+    // sai da fila quando TODAS as unidades fecharam (venda concluída ou cancelada)
+    .filter((o) => !o.items.every(isUnitClosed))
     .filter((o) => {
       if (statusFilter && !o.items.some((i) => i.status === statusFilter)) return false;
       if (!query) return true;
@@ -81,25 +93,41 @@ export function Pedidos() {
 
   if (unauthorized) return <RedirectToLogin />;
 
-  async function patch(order: Order, item: UnitItem, body: Record<string, unknown>, doneLabel: string) {
-        try {
-      await apiAuthPatch(`/backoffice/pedidos/${order.id}/status`, {
-        ...body,
-        unit_id: item.unit_id,
-      });
-      const book = books.get(item.title_id);
-      setToast({ kind: 'success', message: `✓ ${shortOrderId(order.id)} · ${book?.title ?? item.title_id} → ${doneLabel}` });
-      setPayingUnitId(null);
-      setConfirmingUnitId(null);
-      setObsUnitId(null);
+  function resetInlineStates() {
+    setPayingUnitId(null);
+    setConfirmingUnitId(null);
+    setObsUnitId(null);
+    setCancellingUnitId(null);
+    setCancellingOrderId(null);
+  }
+
+  async function patchRaw(
+    orderId: string,
+    body: Record<string, unknown>,
+    doneMessage: string,
+    badRequestMessage = 'Sem estoque disponível na região para essa ação.',
+  ) {
+    try {
+      await apiAuthPatch(`/backoffice/pedidos/${orderId}/status`, body);
+      setToast({ kind: 'success', message: doneMessage });
+      resetInlineStates();
       await reload();
     } catch (err) {
       if (err instanceof ApiError && err.status === 400) {
-        setToast({ kind: 'error', message: 'Sem estoque disponível na região para essa ação.' });
+        setToast({ kind: 'error', message: badRequestMessage });
         return;
       }
       setToast({ kind: 'error', message: 'Não foi possível atualizar o status. Tente de novo.' });
     }
+  }
+
+  async function patch(order: Order, item: UnitItem, body: Record<string, unknown>, doneLabel: string) {
+    const book = books.get(item.title_id);
+    await patchRaw(
+      order.id,
+      { ...body, unit_id: item.unit_id },
+      `✓ ${shortOrderId(order.id)} · ${book?.title ?? item.title_id} → ${doneLabel}`,
+    );
   }
 
   function openObservation(item: UnitItem) {
@@ -175,6 +203,8 @@ export function Pedidos() {
         </span>
       );
     }
+
+    if (item.status === 'cancelled') return null;
 
     if (item.picked_up) {
       return (
@@ -354,6 +384,38 @@ export function Pedidos() {
             </span>
             <span className="order-card__date" role="cell">{formatOrderDate(order.created_at)}</span>
             <span className="order-card__total" role="cell">{orderTotal(order, books)}</span>
+            <span className="order-card__order-actions" role="cell">
+              {cancellingOrderId === order.id ? (
+                <span className="pay-inline">
+                  <span className="confirm-inline__hint">
+                    Cancela todas as unidades não finalizadas — não pode ser desfeito.
+                  </span>
+                  <button
+                    className="stage-action stage-action--danger"
+                    onClick={() =>
+                      void patchRaw(
+                        order.id,
+                        { cancel: true },
+                        `✓ ${shortOrderId(order.id)} → itens cancelados`,
+                        'Nenhuma unidade cancelável nesse pedido.',
+                      )
+                    }
+                  >
+                    Confirmar
+                  </button>
+                  <button className="stage-action" onClick={() => setCancellingOrderId(null)}>
+                    Cancelar
+                  </button>
+                </span>
+              ) : (
+                <button
+                  className="stage-action stage-action--danger"
+                  onClick={() => setCancellingOrderId(order.id)}
+                >
+                  Cancelar itens do pedido
+                </button>
+              )}
+            </span>
           </div>
           <div className="order-card__cols" role="row">
             <span role="columnheader">Livro</span>
@@ -394,11 +456,41 @@ export function Pedidos() {
                 </span>
                 <StatusCell item={item} />
                 <span className="t-right order-card__actions" role="cell">
-                  {renderActions(order, item)}
-                  {obsUnitId !== item.unit_id && (
-                    <button className="stage-action" onClick={() => openObservation(item)}>
-                      {item.observation ? 'Editar observação' : 'Adicionar observação'}
-                    </button>
+                  {cancellingUnitId === item.unit_id ? (
+                    <span className="pay-inline">
+                      <span className="confirm-inline__hint">
+                        Cancelamento não pode ser desfeito.
+                      </span>
+                      <button
+                        className="stage-action stage-action--danger"
+                        onClick={() => void patch(order, item, { cancel: true }, 'Cancelado')}
+                      >
+                        Confirmar
+                      </button>
+                      <button
+                        className="stage-action"
+                        onClick={() => setCancellingUnitId(null)}
+                      >
+                        Cancelar
+                      </button>
+                    </span>
+                  ) : (
+                    <>
+                      {renderActions(order, item)}
+                      {item.status !== 'cancelled' && obsUnitId !== item.unit_id && (
+                        <button className="stage-action" onClick={() => openObservation(item)}>
+                          {item.observation ? 'Editar observação' : 'Adicionar observação'}
+                        </button>
+                      )}
+                      {!isUnitClosed(item) && payingUnitId !== item.unit_id && (
+                        <button
+                          className="stage-action stage-action--danger"
+                          onClick={() => setCancellingUnitId(item.unit_id)}
+                        >
+                          Cancelar item
+                        </button>
+                      )}
+                    </>
                   )}
                 </span>
               </div>

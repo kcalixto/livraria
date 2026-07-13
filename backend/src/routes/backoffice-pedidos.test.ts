@@ -523,3 +523,90 @@ describe('PATCH — observação por unidade', () => {
     expect(orders[0].items[0]).toHaveProperty('observation', 'Cliente avisado');
   });
 });
+
+describe('PATCH — cancelamento (por item e do pedido)', () => {
+  beforeEach(() => {
+    ddbMock.on(UpdateCommand).resolves({});
+  });
+
+  it('cancela uma unidade não finalizada: status cancelled e devolve ao lote', async () => {
+    ddbMock.on(QueryCommand).resolves({
+      Items: [
+        unit({
+          book_id: 'livro-a#u1',
+          unit_id: 'u1',
+          status: 'in-reserve',
+          lote_id: 'lote-antigo',
+          cancel_requested: true,
+        }),
+      ],
+    });
+
+    const res = await patchUnit({ cancel: true, unit_id: 'u1' });
+
+    expect(res.status).toBe(200);
+    const input = ddbMock.commandCalls(UpdateCommand)[0].args[0].input;
+    expect(input.ExpressionAttributeValues![':status']).toBe('cancelled');
+    expect(input.UpdateExpression).toContain('REMOVE');
+    expect(input.UpdateExpression).toContain('#lote_id');
+    expect(input.UpdateExpression).toContain('#picked_up');
+    expect(input.UpdateExpression).toContain('#cancel_requested');
+  });
+
+  it('não cancela unidade finalizada (entregue ou retirada+paga)', async () => {
+    ddbMock.on(QueryCommand).resolves({
+      Items: [
+        unit({ book_id: 'livro-a#u1', unit_id: 'u1', status: 'received' }),
+        unit({
+          book_id: 'livro-a#u2',
+          unit_id: 'u2',
+          status: 'payment-received',
+          picked_up: true,
+        }),
+        unit({ book_id: 'livro-a#u3', unit_id: 'u3', status: 'cancelled' }),
+      ],
+    });
+
+    for (const unitId of ['u1', 'u2', 'u3']) {
+      const res = await patchUnit({ cancel: true, unit_id: unitId });
+      expect(res.status).toBe(400);
+    }
+    expect(ddbMock.commandCalls(UpdateCommand)).toHaveLength(0);
+  });
+
+  it('cancel sem unit_id cancela todas as unidades não finalizadas do pedido', async () => {
+    ddbMock.on(QueryCommand).resolves({
+      Items: [
+        unit({ book_id: 'livro-a#u1', unit_id: 'u1', status: 'waiting-payment' }),
+        unit({ book_id: 'livro-a#u2', unit_id: 'u2', status: 'sent-to-delivery', lote_id: 'lote-antigo' }),
+        unit({ book_id: 'livro-a#u3', unit_id: 'u3', status: 'received' }),
+      ],
+    });
+
+    const res = await patchUnit({ cancel: true });
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ id: 'PED001', cancelled: 2 });
+    expect(ddbMock.commandCalls(UpdateCommand)).toHaveLength(2);
+  });
+
+  it('cancel sem unit_id com tudo finalizado → 400', async () => {
+    ddbMock.on(QueryCommand).resolves({
+      Items: [unit({ book_id: 'livro-a#u1', unit_id: 'u1', status: 'received' })],
+    });
+
+    const res = await patchUnit({ cancel: true });
+    expect(res.status).toBe(400);
+    expect(ddbMock.commandCalls(UpdateCommand)).toHaveLength(0);
+  });
+
+  it('GET agrupado expõe cancel_requested na unidade', async () => {
+    ddbMock.on(ScanCommand).resolves({
+      Items: [unit({ book_id: 'livro-a#u1', unit_id: 'u1', cancel_requested: true })],
+    });
+
+    const res = await app.request('/backoffice/pedidos', { headers: await authHeader() });
+    const orders = (await res.json()) as Array<{ items: Array<Record<string, unknown>> }>;
+    expect(orders[0].items[0]).toHaveProperty('cancel_requested', true);
+  });
+});
