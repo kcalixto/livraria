@@ -2051,7 +2051,7 @@ a.btn--secondary:hover {
 
 /* ── UX nível 2 ── */
 .bo-tabs__divider {
-  width: 1px;
+  flex: 0 0 1px;
   height: 18px;
   background: var(--border);
   align-self: center;
