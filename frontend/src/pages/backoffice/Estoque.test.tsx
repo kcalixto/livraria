@@ -98,6 +98,58 @@ describe('Backoffice — Estoque real', () => {
     );
   });
 
+  it('clicar no header ordena pela coluna e o segundo clique inverte', async () => {
+    renderPage();
+    await screen.findByText('A Comuna e o Fogo');
+
+    const titlesInOrder = () =>
+      Array.from(document.querySelectorAll('.stock-table__title')).map((t) => t.textContent);
+
+    // Disponível desc: A Comuna (2) antes de O Pão (1)
+    await userEvent.click(screen.getByRole('button', { name: /disponível/i }));
+    expect(titlesInOrder()).toEqual(['A Comuna e o Fogo', 'O Pão e as Rosas']);
+
+    // segundo clique inverte (asc)
+    await userEvent.click(screen.getByRole('button', { name: /disponível/i }));
+    expect(titlesInOrder()).toEqual(['O Pão e as Rosas', 'A Comuna e o Fogo']);
+
+    // Reservado desc: A Comuna (1) primeiro
+    await userEvent.click(screen.getByRole('button', { name: /reservado/i }));
+    expect(titlesInOrder()).toEqual(['A Comuna e o Fogo', 'O Pão e as Rosas']);
+  });
+
+  it('exporta CSV do estoque exibido', async () => {
+    vi.stubGlobal('URL', {
+      createObjectURL: vi.fn().mockReturnValue('blob:fake'),
+      revokeObjectURL: vi.fn(),
+    });
+    renderPage();
+    await screen.findByText('A Comuna e o Fogo');
+
+    const origCreate = document.createElement.bind(document);
+    vi.spyOn(document, 'createElement').mockImplementation((tag: string) => {
+      const el = origCreate(tag);
+      if (tag === 'a') {
+        el.click = () => {};
+      }
+      return el;
+    });
+    let capturedCsv: string | null = null;
+    class FakeBlob {
+      constructor(parts: string[]) {
+        capturedCsv = parts.join('');
+      }
+    }
+    vi.stubGlobal('Blob', FakeBlob as never);
+
+    await userEvent.click(screen.getByRole('button', { name: /exportar csv/i }));
+
+    expect(capturedCsv).toContain('titulo;reservado;retirado;vendido;disponivel');
+    expect(capturedCsv).toContain('A Comuna e o Fogo;1;1;1;2');
+    expect(capturedCsv).toContain('O Pão e as Rosas;0;0;1;1');
+    vi.restoreAllMocks();
+  });
+
   it('busca por título filtra com debounce', async () => {
     renderPage();
     await screen.findByText('A Comuna e o Fogo');

@@ -31,6 +31,16 @@ type State =
   | { kind: 'unauthorized' }
   | { kind: 'ready'; rows: StockRow[]; titles: Map<string, string> };
 
+type SortKey = 'title' | 'reserved' | 'picked_up' | 'sold' | 'available';
+interface Sort {
+  key: SortKey;
+  dir: 'asc' | 'desc';
+}
+
+function csvEscape(value: string): string {
+  return /[;"\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
+}
+
 function qtyClass(qty: number): string {
   if (qty === 0) return 'stock-qty--zero';
   if (qty <= 3) return 'stock-qty--low';
@@ -41,6 +51,7 @@ export function Estoque() {
   const [state, setState] = useState<State>({ kind: 'loading' });
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [sort, setSort] = useState<Sort | null>(null);
 
   // debounce: atualiza a filtragem só depois de 200ms sem digitação
   useEffect(() => {
@@ -88,18 +99,48 @@ export function Estoque() {
   }
 
   const query = normalize(debouncedSearch.trim());
+  const titleOf = (row: StockRow) => state.titles.get(row.book_id) ?? row.book_id;
   const rows = state.rows
-    .filter((row) => {
-      if (!query) return true;
-      const title = state.titles.get(row.book_id) ?? row.book_id;
-      return normalize(title).includes(query);
-    })
-    // zerados no topo: são os que pedem ação (registrar lote)
+    .filter((row) => !query || normalize(titleOf(row)).includes(query))
     .sort((a, b) => {
+      if (sort) {
+        // ordenação explícita pedida pelo operador substitui zerados-primeiro
+        const cmp =
+          sort.key === 'title'
+            ? titleOf(a).localeCompare(titleOf(b), 'pt-BR')
+            : a[sort.key] - b[sort.key];
+        return sort.dir === 'asc' ? cmp : -cmp;
+      }
+      // padrão: zerados no topo, são os que pedem ação (registrar lote)
       const az = a.available === 0 ? 0 : 1;
       const bz = b.available === 0 ? 0 : 1;
       return az - bz;
     });
+
+  // 1º clique: numéricas desc, título asc; 2º clique inverte
+  function toggleSort(key: SortKey) {
+    setSort((prev) => {
+      if (prev?.key === key) return { key, dir: prev.dir === 'asc' ? 'desc' : 'asc' };
+      return { key, dir: key === 'title' ? 'asc' : 'desc' };
+    });
+  }
+
+  function exportCsv() {
+    const header = 'titulo;reservado;retirado;vendido;disponivel';
+    const lines = rows.map((row) =>
+      [csvEscape(titleOf(row)), row.reserved, row.picked_up, row.sold, row.available].join(';'),
+    );
+    // BOM pro Excel pt-BR reconhecer UTF-8
+    const blob = new Blob(['﻿' + [header, ...lines].join('\n')], {
+      type: 'text/csv;charset=utf-8',
+    });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `estoque-${new Date().toISOString().slice(0, 10)}.csv`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }
 
   const zeroed = state.rows.filter((r) => r.available === 0).length;
   const low = state.rows.filter((r) => r.available > 0 && r.available <= 3).length;
@@ -127,12 +168,17 @@ export function Estoque() {
           )}
         </div>
       )}
-      <input
-        className="field-input stock-search"
-        placeholder="Buscar por título…"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-      />
+      <div className="stock-toolbar">
+        <input
+          className="field-input stock-search"
+          placeholder="Buscar por título…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+        <button className="btn btn--secondary" onClick={exportCsv}>
+          Exportar CSV
+        </button>
+      </div>
       {rows.length === 0 ? (
         <div className="bo-empty">
           <div className="bo-empty__title">Nenhum livro encontrado</div>
@@ -146,11 +192,31 @@ export function Estoque() {
         <div className="stock-table" role="table" aria-label="Estoque por livro">
           <div className="stock-table__cols stock-table__cols--covers" role="row">
             <span role="columnheader">Capa</span>
-            <span role="columnheader">Título</span>
-            <span className="t-center" role="columnheader">Reservado</span>
-            <span className="t-center" role="columnheader">Retirado</span>
-            <span className="t-center" role="columnheader">Vendido</span>
-            <span className="t-right" role="columnheader">Disponível</span>
+            {(
+              [
+                ['title', 'Título', ''],
+                ['reserved', 'Reservado', 't-center'],
+                ['picked_up', 'Retirado', 't-center'],
+                ['sold', 'Vendido', 't-center'],
+                ['available', 'Disponível', 't-right'],
+              ] as Array<[SortKey, string, string]>
+            ).map(([key, label, align]) => (
+              <span
+                key={key}
+                className={align}
+                role="columnheader"
+                aria-sort={
+                  sort?.key === key ? (sort.dir === 'asc' ? 'ascending' : 'descending') : undefined
+                }
+              >
+                <button className="stock-sort-btn" onClick={() => toggleSort(key)}>
+                  {label}
+                  {sort?.key === key && (
+                    <span aria-hidden="true"> {sort.dir === 'asc' ? '▲' : '▼'}</span>
+                  )}
+                </button>
+              </span>
+            ))}
           </div>
           {rows.map((row) => (
             <div

@@ -1389,9 +1389,10 @@ a.btn--secondary:hover {
   padding: 5px 10px;
 }
 .lotes-table__cols,
-.lotes-table__row {
+.lotes-table__row,
+.lotes-table__totals {
   display: grid;
-  grid-template-columns: 1fr 1.8fr 0.7fr 1fr 1fr 1fr;
+  grid-template-columns: 1fr 1.6fr 0.7fr 0.9fr 1fr 1fr 1fr;
   gap: 0;
   align-items: center;
   padding: 12px 24px;
@@ -2116,4 +2117,40 @@ a.btn--secondary:hover {
   color: var(--wine);
   text-decoration: underline;
   text-underline-offset: 3px;
+}
+
+/* ── Lotes: linha de totais + Estoque: sort/CSV ── */
+.lotes-table__totals {
+  border-top: 2px solid var(--ink);
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 700;
+}
+.lotes-table__totals-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-mid);
+}
+.stock-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.stock-toolbar .stock-search {
+  margin-bottom: 0;
+}
+.stock-sort-btn {
+  font: inherit;
+  color: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+.stock-sort-btn:hover {
+  color: var(--wine);
 }

@@ -83,6 +83,21 @@ describe('Backoffice — Lotes', () => {
     expect(rows[1].textContent).toMatch(/esgotado/i);
   });
 
+  it('mostra linha de totais somando livros, restante, gasto, vendido e saldo', async () => {
+    renderPage();
+    await screen.findByText('01/07/2026');
+
+    const totals = document.querySelector('.lotes-table__totals')!;
+    expect(totals).toBeInTheDocument();
+    expect(totals.textContent).toContain('Total');
+    // 2+3 livros, 1+0 restante, 80+50 gasto, 100+120 vendido, saldo 220−130
+    expect(totals.textContent).toContain('5');
+    expect(totals.textContent).toContain('1');
+    expect(totals.textContent).toContain('R$ 130,00');
+    expect(totals.textContent).toContain('R$ 220,00');
+    expect(totals.textContent).toContain('R$ 90,00');
+  });
+
   it('mostra toast de sucesso vindo do form (navigation state)', async () => {
     renderPage({ toast: 'Lote registrado' });
     await screen.findByText('01/07/2026');

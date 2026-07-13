@@ -111,6 +111,28 @@ export function Lotes() {
               </Link>
             );
           })}
+          {(() => {
+            const sum = (fn: (l: Lote) => number) =>
+              state.lotes.reduce((acc, l) => acc + fn(l), 0);
+            const totalSold = sum((l) => l.sold_value ?? 0);
+            const totalCost = sum((l) => l.total_cost);
+            const totalSaldo = totalSold - totalCost;
+            return (
+              <div className="lotes-table__totals">
+                <span className="lotes-table__totals-label">Total</span>
+                <span />
+                <span className="t-center">{sum((l) => l.total_books ?? 0)}</span>
+                <span className="t-center">{sum((l) => l.total_remaining ?? 0)}</span>
+                <span className="lotes-table__cost">{formatPrice(totalCost)}</span>
+                <span className="lotes-table__sold">{formatPrice(totalSold)}</span>
+                <span
+                  className={`t-right lotes-table__saldo${totalSaldo >= 0 ? ' lotes-table__saldo--positive' : ''}`}
+                >
+                  {formatPrice(totalSaldo)}
+                </span>
+              </div>
+            );
+          })()}
         </div>
       )}
     </div>
