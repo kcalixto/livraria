@@ -50,11 +50,17 @@ export function Login() {
         <input
           id="bo-senha"
           type="password"
+          autoFocus
+          autoComplete="current-password"
           className={`field-input bo-login__input${error ? ' field-input--error' : ''}`}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
-        {error && <div className="field-error">Senha incorreta. Tente novamente.</div>}
+        {error && (
+          <div className="field-error" role="alert">
+            Senha incorreta. Tente novamente.
+          </div>
+        )}
 
         <button className="btn btn--primary btn--block" type="submit" disabled={checking}>
           {checking ? (

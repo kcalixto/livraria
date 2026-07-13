@@ -111,29 +111,30 @@ export function Livros() {
           <div className="bo-empty__sub">Ajuste a busca por título.</div>
         </div>
       ) : (
-        <div className="bo-livros">
-          <div className="bo-livros__cols">
-            <span>Capa</span>
-            <span>Id</span>
-            <span>Título</span>
-            <span>Autor</span>
-            <span>Preço</span>
-            <span>Ano</span>
-            <span className="t-right">Ações</span>
+        <div className="bo-livros" role="table" aria-label="Livros cadastrados">
+          <div className="bo-livros__cols" role="row">
+            <span role="columnheader">Capa</span>
+            <span role="columnheader">Id</span>
+            <span role="columnheader">Título</span>
+            <span role="columnheader">Autor</span>
+            <span role="columnheader">Preço</span>
+            <span role="columnheader">Ano</span>
+            <span className="t-right" role="columnheader">Ações</span>
           </div>
           {books.map((book) => (
-            <div key={book.id} className="bo-livros__row">
+            <div key={book.id} className="bo-livros__row" role="row">
               <CoverThumb
                 id={book.id}
                 title={book.title}
+                role="cell"
                 onBroken={(id) =>
                   setBrokenCovers((prev) => new Set(prev).add(id))
                 }
               />
-              <span>
+              <span role="cell">
                 <IdChip id={book.id} />
               </span>
-              <span className="bo-livros__title">
+              <span className="bo-livros__title" role="cell">
                 {book.title}
                 {brokenCovers.has(book.id) && (
                   <span className="badge badge--low bo-livros__no-cover">
@@ -141,12 +142,12 @@ export function Livros() {
                   </span>
                 )}
               </span>
-              <span className="bo-livros__author">{book.author ?? "—"}</span>
-              <span className="bo-livros__price">
+              <span className="bo-livros__author" role="cell">{book.author ?? "—"}</span>
+              <span className="bo-livros__price" role="cell">
                 {formatPrice(book.price)}
               </span>
-              <span className="bo-livros__year">{book.year ?? "—"}</span>
-              <span className="t-right bo-livros__actions">
+              <span className="bo-livros__year" role="cell">{book.year ?? "—"}</span>
+              <span className="t-right bo-livros__actions" role="cell">
                 <Link
                   className="stage-action"
                   to={`/backoffice/livros/${book.id}/editar`}

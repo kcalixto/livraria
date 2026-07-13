@@ -71,7 +71,8 @@ export function Lotes() {
           <div className="bo-empty__sub">Registre a primeira compra em "Novo lote".</div>
         </div>
       ) : (
-        <div className="lotes-table">
+        // linhas são links pro detalhe — mantêm role de link, sem roles de célula
+        <div className="lotes-table" aria-label="Lotes de aquisição">
           <div className="lotes-table__cols">
             <span>Data</span>
             <span>Região</span>

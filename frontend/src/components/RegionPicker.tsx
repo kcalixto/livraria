@@ -16,10 +16,16 @@ export function RegionPicker() {
 
   return (
     <div className="region-picker" ref={ref}>
-      <button className="region-picker__trigger" onClick={() => setOpen((v) => !v)}>
+      <button
+        className="region-picker__trigger"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+      >
         <span className="region-picker__label">Região</span>
         <span className="region-picker__value">{ACTIVE_REGION}</span>
-        <span className="region-picker__caret">{open ? '▴' : '▾'}</span>
+        <span className="region-picker__caret" aria-hidden="true">
+          {open ? '▴' : '▾'}
+        </span>
       </button>
       {open && (
         <div className="region-picker__menu">

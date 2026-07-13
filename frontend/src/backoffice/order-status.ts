@@ -60,7 +60,12 @@ export function formatOrderDate(iso: string): string {
   const d = new Date(iso);
   const dd = String(d.getDate()).padStart(2, '0');
   const mm = String(d.getMonth() + 1).padStart(2, '0');
-  return `${dd}/${mm} · ${d.getHours()}h`;
+  // ano só quando difere do corrente: Pedidos fica limpo, Vendas históricas sem ambiguidade
+  const yy =
+    d.getFullYear() === new Date().getFullYear()
+      ? ''
+      : `/${String(d.getFullYear()).slice(2)}`;
+  return `${dd}/${mm}${yy} · ${d.getHours()}h`;
 }
 
 export function shortOrderId(id: string): string {

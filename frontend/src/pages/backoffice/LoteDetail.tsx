@@ -223,7 +223,11 @@ export function LoteDetail() {
       <div className="lote-history">
         <div className="lote-history__header">
           <span className="lote-form__section">Histórico do lote</span>
-          <button className="btn btn--secondary" onClick={() => setFormOpen((v) => !v)}>
+          <button
+            className="btn btn--secondary"
+            aria-expanded={formOpen}
+            onClick={() => setFormOpen((v) => !v)}
+          >
             {formOpen ? 'Cancelar' : 'Adicionar Transação'}
           </button>
         </div>

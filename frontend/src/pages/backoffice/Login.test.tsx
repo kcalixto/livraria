@@ -78,4 +78,20 @@ describe('Login do backoffice', () => {
     expect(await screen.findByText(/senha incorreta/i)).toBeInTheDocument();
     expect(sessionStorage.getItem('livraria:token')).toBeNull();
   });
+
+  it('básicos de acessibilidade: foco inicial, autocomplete e erro como alert', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response('{}', { status: 401 })),
+    );
+    renderLogin();
+
+    const input = screen.getByLabelText(/senha/i);
+    expect(input).toHaveFocus();
+    expect(input).toHaveAttribute('autocomplete', 'current-password');
+
+    await userEvent.type(input, 'errada');
+    await userEvent.click(screen.getByRole('button', { name: /entrar/i }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(/senha incorreta/i);
+  });
 });

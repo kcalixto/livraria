@@ -199,29 +199,29 @@ export function Vendas() {
               )}
             </span>
           </div>
-          <div className="sales-table">
-            <div className="sales-table__cols">
-              <span>Pedido</span>
-              <span>Cliente</span>
-              <span>Livro</span>
-              <span>Valor</span>
-              <span>Pedido em</span>
-              <span>Finalizado em</span>
-              <span className="t-right">Status</span>
+          <div className="sales-table" role="table" aria-label="Vendas do período">
+            <div className="sales-table__cols" role="row">
+              <span role="columnheader">Pedido</span>
+              <span role="columnheader">Cliente</span>
+              <span role="columnheader">Livro</span>
+              <span role="columnheader">Valor</span>
+              <span role="columnheader">Pedido em</span>
+              <span role="columnheader">Finalizado em</span>
+              <span className="t-right" role="columnheader">Status</span>
             </div>
             {visible.map(({ order, item }) => (
-              <div key={item.unit_id} className="sales-table__row">
-                <span className="sales-table__order-id">{shortOrderId(order.id)}</span>
-                <span className="sales-table__name">{order.name}</span>
-                <span className="sales-table__books">
+              <div key={item.unit_id} className="sales-table__row" role="row">
+                <span className="sales-table__order-id" role="cell">{shortOrderId(order.id)}</span>
+                <span className="sales-table__name" role="cell">{order.name}</span>
+                <span className="sales-table__books" role="cell">
                   {books.get(item.title_id)?.title ?? item.title_id}
                 </span>
-                <span className="sales-table__total">{saleValue({ order, item }, books)}</span>
-                <span className="sales-table__date">{formatOrderDate(order.created_at)}</span>
-                <span className="sales-table__date">
+                <span className="sales-table__total" role="cell">{saleValue({ order, item }, books)}</span>
+                <span className="sales-table__date" role="cell">{formatOrderDate(order.created_at)}</span>
+                <span className="sales-table__date" role="cell">
                   {item.updated_at ? formatOrderDate(item.updated_at) : '—'}
                 </span>
-                <span className="t-right">
+                <span className="t-right" role="cell">
                   <span className="badge badge--ok sales-table__status">Concluído</span>
                 </span>
               </div>

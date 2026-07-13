@@ -31,12 +31,12 @@ function StatusCell({ item }: { item: UnitItem }) {
   const stage = STAGES[item.status];
   const pillClass = stage.exceptional ? 'stage-pill--reserve' : `stage-pill--${stage.index}`;
   return (
-    <span>
+    <span role="cell">
       <span className={`stage-pill ${pillClass}`}>{stage.label}</span>
       {item.picked_up && (
         <span className="badge badge--low unit-picked-badge">retirado sem pagamento</span>
       )}
-      <span className="stage-segs">
+      <span className="stage-segs" aria-hidden="true">
         {Array.from({ length: STAGE_COUNT }, (_, i) => (
           <span
             key={i}
@@ -309,34 +309,40 @@ export function Pedidos() {
       )}
 
       {pending.map((order) => (
-        <div key={order.id} className="order-card">
-          <div className="order-card__header">
-            <span className="order-card__id">{shortOrderId(order.id)}</span>
-            <span className="order-card__name">{order.name}</span>
-            <span className="order-card__contact">
+        <div
+          key={order.id}
+          className="order-card"
+          role="table"
+          aria-label={`Pedido ${shortOrderId(order.id)}`}
+        >
+          <div className="order-card__header" role="row">
+            <span className="order-card__id" role="cell">{shortOrderId(order.id)}</span>
+            <span className="order-card__name" role="cell">{order.name}</span>
+            <span className="order-card__contact" role="cell">
               <ContactLink contact={order.contact} />
             </span>
-            <span className="order-card__date">{formatOrderDate(order.created_at)}</span>
-            <span className="order-card__total">{orderTotal(order, books)}</span>
+            <span className="order-card__date" role="cell">{formatOrderDate(order.created_at)}</span>
+            <span className="order-card__total" role="cell">{orderTotal(order, books)}</span>
           </div>
-          <div className="order-card__cols">
-            <span>Livro</span>
-            <span className="t-center">Disponível</span>
-            <span>Valor</span>
-            <span>Status</span>
-            <span className="t-right">Ações</span>
+          <div className="order-card__cols" role="row">
+            <span role="columnheader">Livro</span>
+            <span className="t-center" role="columnheader">Disponível</span>
+            <span role="columnheader">Valor</span>
+            <span role="columnheader">Status</span>
+            <span className="t-right" role="columnheader">Ações</span>
           </div>
           {order.items.map((item) => {
             const book = books.get(item.title_id);
             return (
-              <div key={item.unit_id} className="order-card__row">
-                <span className="order-card__book">
+              <div key={item.unit_id} className="order-card__row" role="row">
+                <span className="order-card__book" role="cell">
                   {book?.title ?? item.title_id}
                   {book?.amount === 0 && item.status === 'waiting-payment' && !item.picked_up && (
                     <span className="badge unit-no-stock-badge">sem estoque</span>
                   )}
                 </span>
                 <span
+                  role="cell"
                   className={`t-center order-card__available${
                     book && book.amount === 0
                       ? ' order-card__available--zero'
@@ -347,7 +353,7 @@ export function Pedidos() {
                 >
                   {book ? book.amount : '—'}
                 </span>
-                <span className="order-card__price">
+                <span className="order-card__price" role="cell">
                   {item.received_amount !== undefined
                     ? formatPrice(item.received_amount)
                     : book
@@ -355,7 +361,9 @@ export function Pedidos() {
                       : '—'}
                 </span>
                 <StatusCell item={item} />
-                <span className="t-right order-card__actions">{renderActions(order, item)}</span>
+                <span className="t-right order-card__actions" role="cell">
+                  {renderActions(order, item)}
+                </span>
               </div>
             );
           })}

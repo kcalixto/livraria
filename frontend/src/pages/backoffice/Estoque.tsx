@@ -143,25 +143,33 @@ export function Estoque() {
           </div>
         </div>
       ) : (
-        <div className="stock-table">
-          <div className="stock-table__cols stock-table__cols--covers">
-            <span>Capa</span>
-            <span>Título</span>
-            <span className="t-center">Reservado</span>
-            <span className="t-center">Retirado</span>
-            <span className="t-center">Vendido</span>
-            <span className="t-right">Disponível</span>
+        <div className="stock-table" role="table" aria-label="Estoque por livro">
+          <div className="stock-table__cols stock-table__cols--covers" role="row">
+            <span role="columnheader">Capa</span>
+            <span role="columnheader">Título</span>
+            <span className="t-center" role="columnheader">Reservado</span>
+            <span className="t-center" role="columnheader">Retirado</span>
+            <span className="t-center" role="columnheader">Vendido</span>
+            <span className="t-right" role="columnheader">Disponível</span>
           </div>
           {rows.map((row) => (
-            <div key={row.book_id} className="stock-table__row stock-table__row--covers">
-              <CoverThumb id={row.book_id} title={state.titles.get(row.book_id) ?? row.book_id} />
-              <span className="stock-table__title">
+            <div
+              key={row.book_id}
+              className="stock-table__row stock-table__row--covers"
+              role="row"
+            >
+              <CoverThumb
+                id={row.book_id}
+                title={state.titles.get(row.book_id) ?? row.book_id}
+                role="cell"
+              />
+              <span className="stock-table__title" role="cell">
                 {state.titles.get(row.book_id) ?? row.book_id}
               </span>
-              <span className="t-center stock-qty">{row.reserved}</span>
-              <span className="t-center stock-qty">{row.picked_up}</span>
-              <span className="t-center stock-qty">{row.sold}</span>
-              <span className={`t-right stock-qty ${qtyClass(row.available)}`}>
+              <span className="t-center stock-qty" role="cell">{row.reserved}</span>
+              <span className="t-center stock-qty" role="cell">{row.picked_up}</span>
+              <span className="t-center stock-qty" role="cell">{row.sold}</span>
+              <span className={`t-right stock-qty ${qtyClass(row.available)}`} role="cell">
                 {row.available}
               </span>
             </div>
