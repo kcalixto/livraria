@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Loading } from '../../components/Loading';
 import { RedirectToLogin } from '../../components/RedirectToLogin';
 import { ApiError, apiGet } from "../../api/client";
 import { canWrite, clearToken } from "../../backoffice/auth";
+import { ActionIcon } from '../../components/ActionIcon';
 import { CoverThumb } from "../../components/CoverThumb";
 import { Toast } from "../../components/Toast";
 import type { ToastData } from "../../components/Toast";
@@ -35,6 +37,7 @@ type State =
 
 export function Livros() {
   const location = useLocation();
+  const navigate = useNavigate();
   const [state, setState] = useState<State>({ kind: "loading" });
   const [search, setSearch] = useState("");
   // "Livro salvo" vindo do form via navigation state
@@ -67,7 +70,7 @@ export function Livros() {
   if (state.kind === "unauthorized")
     return <RedirectToLogin />;
   if (state.kind === "loading")
-    return <div className="bo-loading">Carregando…</div>;
+    return <Loading />;
   if (state.kind === "error") {
     return (
       <div className="bo-state">
@@ -120,8 +123,7 @@ export function Livros() {
             <span role="columnheader">Id</span>
             <span role="columnheader">Título</span>
             <span role="columnheader">Autor</span>
-            <span role="columnheader">Preço</span>
-            <span role="columnheader">P. social</span>
+            <span role="columnheader">Preços</span>
             <span role="columnheader">Ano</span>
             <span className="t-right" role="columnheader">Ações</span>
           </div>
@@ -147,21 +149,23 @@ export function Livros() {
                 )}
               </span>
               <span className="bo-livros__author" role="cell">{book.author ?? "—"}</span>
-              <span className="bo-livros__price" role="cell">
-                {formatPrice(book.price)}
-              </span>
-              <span className="bo-livros__price bo-livros__social-price" role="cell">
-                {formatPrice(socialPriceOf(book))}
+              {/* social em cima do cheio: aproveita o espaço vertical da linha */}
+              <span className="bo-livros__prices" role="cell">
+                <span className="bo-livros__price bo-livros__social-price">
+                  {formatPrice(socialPriceOf(book))}
+                </span>
+                <hr className="bo-livros__prices-hr" />
+                <span className="bo-livros__price">{formatPrice(book.price)}</span>
               </span>
               <span className="bo-livros__year" role="cell">{book.year ?? "—"}</span>
               <span className="t-right bo-livros__actions" role="cell">
                 {canWrite() && (
-                  <Link
-                    className="stage-action"
-                    to={`/backoffice/livros/${book.id}/editar`}
-                  >
-                    Editar
-                  </Link>
+                  <ActionIcon
+                    icon="edit"
+                    variant="ink"
+                    label="Editar"
+                    onClick={() => navigate(`/backoffice/livros/${book.id}/editar`)}
+                  />
                 )}
               </span>
             </div>

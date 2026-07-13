@@ -70,8 +70,26 @@ describe('Backoffice — Livros', () => {
     expect(screen.getByText('O Pão e as Rosas')).toBeInTheDocument();
     expect(screen.getByText('Aurélio Bandeira')).toBeInTheDocument();
     expect(screen.getByText('R$ 42,00')).toBeInTheDocument();
-    expect(screen.getByText('P. social')).toBeInTheDocument();
+    // preços empilhados numa célula só: social em cima, hr, cheio embaixo
+    expect(screen.getByText('Preços')).toBeInTheDocument();
     expect(screen.getByText('R$ 30,00')).toBeInTheDocument();
+    const prices = document.querySelector('.bo-livros__prices')!;
+    expect(prices.querySelector('hr')).toBeInTheDocument();
+  });
+
+  it('Editar é um ícone que navega pro form de edição', async () => {
+    render(
+      <MemoryRouter initialEntries={['/backoffice/livros']}>
+        <Routes>
+          <Route path="/backoffice/livros" element={<Livros />} />
+          <Route path="/backoffice/livros/:id/editar" element={<div>FORM EDITAR</div>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await screen.findByText('A Comuna e o Fogo');
+
+    await userEvent.click(screen.getAllByRole('button', { name: /^editar$/i })[0]);
+    expect(await screen.findByText('FORM EDITAR')).toBeInTheDocument();
   });
 
   it('tem link para criar novo livro', async () => {
@@ -160,7 +178,7 @@ describe('Backoffice — Livros', () => {
     await screen.findByText('A Comuna e o Fogo');
 
     expect(screen.queryByRole('link', { name: /novo livro/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: /editar/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^editar$/i })).not.toBeInTheDocument();
   });
 
   it('401: limpa token e volta pro login', async () => {

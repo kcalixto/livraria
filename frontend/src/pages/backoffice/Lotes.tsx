@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { Loading } from '../../components/Loading';
 import { RedirectToLogin } from '../../components/RedirectToLogin';
 import { ApiError, apiAuthGet } from '../../api/client';
 import { canWrite, clearToken } from '../../backoffice/auth';
@@ -44,7 +45,7 @@ export function Lotes() {
   }, [load]);
 
   if (state.kind === 'unauthorized') return <RedirectToLogin />;
-  if (state.kind === 'loading') return <div className="bo-loading">Carregando…</div>;
+  if (state.kind === 'loading') return <Loading />;
   if (state.kind === 'error') {
     return (
       <div className="bo-state">

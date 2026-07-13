@@ -1,3 +1,4 @@
+import { Loading } from '../../components/Loading';
 import { useEffect, useRef, useState } from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { ApiError, apiAuthPost, apiAuthPut, apiGet } from '../../api/client';
@@ -129,7 +130,7 @@ export function LivroForm() {
   }
 
   if (unauthorized) return <Navigate to="/backoffice" replace />;
-  if (loadingBook) return <div className="bo-loading">Carregando…</div>;
+  if (loadingBook) return <Loading />;
 
   return (
     <div className="bo-content">

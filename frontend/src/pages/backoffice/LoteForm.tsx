@@ -1,3 +1,4 @@
+import { Loading } from '../../components/Loading';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { ApiError, apiAuthPost, apiGet } from '../../api/client';
@@ -142,7 +143,7 @@ export function LoteForm() {
   }
 
   if (unauthorized) return <Navigate to="/backoffice" replace />;
-  if (!books) return <div className="bo-loading">Carregando…</div>;
+  if (!books) return <Loading />;
 
   return (
     <div className="bo-content">

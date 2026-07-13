@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { Loading } from '../../components/Loading';
 import { RedirectToLogin } from '../../components/RedirectToLogin';
 import { csvEscape } from '../../lib/csv';
 import { centsToText, formatPrice, normalizeText } from '../../lib/format';
@@ -82,7 +83,7 @@ export function Vendas() {
   const visible = filtered.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
 
   if (unauthorized) return <RedirectToLogin />;
-  if (loading) return <div className="bo-loading">Carregando…</div>;
+  if (loading) return <Loading />;
   if (error) {
     return (
       <div className="bo-state">

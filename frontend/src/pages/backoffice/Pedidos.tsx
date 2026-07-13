@@ -1,4 +1,5 @@
 import { Fragment, useState } from 'react';
+import { Loading } from '../../components/Loading';
 import { RedirectToLogin } from '../../components/RedirectToLogin';
 import { ApiError, apiAuthPatch } from '../../api/client';
 import { centsToText, formatPrice, normalizeText, textToCents } from '../../lib/format';
@@ -379,7 +380,7 @@ export function Pedidos() {
     }
   }
 
-  if (loading) return <div className="bo-loading">Carregando…</div>;
+  if (loading) return <Loading />;
   if (error) {
     return (
       <div className="bo-state">
@@ -395,12 +396,22 @@ export function Pedidos() {
     <div className="bo-content">
       {toast && <Toast toast={toast} onDone={() => setToast(null)} />}
       <div className="bo-toolbar bo-toolbar--filters">
-        <input
-          className="field-input pedidos-search"
-          placeholder="Buscar por código, cliente, contato ou título…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+        <div className="pedidos-search-row">
+          <input
+            className="field-input pedidos-search"
+            placeholder="Buscar por código, cliente, contato ou título…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          <button
+            className={`reload-btn${refreshing ? ' reload-btn--spinning' : ''}`}
+            aria-label="Recarregar"
+            title="Recarregar"
+            onClick={() => void reload()}
+          >
+            ↻
+          </button>
+        </div>
         <div className="status-chips">
           {[
             { label: 'Todos', value: null },
@@ -418,14 +429,6 @@ export function Pedidos() {
             </button>
           ))}
         </div>
-        <button
-          className={`reload-btn${refreshing ? ' reload-btn--spinning' : ''}`}
-          aria-label="Recarregar"
-          title="Recarregar"
-          onClick={() => void reload()}
-        >
-          ↻
-        </button>
       </div>
 
       {pending.length === 0 ? (

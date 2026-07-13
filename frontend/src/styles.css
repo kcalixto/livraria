@@ -790,6 +790,17 @@ a:hover {
 /* ── Backoffice ── */
 .page--wide {
   max-width: 1180px;
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+}
+.page--wide .bo-tabs {
+  flex-shrink: 0;
+}
+.page--wide .bo-content {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto; /* único scroll vertical: navbar e headers sticky ficam fixos */
 }
 .t-center {
   text-align: center;
@@ -877,12 +888,47 @@ a:hover {
 .bo-content {
   padding: 16px 20px 32px;
 }
+.bo-livros__cols,
+.stock-table__cols,
+.sales-table__cols,
+.lote-detail__cols {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--surface);
+  box-shadow: 0 -16px 0 0 var(--surface); /* cobre o padding do container ao grudar */
+}
+
 .bo-loading {
   padding: 32px 24px;
   font-family: var(--mono);
   font-size: 12px;
   color: var(--muted);
   text-transform: uppercase;
+}
+.loader {
+  display: grid;
+  place-items: center;
+  padding: 64px 0;
+}
+.loader__spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid var(--border);
+  border-top-color: var(--wine);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
 }
 .bo-state {
   padding: 24px;
@@ -1231,7 +1277,7 @@ a:hover {
 .bo-livros__cols,
 .bo-livros__row {
   display: grid;
-  grid-template-columns: 60px 90px 2fr 1.3fr 0.9fr 0.9fr 0.6fr 1.6fr;
+  grid-template-columns: 60px 90px minmax(0, 2fr) minmax(0, 1.3fr) 110px 0.6fr 56px;
   gap: 12px;
   align-items: center;
   padding: 10px 16px;
@@ -1620,6 +1666,7 @@ a.btn--secondary:hover {
 
 /* ── Toast + toolbar de pedidos ── */
 .toast {
+  pointer-events: none; /* informativo: nunca bloqueia a próxima ação */
   position: fixed;
   bottom: 24px;
   right: 24px;
@@ -1852,6 +1899,14 @@ a.btn--secondary:hover {
   .bo-tabs__region .region-picker__value {
     display: none; /* só o rótulo REGIÃO cabe; menu abre com o valor completo */
   }
+  .bo-tabs .region-picker__menu {
+    position: fixed;
+    top: 60px;
+    left: 12px;
+    right: 12px;
+    width: auto;
+    z-index: 40;
+  }
   .bo-content {
     padding: 12px 12px 28px;
   }
@@ -1943,7 +1998,7 @@ a.btn--secondary:hover {
      fica visível (sticky) enquanto os itens rolam. */
   .bo-livros__cols,
   .bo-livros__row {
-    grid-template-columns: 48px 1fr 74px 74px 56px;
+    grid-template-columns: 48px minmax(0, 1fr) 86px 44px;
     gap: 8px;
     padding: 10px 12px;
   }
@@ -1952,23 +2007,18 @@ a.btn--secondary:hover {
     top: 0;
     z-index: 5;
     background: var(--surface);
+    box-shadow: 0 -16px 0 0 var(--surface);
   }
   /* ocultos no mobile: Id, Autor, Ano (e a badge de capa) */
   .bo-livros__cols > :nth-child(2),
   .bo-livros__cols > :nth-child(4),
-  .bo-livros__cols > :nth-child(7),
+  .bo-livros__cols > :nth-child(6),
   .bo-livros__id,
   .bo-livros__author,
   .bo-livros__year,
   .bo-livros__no-cover {
     display: none;
   }
-  /* reordena: p.social antes do preço */
-  .bo-livros__cols > :nth-child(1), .bo-livros__row > :nth-child(1) { order: 1; }
-  .bo-livros__cols > :nth-child(3), .bo-livros__row > :nth-child(3) { order: 2; }
-  .bo-livros__cols > :nth-child(6), .bo-livros__row > :nth-child(6) { order: 3; }
-  .bo-livros__cols > :nth-child(5), .bo-livros__row > :nth-child(5) { order: 4; }
-  .bo-livros__cols > :nth-child(8), .bo-livros__row > :nth-child(8) { order: 5; }
   .bo-livros__price {
     font-size: 12px;
     white-space: nowrap;
@@ -1976,7 +2026,11 @@ a.btn--secondary:hover {
   .lotes-table__cols,
   .lotes-table__row,
   .lotes-table__totals {
-    min-width: 620px;
+    min-width: 700px;
+    gap: 12px;
+  }
+  .lotes-table__region {
+    white-space: nowrap;
   }
   .lote-detail__cols,
   .lote-detail__row {
@@ -1996,6 +2050,7 @@ a.btn--secondary:hover {
     grid-template-columns: 1fr;
   }
   .toast {
+  pointer-events: none; /* informativo: nunca bloqueia a próxima ação */
     left: 12px;
     right: 12px;
     bottom: 12px;
@@ -2010,11 +2065,18 @@ a.btn--secondary:hover {
   gap: 10px;
   flex-wrap: wrap;
 }
+.pedidos-search-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 240px;
+  max-width: 460px;
+}
 .pedidos-search {
   margin-bottom: 0;
   flex: 1;
-  min-width: 220px;
-  max-width: 420px;
+  min-width: 0;
 }
 .status-chips {
   display: flex;
@@ -2037,9 +2099,6 @@ a.btn--secondary:hover {
   color: var(--wine-fg);
   background: var(--wine);
   border-color: var(--wine);
-}
-.bo-toolbar--filters .reload-btn {
-  margin-left: auto;
 }
 .reload-btn--spinning {
   animation: spin 0.8s linear infinite;
@@ -2164,6 +2223,22 @@ a.btn--secondary:hover {
 .bo-livros__no-cover {
   margin-left: 8px;
   font-size: 10px;
+}
+.bo-livros__prices {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.bo-livros__prices-hr {
+  width: 100%;
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 2px 0;
+}
+.bo-livros__title {
+  min-width: 0;
+  overflow-wrap: break-word;
 }
 .stock-counters {
   font-family: var(--mono);
