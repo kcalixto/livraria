@@ -747,6 +747,29 @@ describe('Backoffice — Pedidos (linhas por unidade)', () => {
     vi.restoreAllMocks();
   });
 
+  it('viewer (leitura): sem ações de escrita, mas com Verificar resumo e busca', async () => {
+  const viewerJwt = () => 'header.' + btoa(JSON.stringify({ role: 'viewer', exp: Math.floor(Date.now() / 1000) + 3600 })) + '.sig';
+    sessionStorage.setItem('livraria:token', viewerJwt());
+    stubFetch([
+      order('PED001', [{ unit_id: 'u1', title_id: 'b1', status: 'waiting-payment' }]),
+    ]);
+    renderPage();
+
+    await screen.findByText('Camarada Rosa');
+    expect(screen.getByRole('button', { name: /verificar resumo/i })).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/buscar por código/i)).toBeInTheDocument();
+    for (const name of [
+      /^reservar$/i,
+      /confirmar pagamento/i,
+      /retirado s\/ pagamento/i,
+      /observação/i,
+      /cancelar item/i,
+      /cancelar itens do pedido/i,
+    ]) {
+      expect(screen.queryByRole('button', { name })).not.toBeInTheDocument();
+    }
+  });
+
   it('token expirado (401): limpa token e volta pro login', async () => {
     vi.stubGlobal(
       'fetch',

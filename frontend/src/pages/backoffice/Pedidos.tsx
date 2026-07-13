@@ -11,6 +11,7 @@ import {
   STAGES,
 } from '../../backoffice/order-status';
 import type { Order, UnitItem } from '../../backoffice/order-status';
+import { canWrite } from '../../backoffice/auth';
 import { useIsMobile } from '../../backoffice/useIsMobile';
 import { useOrders } from '../../backoffice/useOrders';
 import { ActionIcon } from '../../components/ActionIcon';
@@ -77,6 +78,7 @@ export function Pedidos() {
   const [pickingUpOrderId, setPickingUpOrderId] = useState<string | null>(null);
   const [summaryOrderId, setSummaryOrderId] = useState<string | null>(null);
   const isMobile = useIsMobile();
+  const writable = canWrite(); // leitura: a tela vira consulta (API nega escrita de qualquer forma)
   const [pendingAction, setPendingAction] = useState<{
     label: string;
     description: string;
@@ -501,7 +503,7 @@ export function Pedidos() {
                     label="Verificar resumo"
                     onClick={() => setSummaryOrderId(order.id)}
                   />
-                  {order.items.some(
+                  {writable && order.items.some(
                     (i) =>
                       !i.picked_up &&
                       (i.status === 'waiting-payment' || i.status === 'in-reserve'),
@@ -527,7 +529,7 @@ export function Pedidos() {
                       }
                     />
                   )}
-                  {order.items.some(
+                  {writable && order.items.some(
                     (i) => i.picked_up && i.status === 'waiting-payment',
                   ) && (
                     <ActionIcon
@@ -548,7 +550,7 @@ export function Pedidos() {
                       }
                     />
                   )}
-                  <ActionIcon
+                  {writable && (<ActionIcon
                     icon="cancel"
                     variant="red"
                     label="Cancelar itens do pedido"
@@ -568,7 +570,7 @@ export function Pedidos() {
                           )
                         : setCancellingOrderId(order.id)
                     }
-                  />
+                  />)}
                 </>
               )}
             </span>
@@ -622,8 +624,8 @@ export function Pedidos() {
                     </span>
                   ) : (
                     <>
-                      {renderActions(order, item)}
-                      {item.status !== 'cancelled' && obsUnitId !== item.unit_id && (
+                      {writable && renderActions(order, item)}
+                      {writable && item.status !== 'cancelled' && obsUnitId !== item.unit_id && (
                         <ActionIcon
                           icon="note"
                           variant="gray"
@@ -638,7 +640,7 @@ export function Pedidos() {
                           }
                         />
                       )}
-                      {!isUnitClosed(item) && payingUnitId !== item.unit_id && (
+                      {writable && !isUnitClosed(item) && payingUnitId !== item.unit_id && (
                         <ActionIcon
                           icon="cancel"
                           variant="red"

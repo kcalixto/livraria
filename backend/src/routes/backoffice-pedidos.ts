@@ -5,6 +5,7 @@ import { isOrderStatus, isUnitFinalized } from '../lib/order-status';
 import type { OrderStatus } from '../lib/order-status';
 import { computeStock } from '../lib/stock';
 import { jwtMiddleware } from '../middlewares/jwt';
+import { requireRole } from '../middlewares/require-role';
 
 // campos do agrupador (iguais em todas as linhas do pedido)
 const ORDER_FIELDS = ['name', 'contact', 'region', 'created_at'] as const;
@@ -87,7 +88,7 @@ export const backofficePedidos = new Hono();
 
 backofficePedidos.use('*', jwtMiddleware);
 
-backofficePedidos.get('/', async (c) => {
+backofficePedidos.get('/', requireRole('viewer', 'admin'), async (c) => {
   const result = await docClient.send(
     new ScanCommand({ TableName: process.env.PEDIDOS_TABLE_NAME }),
   );
@@ -128,7 +129,7 @@ function cancelSpec(): UpdateSpec {
   };
 }
 
-backofficePedidos.patch('/:id/status', async (c) => {
+backofficePedidos.patch('/:id/status', requireRole('admin'), async (c) => {
   const body = await c.req.json().catch(() => null);
   if (!body) return c.json({ error: 'invalid json' }, 400);
 

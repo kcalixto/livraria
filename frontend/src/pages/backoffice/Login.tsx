@@ -21,10 +21,14 @@ export function Login() {
     setChecking(true);
     setError(false);
     try {
-      const { token } = await apiPost<{ token: string }>('/backoffice/login', { password });
+      const { token, role } = await apiPost<{ token: string; role?: string }>(
+        '/backoffice/login',
+        { password },
+      );
       setToken(token);
-      // volta pra onde o operador estava quando a sessão caiu
-      navigate(state.from ?? '/backoffice/pedidos');
+      // volta pra onde o operador estava; perfil stock cai direto no Estoque
+      const home = role === 'stock' ? '/backoffice/estoque' : '/backoffice/pedidos';
+      navigate(role === 'stock' ? home : (state.from ?? home));
     } catch {
       setError(true);
     } finally {

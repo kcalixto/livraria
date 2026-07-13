@@ -4,22 +4,23 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { BackofficeLayout } from './BackofficeLayout';
 
-function renderLayout() {
+function renderLayout(initialPath = '/backoffice/pedidos') {
   return render(
-    <MemoryRouter initialEntries={['/backoffice/pedidos']}>
+    <MemoryRouter initialEntries={[initialPath]}>
       <Routes>
         <Route path="/backoffice" element={<div>LOGIN PAGE</div>} />
         <Route element={<BackofficeLayout />}>
           <Route path="/backoffice/pedidos" element={<div>CONTEUDO</div>} />
+          <Route path="/backoffice/estoque" element={<div>ESTOQUE PAGE</div>} />
         </Route>
       </Routes>
     </MemoryRouter>,
   );
 }
 
-// JWT fake com exp controlado (payload em base64)
-function fakeJwt(expInSeconds: number): string {
-  const payload = btoa(JSON.stringify({ role: 'admin', exp: expInSeconds }));
+// JWT fake com exp e role controlados (payload em base64)
+function fakeJwt(expInSeconds: number, role = 'admin'): string {
+  const payload = btoa(JSON.stringify({ role, exp: expInSeconds }));
   return `header.${payload}.sig`;
 }
 
@@ -55,5 +56,40 @@ describe('BackofficeLayout', () => {
   it('não mostra aviso com sessão longe de expirar', () => {
     renderLayout();
     expect(screen.queryByText(/sessão expira/i)).not.toBeInTheDocument();
+  });
+
+  it('admin vê todas as abas', () => {
+    renderLayout();
+    for (const tab of ['Pedidos', 'Vendas', 'Estoque', 'Lotes', 'Livros']) {
+      expect(screen.getByRole('link', { name: tab })).toBeInTheDocument();
+    }
+  });
+
+  it('stock vê só Estoque e Livros, e é redirecionado de rotas fora do escopo', () => {
+    sessionStorage.setItem(
+      'livraria:token',
+      fakeJwt(Math.floor(Date.now() / 1000) + 3600, 'stock'),
+    );
+    renderLayout('/backoffice/pedidos');
+
+    // guard: caiu no Estoque
+    expect(screen.getByText('ESTOQUE PAGE')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Estoque' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Livros' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Pedidos' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Vendas' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Lotes' })).not.toBeInTheDocument();
+  });
+
+  it('viewer vê todas as abas (leitura completa)', () => {
+    sessionStorage.setItem(
+      'livraria:token',
+      fakeJwt(Math.floor(Date.now() / 1000) + 3600, 'viewer'),
+    );
+    renderLayout();
+    for (const tab of ['Pedidos', 'Vendas', 'Estoque', 'Lotes', 'Livros']) {
+      expect(screen.getByRole('link', { name: tab })).toBeInTheDocument();
+    }
+    expect(screen.getByText('CONTEUDO')).toBeInTheDocument();
   });
 });

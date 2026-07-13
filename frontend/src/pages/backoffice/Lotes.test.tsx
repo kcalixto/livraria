@@ -98,6 +98,17 @@ describe('Backoffice — Lotes', () => {
     expect(totals.textContent).toContain('R$ 90,00');
   });
 
+  it('viewer não vê o botão Novo lote', async () => {
+    sessionStorage.setItem(
+      'livraria:token',
+      'header.' + btoa(JSON.stringify({ role: 'viewer', exp: Math.floor(Date.now() / 1000) + 3600 })) + '.sig',
+    );
+    renderPage();
+    await screen.findByText('01/07/2026');
+
+    expect(screen.queryByRole('link', { name: /novo lote/i })).not.toBeInTheDocument();
+  });
+
   it('mostra toast de sucesso vindo do form (navigation state)', async () => {
     renderPage({ toast: 'Lote registrado' });
     await screen.findByText('01/07/2026');

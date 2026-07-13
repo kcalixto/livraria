@@ -10,6 +10,7 @@ function renderLogin() {
       <Routes>
         <Route path="/backoffice" element={<Login />} />
         <Route path="/backoffice/pedidos" element={<div>PEDIDOS PAGE</div>} />
+        <Route path="/backoffice/estoque" element={<div>ESTOQUE PAGE</div>} />
       </Routes>
     </MemoryRouter>,
   );
@@ -36,6 +37,23 @@ describe('Login do backoffice', () => {
 
     expect(await screen.findByText('PEDIDOS PAGE')).toBeInTheDocument();
     expect(sessionStorage.getItem('livraria:token')).toBe('jwt-abc');
+  });
+
+  it('senha de perfil stock leva direto pro Estoque', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValue(
+          new Response(JSON.stringify({ token: 'jwt-stock', role: 'stock' }), { status: 200 }),
+        ),
+    );
+    renderLogin();
+
+    await userEvent.type(screen.getByLabelText(/senha/i), 'senha-estoque');
+    await userEvent.click(screen.getByRole('button', { name: /entrar/i }));
+
+    expect(await screen.findByText('ESTOQUE PAGE')).toBeInTheDocument();
   });
 
   it('mostra aviso de sessão expirada e retorna à rota de origem após o login', async () => {

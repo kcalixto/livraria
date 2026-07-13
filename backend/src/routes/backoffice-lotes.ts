@@ -7,6 +7,7 @@ import { s3Client } from '../lib/s3';
 import { DEFAULT_REGION } from '../lib/constants';
 import { computeStock } from '../lib/stock';
 import { jwtMiddleware } from '../middlewares/jwt';
+import { requireRole } from '../middlewares/require-role';
 
 const MAX_RECEIPT_BYTES = 5 * 1024 * 1024;
 
@@ -39,7 +40,7 @@ export const backofficeLotes = new Hono();
 
 backofficeLotes.use('*', jwtMiddleware);
 
-backofficeLotes.post('/', async (c) => {
+backofficeLotes.post('/', requireRole('admin'), async (c) => {
   const body = await c.req.json().catch(() => null);
   if (!body) return c.json({ error: 'invalid json' }, 400);
 
@@ -98,7 +99,7 @@ function transactionsTotal(lote: Record<string, unknown>): number {
   return transactionsOf(lote).reduce((sum, t) => sum + t.amount, 0);
 }
 
-backofficeLotes.get('/', async (c) => {
+backofficeLotes.get('/', requireRole('viewer', 'admin'), async (c) => {
   const region = c.req.query('region') ?? DEFAULT_REGION;
   const stock = await computeStock(region);
 
@@ -117,7 +118,7 @@ backofficeLotes.get('/', async (c) => {
   return c.json(lotes);
 });
 
-backofficeLotes.get('/:id', async (c) => {
+backofficeLotes.get('/:id', requireRole('viewer', 'admin'), async (c) => {
   const region = c.req.query('region') ?? DEFAULT_REGION;
   const stock = await computeStock(region);
 
@@ -137,7 +138,7 @@ backofficeLotes.get('/:id', async (c) => {
   });
 });
 
-backofficeLotes.post('/:id/transacoes', async (c) => {
+backofficeLotes.post('/:id/transacoes', requireRole('admin'), async (c) => {
   const body = await c.req.json().catch(() => null);
   if (!body) return c.json({ error: 'invalid json' }, 400);
 
@@ -214,7 +215,7 @@ backofficeLotes.post('/:id/transacoes', async (c) => {
   return c.json(transaction, 201);
 });
 
-backofficeLotes.get('/:id/transacoes/:txId/comprovante', async (c) => {
+backofficeLotes.get('/:id/transacoes/:txId/comprovante', requireRole('viewer', 'admin'), async (c) => {
   const region = c.req.query('region') ?? DEFAULT_REGION;
   const stock = await computeStock(region);
   const lote = stock.fifo.find((l) => l.id === c.req.param('id'));

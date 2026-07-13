@@ -4,6 +4,7 @@ import { ConditionalCheckFailedException } from '@aws-sdk/client-dynamodb';
 import { docClient } from '../lib/db';
 import { adminApiKeyMiddleware } from '../middlewares/admin-api-key';
 import { jwtMiddleware } from '../middlewares/jwt';
+import { requireRole } from '../middlewares/require-role';
 
 // social_price: preço pra quem não pode pagar o cheio (regra da livraria social)
 const REQUIRED_FIELDS = ['title', 'price', 'social_price'] as const;
@@ -18,7 +19,7 @@ export const backofficeLivros = new Hono();
 
 backofficeLivros.use('*', jwtMiddleware);
 
-backofficeLivros.post('/', async (c) => {
+backofficeLivros.post('/', requireRole('admin'), async (c) => {
   const body = await c.req.json().catch(() => null);
   if (!body) return c.json({ error: 'invalid json' }, 400);
 
@@ -49,7 +50,7 @@ backofficeLivros.post('/', async (c) => {
   return c.json(book, 201);
 });
 
-backofficeLivros.put('/:id', async (c) => {
+backofficeLivros.put('/:id', requireRole('admin'), async (c) => {
   const body = await c.req.json().catch(() => null);
   if (!body) return c.json({ error: 'invalid json' }, 400);
 
@@ -89,7 +90,7 @@ backofficeLivros.put('/:id', async (c) => {
   }
 });
 
-backofficeLivros.delete('/:id', adminApiKeyMiddleware, async (c) => {
+backofficeLivros.delete('/:id', requireRole('admin'), adminApiKeyMiddleware, async (c) => {
   await docClient.send(
     new DeleteCommand({
       TableName: process.env.LIVROS_TABLE_NAME,

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useLocation } from 'react-router-dom';
 import { RedirectToLogin } from '../../components/RedirectToLogin';
 import { ApiError, apiGet } from "../../api/client";
-import { clearToken } from "../../backoffice/auth";
+import { canWrite, clearToken } from "../../backoffice/auth";
 import { CoverThumb } from "../../components/CoverThumb";
 import { Toast } from "../../components/Toast";
 import type { ToastData } from "../../components/Toast";
@@ -96,9 +96,11 @@ export function Livros() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
-        <Link to="/backoffice/livros/novo" className="btn btn--primary">
-          Novo livro
-        </Link>
+        {canWrite() && (
+          <Link to="/backoffice/livros/novo" className="btn btn--primary">
+            Novo livro
+          </Link>
+        )}
       </div>
 
       {state.books.length === 0 ? (
@@ -153,12 +155,14 @@ export function Livros() {
               </span>
               <span className="bo-livros__year" role="cell">{book.year ?? "—"}</span>
               <span className="t-right bo-livros__actions" role="cell">
-                <Link
-                  className="stage-action"
-                  to={`/backoffice/livros/${book.id}/editar`}
-                >
-                  Editar
-                </Link>
+                {canWrite() && (
+                  <Link
+                    className="stage-action"
+                    to={`/backoffice/livros/${book.id}/editar`}
+                  >
+                    Editar
+                  </Link>
+                )}
               </span>
             </div>
           ))}

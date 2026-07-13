@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { RedirectToLogin } from '../../components/RedirectToLogin';
 import { ApiError, apiAuthGet, apiGet } from '../../api/client';
-import { clearToken } from '../../backoffice/auth';
+import { canWrite, clearToken } from '../../backoffice/auth';
 import { CoverThumb } from '../../components/CoverThumb';
 import { csvEscape } from '../../lib/csv';
 import { ACTIVE_REGION } from '../../lib/region';
@@ -159,7 +159,7 @@ export function Estoque() {
               {low} baixo{low === 1 ? '' : 's'}
             </span>
           )}
-          {zeroed > 0 && (
+          {zeroed > 0 && canWrite() && (
             <Link to="/backoffice/lotes/novo" className="stock-counters__link">
               Registrar lote
             </Link>

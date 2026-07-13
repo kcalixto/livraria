@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { RedirectToLogin } from '../../components/RedirectToLogin';
 import { ApiError, apiAuthGet, apiAuthPost, apiGet } from '../../api/client';
-import { clearToken } from '../../backoffice/auth';
+import { canWrite, clearToken } from '../../backoffice/auth';
 import { formatLoteDate } from '../../backoffice/lotes';
 import type { LoteDetailData, LoteTransaction } from '../../backoffice/lotes';
 import { CoverThumb } from '../../components/CoverThumb';
@@ -223,13 +223,15 @@ export function LoteDetail() {
       <div className="lote-history">
         <div className="lote-history__header">
           <span className="lote-form__section">Histórico do lote</span>
-          <button
-            className="btn btn--secondary"
-            aria-expanded={formOpen}
-            onClick={() => setFormOpen((v) => !v)}
-          >
-            {formOpen ? 'Cancelar' : 'Adicionar Transação'}
-          </button>
+          {canWrite() && (
+            <button
+              className="btn btn--secondary"
+              aria-expanded={formOpen}
+              onClick={() => setFormOpen((v) => !v)}
+            >
+              {formOpen ? 'Cancelar' : 'Adicionar Transação'}
+            </button>
+          )}
         </div>
 
         {formOpen && (

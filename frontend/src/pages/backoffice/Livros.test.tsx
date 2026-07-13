@@ -151,6 +151,18 @@ describe('Backoffice — Livros', () => {
     expect(screen.getByText(/livro salvo/i)).toBeInTheDocument();
   });
 
+  it('perfil de leitura não vê Novo livro nem Editar', async () => {
+    sessionStorage.setItem(
+      'livraria:token',
+      'header.' + btoa(JSON.stringify({ role: 'stock', exp: Math.floor(Date.now() / 1000) + 3600 })) + '.sig',
+    );
+    renderPage();
+    await screen.findByText('A Comuna e o Fogo');
+
+    expect(screen.queryByRole('link', { name: /novo livro/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /editar/i })).not.toBeInTheDocument();
+  });
+
   it('401: limpa token e volta pro login', async () => {
     vi.stubGlobal(
       'fetch',

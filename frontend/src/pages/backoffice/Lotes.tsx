@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { RedirectToLogin } from '../../components/RedirectToLogin';
 import { ApiError, apiAuthGet } from '../../api/client';
-import { clearToken } from '../../backoffice/auth';
+import { canWrite, clearToken } from '../../backoffice/auth';
 import { Toast } from '../../components/Toast';
 import type { ToastData } from '../../components/Toast';
 import { formatLoteDate } from '../../backoffice/lotes';
@@ -60,9 +60,11 @@ export function Lotes() {
     <div className="bo-content">
       {toast && <Toast toast={toast} onDone={() => setToast(null)} />}
       <div className="bo-livros__toolbar">
-        <Link to="/backoffice/lotes/novo" className="btn btn--primary">
-          Novo lote
-        </Link>
+        {canWrite() && (
+          <Link to="/backoffice/lotes/novo" className="btn btn--primary">
+            Novo lote
+          </Link>
+        )}
       </div>
 
       {state.lotes.length === 0 ? (

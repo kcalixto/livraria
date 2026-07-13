@@ -36,6 +36,8 @@ provider:
     LIVRARIA_FRONT_END_API_KEY: ${ssm:/livraria/front-end-api-key}
     BACKOFFICE_ADMIN_API_KEY: ${ssm:/livraria/backoffice-admin-api-key}
     BACKOFFICE_KEY: ${ssm:/livraria/backoffice-key}
+    BACKOFFICE_VIEWER_KEY: ${ssm:/livraria/backoffice-viewer-key}
+    BACKOFFICE_STOCK_KEY: ${ssm:/livraria/backoffice-stock-key}
     JWT_SECRET: ${ssm:/livraria/jwt-secret}
   iam:
     role:

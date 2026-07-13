@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Navigate, NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { clearToken, getToken, tokenExpiresAt } from '../../backoffice/auth';
+import { Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { canWrite, clearToken, getToken, tokenExpiresAt, tokenRole } from '../../backoffice/auth';
 import { RegionPicker } from '../../components/RegionPicker';
 
 const WARN_BELOW_MINUTES = 10;
@@ -13,6 +13,7 @@ function minutesLeft(): number | null {
 
 export function BackofficeLayout() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [sessionMinutes, setSessionMinutes] = useState<number | null>(minutesLeft());
 
   useEffect(() => {
@@ -21,6 +22,22 @@ export function BackofficeLayout() {
   }, []);
 
   if (!getToken()) return <Navigate to="/backoffice" replace />;
+
+  const role = tokenRole();
+  const stockOnly = role === 'stock';
+  const path = location.pathname;
+
+  // guards de rota (cosméticos — a API nega de qualquer forma):
+  // stock fora de Estoque/Livros, e perfis de leitura em rotas de form
+  const stockAllowed =
+    path.startsWith('/backoffice/estoque') || path.startsWith('/backoffice/livros');
+  if (stockOnly && !stockAllowed) {
+    return <Navigate to="/backoffice/estoque" replace />;
+  }
+  const isFormRoute = /\/(novo|editar)$/.test(path);
+  if (!canWrite() && isFormRoute) {
+    return <Navigate to={stockOnly ? '/backoffice/estoque' : '/backoffice/pedidos'} replace />;
+  }
 
   function logout() {
     clearToken();
@@ -31,19 +48,25 @@ export function BackofficeLayout() {
     <div className="page page--wide">
       <nav className="bo-tabs">
         {/* operação diária | gestão de acervo */}
-        <NavLink to="/backoffice/pedidos" className="bo-tab">
-          Pedidos
-        </NavLink>
-        <NavLink to="/backoffice/vendas" className="bo-tab">
-          Vendas
-        </NavLink>
-        <span className="bo-tabs__divider" aria-hidden="true" />
+        {!stockOnly && (
+          <>
+            <NavLink to="/backoffice/pedidos" className="bo-tab">
+              Pedidos
+            </NavLink>
+            <NavLink to="/backoffice/vendas" className="bo-tab">
+              Vendas
+            </NavLink>
+            <span className="bo-tabs__divider" aria-hidden="true" />
+          </>
+        )}
         <NavLink to="/backoffice/estoque" className="bo-tab">
           Estoque
         </NavLink>
-        <NavLink to="/backoffice/lotes" className="bo-tab">
-          Lotes
-        </NavLink>
+        {!stockOnly && (
+          <NavLink to="/backoffice/lotes" className="bo-tab">
+            Lotes
+          </NavLink>
+        )}
         <NavLink to="/backoffice/livros" className="bo-tab">
           Livros
         </NavLink>

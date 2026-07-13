@@ -2,12 +2,13 @@ import { Hono } from 'hono';
 import { DEFAULT_REGION } from '../lib/constants';
 import { computeStock } from '../lib/stock';
 import { jwtMiddleware } from '../middlewares/jwt';
+import { requireRole } from '../middlewares/require-role';
 
 export const backofficeEstoque = new Hono();
 
 backofficeEstoque.use('*', jwtMiddleware);
 
-backofficeEstoque.get('/', async (c) => {
+backofficeEstoque.get('/', requireRole('stock', 'viewer', 'admin'), async (c) => {
   const region = c.req.query('region') ?? DEFAULT_REGION;
   const stock = await computeStock(region);
 
