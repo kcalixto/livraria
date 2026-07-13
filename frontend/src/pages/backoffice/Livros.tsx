@@ -133,7 +133,7 @@ export function Livros() {
                   setBrokenCovers((prev) => new Set(prev).add(id))
                 }
               />
-              <span role="cell">
+              <span className="bo-livros__id" role="cell">
                 <IdChip id={book.id} />
               </span>
               <span className="bo-livros__title" role="cell">

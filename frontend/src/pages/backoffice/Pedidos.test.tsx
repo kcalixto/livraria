@@ -680,6 +680,73 @@ describe('Backoffice — Pedidos (linhas por unidade)', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
+  it('mobile: ação abre modal de confirmação descritivo antes do PATCH', async () => {
+    vi.spyOn(window, 'matchMedia').mockImplementation(
+      (query: string) =>
+        ({
+          matches: query.includes('max-width: 700px'),
+          media: query,
+          onchange: null,
+          addEventListener: () => {},
+          removeEventListener: () => {},
+          addListener: () => {},
+          removeListener: () => {},
+          dispatchEvent: () => false,
+        }) as unknown as MediaQueryList,
+    );
+    stubFetch([
+      order('PED001', [{ unit_id: 'u1', title_id: 'b1', status: 'waiting-payment' }]),
+    ]);
+    renderPage();
+
+    await userEvent.click(await screen.findByRole('button', { name: /^reservar$/i }));
+    // modal descreve a ação; nada de PATCH ainda
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog.textContent).toContain('Reservar');
+    expect(dialog.textContent).toMatch(/desconta do estoque/i);
+    expect(fetchMock.mock.calls.filter(([, i]) => i?.method === 'PATCH')).toHaveLength(0);
+
+    await userEvent.click(screen.getByRole('button', { name: /^confirmar$/i }));
+    const patchCall = fetchMock.mock.calls.find(([, init]) => init?.method === 'PATCH');
+    expect(JSON.parse((patchCall![1] as RequestInit).body as string)).toEqual({
+      status: 'in-reserve',
+      unit_id: 'u1',
+    });
+    vi.restoreAllMocks();
+  });
+
+  it('mobile: ação irreversível vai direto pro modal (sem confirmação inline dupla)', async () => {
+    vi.spyOn(window, 'matchMedia').mockImplementation(
+      (query: string) =>
+        ({
+          matches: query.includes('max-width: 700px'),
+          media: query,
+          onchange: null,
+          addEventListener: () => {},
+          removeEventListener: () => {},
+          addListener: () => {},
+          removeListener: () => {},
+          dispatchEvent: () => false,
+        }) as unknown as MediaQueryList,
+    );
+    stubFetch([
+      order('PED001', [{ unit_id: 'u1', title_id: 'b1', status: 'sent-to-delivery' }]),
+    ]);
+    renderPage();
+
+    await userEvent.click(await screen.findByRole('button', { name: /marcar entregue/i }));
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog.textContent).toMatch(/não pode ser desfeito/i);
+
+    await userEvent.click(screen.getByRole('button', { name: /^confirmar$/i }));
+    const patchCall = fetchMock.mock.calls.find(([, init]) => init?.method === 'PATCH');
+    expect(JSON.parse((patchCall![1] as RequestInit).body as string)).toEqual({
+      status: 'received',
+      unit_id: 'u1',
+    });
+    vi.restoreAllMocks();
+  });
+
   it('token expirado (401): limpa token e volta pro login', async () => {
     vi.stubGlobal(
       'fetch',

@@ -1856,10 +1856,37 @@ a.btn--secondary:hover {
     padding: 12px 12px 28px;
   }
 
-  /* pedidos: cartão empilhado por unidade */
+  /* pedidos: header do card em grid de áreas — id+total em destaque,
+     nome/contato na 2ª linha, data discreta e ações touch na 3ª */
   .order-card__header {
-    gap: 6px 14px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      'id total'
+      'name contact'
+      'date actions';
+    gap: 6px 12px;
+    align-items: center;
     padding: 12px 14px;
+  }
+  .order-card__id { grid-area: id; }
+  .order-card__total { grid-area: total; font-size: 16px; }
+  .order-card__name { grid-area: name; }
+  .order-card__contact { grid-area: contact; justify-self: end; }
+  .order-card__date { grid-area: date; }
+  .order-card__order-actions {
+    grid-area: actions;
+    justify-self: end;
+    margin-left: 0;
+  }
+  /* alvo de toque maior + tooltip não existe no touch (modal assume) */
+  .action-icon {
+    width: 36px;
+    height: 36px;
+  }
+  .action-icon::after,
+  .action-icon::before {
+    display: none;
   }
   .order-card__cols {
     display: none;
@@ -1898,7 +1925,6 @@ a.btn--secondary:hover {
   /* tabelas informativas: scroll horizontal preservando o grid */
   .sales-table,
   .stock-table,
-  .bo-livros,
   .lotes-table,
   .lote-detail__scroll {
     overflow-x: auto;
@@ -1911,9 +1937,41 @@ a.btn--secondary:hover {
   .stock-table__row {
     min-width: 560px;
   }
+
+  /* Livros no mobile: sem scroll horizontal — colunas fixas (alinhamento igual
+     em todas as linhas), ordem capa→título→p.social→preço→ações, e o cabeçalho
+     fica visível (sticky) enquanto os itens rolam. */
   .bo-livros__cols,
   .bo-livros__row {
-    min-width: 640px;
+    grid-template-columns: 48px 1fr 74px 74px 56px;
+    gap: 8px;
+    padding: 10px 12px;
+  }
+  .bo-livros__cols {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: var(--surface);
+  }
+  /* ocultos no mobile: Id, Autor, Ano (e a badge de capa) */
+  .bo-livros__cols > :nth-child(2),
+  .bo-livros__cols > :nth-child(4),
+  .bo-livros__cols > :nth-child(7),
+  .bo-livros__id,
+  .bo-livros__author,
+  .bo-livros__year,
+  .bo-livros__no-cover {
+    display: none;
+  }
+  /* reordena: p.social antes do preço */
+  .bo-livros__cols > :nth-child(1), .bo-livros__row > :nth-child(1) { order: 1; }
+  .bo-livros__cols > :nth-child(3), .bo-livros__row > :nth-child(3) { order: 2; }
+  .bo-livros__cols > :nth-child(6), .bo-livros__row > :nth-child(6) { order: 3; }
+  .bo-livros__cols > :nth-child(5), .bo-livros__row > :nth-child(5) { order: 4; }
+  .bo-livros__cols > :nth-child(8), .bo-livros__row > :nth-child(8) { order: 5; }
+  .bo-livros__price {
+    font-size: 12px;
+    white-space: nowrap;
   }
   .lotes-table__cols,
   .lotes-table__row,
@@ -2378,6 +2436,27 @@ a.btn--secondary:hover {
 }
 .modal__footer {
   padding: 12px 18px 16px;
+}
+.confirm-modal__description {
+  font-size: 14.5px;
+  color: var(--ink-body);
+  line-height: 1.5;
+  margin: 4px 0 8px;
+}
+.confirm-modal__footer {
+  display: flex;
+  gap: 10px;
+}
+.confirm-modal__btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px;
+}
+.confirm-modal__btn--danger {
+  background: var(--error);
 }
 
 /* mobile: o modal vira bottom-sheet (contexto preservado, Copiar sempre à mão) */

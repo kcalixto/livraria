@@ -5,3 +5,18 @@ import { afterEach } from 'vitest';
 afterEach(() => {
   cleanup();
 });
+
+// jsdom não implementa matchMedia; default = desktop (testes mobile fazem spy)
+if (!window.matchMedia) {
+  window.matchMedia = (query: string) =>
+    ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      addListener: () => {},
+      removeListener: () => {},
+      dispatchEvent: () => false,
+    }) as unknown as MediaQueryList;
+}

@@ -26,6 +26,25 @@ const ICON_PATHS: Record<ActionIconName, string> = {
   summary: 'M5 2h6v2H5zM3 4h10v10H3zM5.5 8h5M5.5 11h5',
 };
 
+// só o desenho (pra botões que precisam de ícone + texto, como o modal mobile)
+export function ActionGlyph({ icon }: { icon: ActionIconName }) {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      width="16"
+      height="16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d={ICON_PATHS[icon]} />
+    </svg>
+  );
+}
+
 export function ActionIcon({
   icon,
   label,

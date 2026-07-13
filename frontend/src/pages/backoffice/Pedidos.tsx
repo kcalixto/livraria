@@ -11,9 +11,11 @@ import {
   STAGES,
 } from '../../backoffice/order-status';
 import type { Order, UnitItem } from '../../backoffice/order-status';
+import { useIsMobile } from '../../backoffice/useIsMobile';
 import { useOrders } from '../../backoffice/useOrders';
 import { ActionIcon } from '../../components/ActionIcon';
 import { ClampedText } from '../../components/ClampedText';
+import { ConfirmActionModal } from '../../components/ConfirmActionModal';
 import { ContactLink } from '../../components/ContactLink';
 import { OrderSummaryModal } from '../../components/OrderSummaryModal';
 import { Toast } from '../../components/Toast';
@@ -74,6 +76,13 @@ export function Pedidos() {
   const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null);
   const [pickingUpOrderId, setPickingUpOrderId] = useState<string | null>(null);
   const [summaryOrderId, setSummaryOrderId] = useState<string | null>(null);
+  const isMobile = useIsMobile();
+  const [pendingAction, setPendingAction] = useState<{
+    label: string;
+    description: string;
+    run: () => void;
+    danger?: boolean;
+  } | null>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [payText, setPayText] = useState('');
@@ -156,6 +165,15 @@ export function Pedidos() {
     if (book) setPayText(centsToText(checked ? socialPriceOf(book) : book.price));
   }
 
+  // no mobile não há hover/tooltip: toda ação passa por um modal descritivo
+  function act(label: string, description: string, run: () => void, danger = false) {
+    if (isMobile) {
+      setPendingAction({ label, description, run, danger });
+      return;
+    }
+    run();
+  }
+
   async function confirmPayment(order: Order, item: UnitItem) {
     const cents = textToCents(payText);
     if (cents === null) {
@@ -212,12 +230,27 @@ export function Pedidos() {
     if (item.picked_up) {
       return (
         <>
-          <ActionIcon icon="pay" variant="green" label="Confirmar pagamento" onClick={() => openPayment(item)} />
+          <ActionIcon
+            icon="pay"
+            variant="green"
+            label="Confirmar pagamento"
+            onClick={() =>
+              act('Confirmar pagamento', 'Abre o campo pra registrar o valor recebido.', () =>
+                openPayment(item),
+              )
+            }
+          />
           <ActionIcon
             icon="undo"
             variant="gray"
             label="Desfazer retirado"
-            onClick={() => void patch(order, item, { picked_up: false }, 'Retirada desfeita')}
+            onClick={() =>
+              act(
+                'Desfazer retirado',
+                'Desfaz a retirada e devolve a unidade ao estoque.',
+                () => void patch(order, item, { picked_up: false }, 'Retirada desfeita'),
+              )
+            }
           />
         </>
       );
@@ -231,15 +264,32 @@ export function Pedidos() {
               icon="reserve"
               variant="teal"
               label="Reservar"
-              onClick={() => void patch(order, item, { status: 'in-reserve' }, 'Em Reserva')}
+              onClick={() =>
+                act('Reservar', 'Reserva esta unidade e desconta do estoque.', () =>
+                  void patch(order, item, { status: 'in-reserve' }, 'Em Reserva'),
+                )
+              }
             />
-            <ActionIcon icon="pay" variant="green" label="Confirmar pagamento" onClick={() => openPayment(item)} />
+            <ActionIcon
+              icon="pay"
+              variant="green"
+              label="Confirmar pagamento"
+              onClick={() =>
+                act('Confirmar pagamento', 'Abre o campo pra registrar o valor recebido.', () =>
+                  openPayment(item),
+                )
+              }
+            />
             <ActionIcon
               icon="pickup"
               variant="amber"
               label="Retirado s/ pagamento"
               onClick={() =>
-                void patch(order, item, { picked_up: true }, 'Retirado sem pagamento')
+                act(
+                  'Retirado s/ pagamento',
+                  'Marca a unidade como retirada sem pagamento (reversível).',
+                  () => void patch(order, item, { picked_up: true }, 'Retirado sem pagamento'),
+                )
               }
             />
           </>
@@ -247,13 +297,24 @@ export function Pedidos() {
       case 'in-reserve':
         return (
           <>
-            <ActionIcon icon="pay" variant="green" label="Confirmar pagamento" onClick={() => openPayment(item)} />
+            <ActionIcon
+              icon="pay"
+              variant="green"
+              label="Confirmar pagamento"
+              onClick={() =>
+                act('Confirmar pagamento', 'Abre o campo pra registrar o valor recebido.', () =>
+                  openPayment(item),
+                )
+              }
+            />
             <ActionIcon
               icon="release"
               variant="gray"
               label="Liberar reserva"
               onClick={() =>
-                void patch(order, item, { status: 'waiting-payment' }, 'Reserva liberada')
+                act('Liberar reserva', 'Devolve a unidade ao estoque e volta pra fila.', () =>
+                  void patch(order, item, { status: 'waiting-payment' }, 'Reserva liberada'),
+                )
               }
             />
             <ActionIcon
@@ -261,7 +322,11 @@ export function Pedidos() {
               variant="amber"
               label="Retirado s/ pagamento"
               onClick={() =>
-                void patch(order, item, { picked_up: true }, 'Retirado sem pagamento')
+                act(
+                  'Retirado s/ pagamento',
+                  'Marca a unidade como retirada sem pagamento (reversível).',
+                  () => void patch(order, item, { picked_up: true }, 'Retirado sem pagamento'),
+                )
               }
             />
           </>
@@ -273,7 +338,9 @@ export function Pedidos() {
             variant="blue"
             label="Enviar p/ entrega"
             onClick={() =>
-              void patch(order, item, { status: 'sent-to-delivery' }, 'Enviado para entrega')
+              act('Enviar p/ entrega', 'Marca a unidade como enviada para entrega.', () =>
+                void patch(order, item, { status: 'sent-to-delivery' }, 'Enviado para entrega'),
+              )
             }
           />
         );
@@ -293,7 +360,16 @@ export function Pedidos() {
             icon="done"
             variant="forest"
             label="Marcar entregue"
-            onClick={() => setConfirmingUnitId(item.unit_id)}
+            onClick={() =>
+              isMobile
+                ? act(
+                    'Marcar entregue',
+                    'Marca a unidade como entregue — não pode ser desfeito.',
+                    () => void patch(order, item, { status: 'received' }, 'Entregue'),
+                    true,
+                  )
+                : setConfirmingUnitId(item.unit_id)
+            }
           />
         );
       default:
@@ -434,7 +510,21 @@ export function Pedidos() {
                       icon="pickup"
                       variant="amber"
                       label="Retirado s/ pagamento (todos)"
-                      onClick={() => setPickingUpOrderId(order.id)}
+                      onClick={() =>
+                        isMobile
+                          ? act(
+                              'Retirado s/ pagamento (todos)',
+                              'Muda o status de TODOS os itens do pedido para retirado sem pagamento (reversível).',
+                              () =>
+                                void patchRaw(
+                                  order.id,
+                                  { picked_up: true },
+                                  `✓ ${shortOrderId(order.id)} → itens retirados sem pagamento`,
+                                ),
+                              true,
+                            )
+                          : setPickingUpOrderId(order.id)
+                      }
                     />
                   )}
                   {order.items.some(
@@ -445,10 +535,15 @@ export function Pedidos() {
                       variant="gray"
                       label="Desfazer retirada (todos)"
                       onClick={() =>
-                        void patchRaw(
-                          order.id,
-                          { picked_up: false },
-                          `✓ ${shortOrderId(order.id)} → retiradas desfeitas`,
+                        act(
+                          'Desfazer retirada (todos)',
+                          'Desfaz a retirada de todos os itens ainda não pagos.',
+                          () =>
+                            void patchRaw(
+                              order.id,
+                              { picked_up: false },
+                              `✓ ${shortOrderId(order.id)} → retiradas desfeitas`,
+                            ),
                         )
                       }
                     />
@@ -457,7 +552,22 @@ export function Pedidos() {
                     icon="cancel"
                     variant="red"
                     label="Cancelar itens do pedido"
-                    onClick={() => setCancellingOrderId(order.id)}
+                    onClick={() =>
+                      isMobile
+                        ? act(
+                            'Cancelar itens do pedido',
+                            'Cancela todas as unidades não finalizadas — não pode ser desfeito.',
+                            () =>
+                              void patchRaw(
+                                order.id,
+                                { cancel: true },
+                                `✓ ${shortOrderId(order.id)} → itens cancelados`,
+                                'Nenhuma unidade cancelável nesse pedido.',
+                              ),
+                            true,
+                          )
+                        : setCancellingOrderId(order.id)
+                    }
                   />
                 </>
               )}
@@ -519,7 +629,13 @@ export function Pedidos() {
                           variant="gray"
                           filled={Boolean(item.observation)}
                           label={item.observation ? 'Editar observação' : 'Adicionar observação'}
-                          onClick={() => openObservation(item)}
+                          onClick={() =>
+                            act(
+                              item.observation ? 'Editar observação' : 'Adicionar observação',
+                              'Abre o campo de observação desta unidade (visível na consulta pública).',
+                              () => openObservation(item),
+                            )
+                          }
                         />
                       )}
                       {!isUnitClosed(item) && payingUnitId !== item.unit_id && (
@@ -527,7 +643,16 @@ export function Pedidos() {
                           icon="cancel"
                           variant="red"
                           label="Cancelar item"
-                          onClick={() => setCancellingUnitId(item.unit_id)}
+                          onClick={() =>
+                            isMobile
+                              ? act(
+                                  'Cancelar item',
+                                  'Cancela esta unidade e devolve ao estoque — não pode ser desfeito.',
+                                  () => void patch(order, item, { cancel: true }, 'Cancelado'),
+                                  true,
+                                )
+                              : setCancellingUnitId(item.unit_id)
+                          }
                         />
                       )}
                     </>
@@ -582,6 +707,19 @@ export function Pedidos() {
           })}
         </div>
       ))}
+
+      {pendingAction && (
+        <ConfirmActionModal
+          label={pendingAction.label}
+          description={pendingAction.description}
+          danger={pendingAction.danger}
+          onConfirm={() => {
+            pendingAction.run();
+            setPendingAction(null);
+          }}
+          onClose={() => setPendingAction(null)}
+        />
+      )}
 
       {summaryOrderId &&
         (() => {
