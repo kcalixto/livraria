@@ -120,7 +120,7 @@ describe('Backoffice — Pedidos (linhas por unidade)', () => {
     renderPage();
 
     expect(await screen.findByRole('button', { name: /^reservar$/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /retirado s\/ pagamento/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^retirado s\/ pagamento$/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /confirmar pagamento/i })).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: /^reservar$/i }));
@@ -179,7 +179,7 @@ describe('Backoffice — Pedidos (linhas por unidade)', () => {
     renderPage();
 
     // marca a primeira como retirada
-    await userEvent.click(await screen.findByRole('button', { name: /retirado s\/ pagamento/i }));
+    await userEvent.click(await screen.findByRole('button', { name: /^retirado s\/ pagamento$/i }));
     const patchCall = fetchMock.mock.calls.find(([, init]) => init?.method === 'PATCH');
     expect(JSON.parse((patchCall![1] as RequestInit).body as string)).toEqual({
       picked_up: true,
@@ -592,6 +592,47 @@ describe('Backoffice — Pedidos (linhas por unidade)', () => {
 
     const patchCall = fetchMock.mock.calls.find(([, init]) => init?.method === 'PATCH');
     expect(JSON.parse((patchCall![1] as RequestInit).body as string)).toEqual({ cancel: true });
+  });
+
+  it('Retirado s/ pagamento (todos): confirma e faz PATCH {picked_up:true} sem unit_id', async () => {
+    stubFetch([
+      order('PED001', [
+        { unit_id: 'u1', title_id: 'b1', status: 'waiting-payment' },
+        { unit_id: 'u2', title_id: 'b1', status: 'in-reserve' },
+      ]),
+    ]);
+    renderPage();
+
+    await userEvent.click(
+      await screen.findByRole('button', { name: /retirado s\/ pagamento \(todos\)/i }),
+    );
+    // confirmação avisa que muda TODOS os itens
+    expect(screen.getByText(/todos os itens do pedido/i)).toBeInTheDocument();
+    expect(fetchMock.mock.calls.filter(([, i]) => i?.method === 'PATCH')).toHaveLength(0);
+
+    await userEvent.click(screen.getByRole('button', { name: /^confirmar$/i }));
+    const patchCall = fetchMock.mock.calls.find(([, init]) => init?.method === 'PATCH');
+    expect(JSON.parse((patchCall![1] as RequestInit).body as string)).toEqual({
+      picked_up: true,
+    });
+  });
+
+  it('Desfazer retirada (todos) aparece quando há retirada não paga e faz PATCH {picked_up:false}', async () => {
+    stubFetch([
+      order('PED001', [
+        { unit_id: 'u1', title_id: 'b1', status: 'waiting-payment', picked_up: true },
+        { unit_id: 'u2', title_id: 'b1', status: 'waiting-payment', picked_up: true },
+      ]),
+    ]);
+    renderPage();
+
+    await userEvent.click(
+      await screen.findByRole('button', { name: /desfazer retirada \(todos\)/i }),
+    );
+    const patchCall = fetchMock.mock.calls.find(([, init]) => init?.method === 'PATCH');
+    expect(JSON.parse((patchCall![1] as RequestInit).body as string)).toEqual({
+      picked_up: false,
+    });
   });
 
   it('token expirado (401): limpa token e volta pro login', async () => {

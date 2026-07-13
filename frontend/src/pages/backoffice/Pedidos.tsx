@@ -68,6 +68,7 @@ export function Pedidos() {
   const [obsText, setObsText] = useState('');
   const [cancellingUnitId, setCancellingUnitId] = useState<string | null>(null);
   const [cancellingOrderId, setCancellingOrderId] = useState<string | null>(null);
+  const [pickingUpOrderId, setPickingUpOrderId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [payText, setPayText] = useState('');
@@ -99,6 +100,7 @@ export function Pedidos() {
     setObsUnitId(null);
     setCancellingUnitId(null);
     setCancellingOrderId(null);
+    setPickingUpOrderId(null);
   }
 
   async function patchRaw(
@@ -407,13 +409,64 @@ export function Pedidos() {
                     Cancelar
                   </button>
                 </span>
+              ) : pickingUpOrderId === order.id ? (
+                <span className="pay-inline">
+                  <span className="confirm-inline__hint">
+                    Isso muda o status de TODOS os itens do pedido.
+                  </span>
+                  <button
+                    className="stage-action stage-action--danger"
+                    onClick={() =>
+                      void patchRaw(
+                        order.id,
+                        { picked_up: true },
+                        `✓ ${shortOrderId(order.id)} → itens retirados sem pagamento`,
+                      )
+                    }
+                  >
+                    Confirmar
+                  </button>
+                  <button className="stage-action" onClick={() => setPickingUpOrderId(null)}>
+                    Cancelar
+                  </button>
+                </span>
               ) : (
-                <button
-                  className="stage-action stage-action--danger"
-                  onClick={() => setCancellingOrderId(order.id)}
-                >
-                  Cancelar itens do pedido
-                </button>
+                <>
+                  {order.items.some(
+                    (i) =>
+                      !i.picked_up &&
+                      (i.status === 'waiting-payment' || i.status === 'in-reserve'),
+                  ) && (
+                    <button
+                      className="stage-action"
+                      onClick={() => setPickingUpOrderId(order.id)}
+                    >
+                      Retirado s/ pagamento (todos)
+                    </button>
+                  )}
+                  {order.items.some(
+                    (i) => i.picked_up && i.status === 'waiting-payment',
+                  ) && (
+                    <button
+                      className="stage-action"
+                      onClick={() =>
+                        void patchRaw(
+                          order.id,
+                          { picked_up: false },
+                          `✓ ${shortOrderId(order.id)} → retiradas desfeitas`,
+                        )
+                      }
+                    >
+                      Desfazer retirada (todos)
+                    </button>
+                  )}
+                  <button
+                    className="stage-action stage-action--danger"
+                    onClick={() => setCancellingOrderId(order.id)}
+                  >
+                    Cancelar itens do pedido
+                  </button>
+                </>
               )}
             </span>
           </div>

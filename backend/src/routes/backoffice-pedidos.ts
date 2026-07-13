@@ -133,12 +133,11 @@ backofficePedidos.patch('/:id/status', async (c) => {
   if (!body) return c.json({ error: 'invalid json' }, 400);
 
   const isCancel = body.cancel === true;
-  // ações em nível de pedido (cancel sem unit_id) dispensam o unit_id
-  if (!isCancel && (typeof body.unit_id !== 'string' || body.unit_id === '')) {
+  const isPickupToggle = !isCancel && typeof body.picked_up === 'boolean';
+  // ações em nível de pedido (cancel/picked_up sem unit_id) dispensam o unit_id
+  if (!isCancel && !isPickupToggle && (typeof body.unit_id !== 'string' || body.unit_id === '')) {
     return c.json({ error: 'unit_id is required' }, 400);
   }
-
-  const isPickupToggle = !isCancel && typeof body.picked_up === 'boolean';
   const isObservation = !isCancel && !isPickupToggle && typeof body.observation === 'string';
   if (!isCancel && !isPickupToggle && !isObservation && !isOrderStatus(body.status)) {
     return c.json({ error: 'status must be a valid order status' }, 400);
@@ -168,6 +167,62 @@ backofficePedidos.patch('/:id/status', async (c) => {
       await applyUpdate(id, unitLine.book_id, cancelSpec());
     }
     return c.json({ id, cancelled: eligible.length });
+  }
+
+  // evento: retirada (ou desfazer) de TODAS as unidades do pedido de uma vez
+  if (isPickupToggle && !body.unit_id) {
+    if (body.picked_up === true) {
+      const eligible = lines.filter(
+        (l) =>
+          l.picked_up !== true &&
+          ['waiting-payment', 'in-reserve'].includes(String(l.status)),
+      );
+      if (eligible.length === 0) {
+        return c.json({ error: 'no units eligible for pickup in this order' }, 400);
+      }
+
+      // valida o estoque de TODAS antes de aplicar qualquer mudança
+      const stock = await computeStock(String(eligible[0].region));
+      const allocations = new Map<unknown, string>();
+      for (const l of eligible) {
+        if (l.lote_id) continue; // reserva já segura um lote
+        const titleId = String(l.title_id);
+        const lote = stock.fifo.find(
+          (candidate) => (stock.lotes[candidate.id]?.books[titleId]?.remaining ?? 0) > 0,
+        );
+        if (!lote) {
+          return c.json({ error: 'no available stock in region to allocate this order' }, 400);
+        }
+        stock.lotes[lote.id].books[titleId].remaining -= 1;
+        allocations.set(l, lote.id);
+      }
+
+      for (const l of eligible) {
+        const spec: UpdateSpec = {
+          sets: { picked_up: true, status: 'waiting-payment' },
+          removes: [],
+        };
+        const loteId = allocations.get(l);
+        if (loteId) spec.sets.lote_id = loteId;
+        await applyUpdate(id, l.book_id, spec);
+      }
+      return c.json({ id, picked_up: eligible.length });
+    }
+
+    // reverso: desfaz toda retirada ainda não paga (devolve as unidades ao lote)
+    const undoable = lines.filter(
+      (l) => l.picked_up === true && l.status === 'waiting-payment',
+    );
+    if (undoable.length === 0) {
+      return c.json({ error: 'no pickups to undo in this order' }, 400);
+    }
+    for (const l of undoable) {
+      await applyUpdate(id, l.book_id, {
+        sets: { status: 'waiting-payment' },
+        removes: ['picked_up', 'lote_id'],
+      });
+    }
+    return c.json({ id, undone: undoable.length });
   }
 
   const line = lines.find((item) => item.unit_id === body.unit_id);
