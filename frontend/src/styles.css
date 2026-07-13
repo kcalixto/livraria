@@ -1907,7 +1907,8 @@ a.btn--secondary:hover {
     min-width: 640px;
   }
   .lotes-table__cols,
-  .lotes-table__row {
+  .lotes-table__row,
+  .lotes-table__totals {
     min-width: 620px;
   }
   .lote-detail__cols,
