@@ -1,32 +1,17 @@
-# React + TypeScript + Vite
+# frontend — Livraria Local
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Vite + React (TS). Loja pública (catálogo `/`, carrinho `/carrinho`, consulta de pedido `/pedido`) e backoffice (`/backoffice/*`) num único SPA, servido de S3 static website. Documentação geral no [README raiz](../README.md); regras de negócio no [CLAUDE.md](../CLAUDE.md).
 
-Currently, two official plugins are available:
-
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```sh
+npm run dev     # localhost:5173, aponta pra API dev (.env.development)
+npm test        # vitest + testing-library (jsdom; TZ fixado America/Sao_Paulo)
+npm run check   # tsc -b --noEmit
+npm run build -- --mode development|production   # injeta a CSP via <meta> no build
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+Pontos de atenção:
+
+- `VITE_API_KEY` embarcada no bundle **não é segredo** (fricção anti-bot).
+- Capas em `public/images/<stage>/<id>.jpg` (comprimir com `scripts/compress-covers.sh`).
+- Design tokens em `src/styles.css` (Newsreader + IBM Plex Mono, paleta papel/tinta/vinho); breakpoint mobile do backoffice: 700px.
+- Perfis de acesso: `src/backoffice/auth.ts` (`tokenRole`/`canWrite`) — telas escondem escrita para `viewer`/`stock`, mas quem nega é a API.

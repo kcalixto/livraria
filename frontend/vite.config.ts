@@ -42,6 +42,8 @@ export default defineConfig({
       VITE_API_URL: 'http://api.test',
       VITE_API_KEY: 'test-key',
       VITE_STAGE: 'dev',
+      // datas exibidas são locais: fixa o fuso pra suite não depender da máquina
+      TZ: 'America/Sao_Paulo',
     },
   },
 })
