@@ -33,7 +33,7 @@ provider:
     LIVROS_TABLE_NAME: ${self:custom.table.livros.${self:provider.stage}}
     PEDIDOS_TABLE_NAME: ${self:custom.table.pedidos.${self:provider.stage}}
     LOTES_TABLE_NAME: ${self:custom.table.lotes.${self:provider.stage}}
-    LIVRARIA_FRONT_END_API_KEY: ${ssm:/livraria/front-end-api-key}
+    LIVRARIA_FRONT_END_API_KEY: 10a28e2f-07a5-489e-b26a-8abe55d236f8
     BACKOFFICE_ADMIN_API_KEY: ${ssm:/livraria/backoffice-admin-api-key}
     BACKOFFICE_KEY: ${ssm:/livraria/backoffice-key}
     BACKOFFICE_VIEWER_KEY: ${ssm:/livraria/backoffice-viewer-key}
