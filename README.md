@@ -53,6 +53,12 @@ curl -X POST $API/backoffice/livros -H "authorization: Bearer $TOKEN" -H "x-api-
 
 Capa: salve o arquivo como `frontend/public/images/<stage>/<id-do-livro>.jpg` e faça um novo build/deploy do site.
 
+**Excluir livro** (segmentado — sem botão no front; exige a chave admin de `/livraria/backoffice-admin-api-key`):
+
+```sh
+curl -X DELETE $API/backoffice/livros/<id> -H "authorization: Bearer $TOKEN" -H "x-api-key: $KEY" -H "x-admin-api-key: $ADMIN_KEY"
+```
+
 Seed de dados mockados no dev: `backend/scripts/seed-mock-books.sh`. Preços em **centavos** (int).
 
 ## Estoque (real, por Lotes)

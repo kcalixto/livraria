@@ -22,12 +22,23 @@ export interface LoteDetailBook {
   remaining: number;
 }
 
+export interface LoteTransaction {
+  id: string;
+  date: string; // YYYY-MM-DD
+  recipient: string;
+  amount: number; // centavos com sinal: negativo = doação/perda, positivo = contribuição
+  receipt_key?: string;
+  created_at: string;
+}
+
 export interface LoteDetailData {
   id: string;
   date: string;
   region: string;
   total_cost: number;
   sold_value: number;
+  transactions: LoteTransaction[];
+  transactions_total: number;
   books: LoteDetailBook[];
 }
 

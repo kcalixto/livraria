@@ -224,6 +224,55 @@ describe('Backoffice — Pedidos (linhas por unidade)', () => {
     expect(await screen.findByText(/sem estoque disponível/i)).toBeInTheDocument();
   });
 
+  it('mostra a coluna Disponível com o estoque atual do título', async () => {
+    stubFetch([
+      order('PED001', [{ unit_id: 'u1', title_id: 'b1', status: 'waiting-payment' }]),
+    ]);
+    renderPage();
+
+    await screen.findByText('A Comuna e o Fogo');
+    expect(screen.getByText('Disponível')).toBeInTheDocument();
+    const row = screen.getByText('A Comuna e o Fogo').closest('.order-card__row')!;
+    expect(row.querySelector('.order-card__available')!.textContent).toBe('3');
+  });
+
+  it('ações disparam toast temporário em vez de alerta fixo', async () => {
+    stubFetch([
+      order('PED001', [{ unit_id: 'u1', title_id: 'b1', status: 'waiting-payment' }]),
+    ]);
+    renderPage();
+
+    await userEvent.click(await screen.findByRole('button', { name: /^reservar$/i }));
+
+    const toast = await screen.findByText(/em reserva/i, { selector: '.toast *' });
+    expect(toast).toBeInTheDocument();
+    // não existe mais alerta fixo no topo
+    expect(document.querySelector('.bo-last-action')).toBeNull();
+  });
+
+  it('tem botão de reload que refaz a busca', async () => {
+    stubFetch([
+      order('PED001', [{ unit_id: 'u1', title_id: 'b1', status: 'waiting-payment' }]),
+    ]);
+    renderPage();
+    await screen.findByText('A Comuna e o Fogo');
+
+    const callsBefore = fetchMock.mock.calls.length;
+    await userEvent.click(screen.getByRole('button', { name: /recarregar/i }));
+    expect(fetchMock.mock.calls.length).toBeGreaterThan(callsBefore);
+  });
+
+  it('unidade em reserva mostra pill excepcional e progresso de 4 estágios no índice 0', async () => {
+    stubFetch([
+      order('PED001', [{ unit_id: 'u1', title_id: 'b1', status: 'in-reserve' }]),
+    ]);
+    renderPage();
+
+    await screen.findByText('Em Reserva');
+    expect(document.querySelectorAll('.stage-seg')).toHaveLength(4);
+    expect(document.querySelector('.stage-pill--reserve')).toBeInTheDocument();
+  });
+
   it('token expirado (401): limpa token e volta pro login', async () => {
     vi.stubGlobal(
       'fetch',

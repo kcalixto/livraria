@@ -1,12 +1,20 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { mockClient } from 'aws-sdk-client-mock';
 import {
   DynamoDBDocumentClient,
   PutCommand,
   ScanCommand,
+  UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
+import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { sign } from 'hono/jwt';
 import { app } from '../app';
+
+vi.mock('@aws-sdk/s3-request-presigner', () => ({
+  getSignedUrl: vi.fn().mockResolvedValue('https://presigned.example/comprovante'),
+}));
+
+const s3Mock = mockClient(S3Client);
 
 const ddbMock = mockClient(DynamoDBDocumentClient);
 const REGION = 'SP, Capital - Zona Sul';
@@ -148,6 +156,192 @@ describe('GET /backoffice/lotes', () => {
       total_books: 5,
       sold_value: 5500,
     });
+  });
+});
+
+describe('POST /backoffice/lotes/:id/transacoes', () => {
+  const PDF_BASE64 = Buffer.from('%PDF-1.4 fake pdf').toString('base64');
+  const PNG_BASE64 = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0]).toString('base64');
+
+  beforeEach(() => {
+    s3Mock.reset();
+    s3Mock.on(PutObjectCommand).resolves({});
+    ddbMock.on(UpdateCommand).resolves({});
+    process.env.ASSETS_S3_BUCKET_NAME = 'livraria-assets-bucket';
+    process.env.STAGE = 'dev';
+  });
+
+  it('registra transação negativa (doação) com comprovante pdf no S3', async () => {
+    const res = await app.request('/backoffice/lotes/lote-a/transacoes', {
+      method: 'POST',
+      body: JSON.stringify({
+        date: '2026-07-12',
+        recipient: 'Instituição X',
+        amount: -3000,
+        receipt_base64: PDF_BASE64,
+        receipt_type: 'pdf',
+      }),
+      headers: await authHeaders(),
+    });
+
+    expect(res.status).toBe(201);
+    const body = (await res.json()) as Record<string, unknown>;
+    expect(body.id).toMatch(/^[0-9a-f-]{36}$/);
+    expect(body).toMatchObject({
+      date: '2026-07-12',
+      recipient: 'Instituição X',
+      amount: -3000,
+    });
+    expect(body.receipt_key).toBe(`dev/comprovantes/lote-a/${body.id}.pdf`);
+
+    const put = s3Mock.commandCalls(PutObjectCommand)[0].args[0].input;
+    expect(put.Bucket).toBe('livraria-assets-bucket');
+    expect(put.Key).toBe(body.receipt_key);
+    expect(put.ContentType).toBe('application/pdf');
+
+    const update = ddbMock.commandCalls(UpdateCommand)[0].args[0].input;
+    expect(update.TableName).toBe('livraria-tb-lotes-test');
+    expect(update.Key).toEqual({ id: 'lote-a' });
+    expect(update.UpdateExpression).toContain('transactions');
+  });
+
+  it('registra transação positiva sem comprovante', async () => {
+    const res = await app.request('/backoffice/lotes/lote-a/transacoes', {
+      method: 'POST',
+      body: JSON.stringify({ date: '2026-07-12', recipient: 'Doador Y', amount: 2000 }),
+      headers: await authHeaders(),
+    });
+
+    expect(res.status).toBe(201);
+    expect(s3Mock.commandCalls(PutObjectCommand)).toHaveLength(0);
+  });
+
+  it('aceita comprovante png validando magic bytes', async () => {
+    const res = await app.request('/backoffice/lotes/lote-a/transacoes', {
+      method: 'POST',
+      body: JSON.stringify({
+        date: '2026-07-12',
+        recipient: 'Z',
+        amount: -100,
+        receipt_base64: PNG_BASE64,
+        receipt_type: 'png',
+      }),
+      headers: await authHeaders(),
+    });
+    expect(res.status).toBe(201);
+  });
+
+  it.each([
+    ['amount zero', { date: '2026-07-12', recipient: 'X', amount: 0 }],
+    ['amount não inteiro', { date: '2026-07-12', recipient: 'X', amount: 10.5 }],
+    ['sem recipient', { date: '2026-07-12', amount: -100 }],
+    ['sem date', { recipient: 'X', amount: -100 }],
+    [
+      'tipo de comprovante inválido',
+      { date: '2026-07-12', recipient: 'X', amount: -100, receipt_base64: PDF_BASE64, receipt_type: 'gif' },
+    ],
+    [
+      'conteúdo não bate com o tipo',
+      { date: '2026-07-12', recipient: 'X', amount: -100, receipt_base64: PDF_BASE64, receipt_type: 'png' },
+    ],
+  ])('retorna 400: %s', async (_label, body) => {
+    const res = await app.request('/backoffice/lotes/lote-a/transacoes', {
+      method: 'POST',
+      body: JSON.stringify(body),
+      headers: await authHeaders(),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it('rejeita comprovante acima de 5MB', async () => {
+    const big = Buffer.alloc(5 * 1024 * 1024 + 1);
+    Buffer.from('%PDF-').copy(big);
+    const res = await app.request('/backoffice/lotes/lote-a/transacoes', {
+      method: 'POST',
+      body: JSON.stringify({
+        date: '2026-07-12',
+        recipient: 'X',
+        amount: -100,
+        receipt_base64: big.toString('base64'),
+        receipt_type: 'pdf',
+      }),
+      headers: await authHeaders(),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it('404 para lote inexistente', async () => {
+    const res = await app.request('/backoffice/lotes/nao-existe/transacoes', {
+      method: 'POST',
+      body: JSON.stringify({ date: '2026-07-12', recipient: 'X', amount: -100 }),
+      headers: await authHeaders(),
+    });
+    expect(res.status).toBe(404);
+  });
+});
+
+describe('GET /backoffice/lotes/:id/transacoes/:txId/comprovante', () => {
+  it('retorna URL pré-assinada para o comprovante', async () => {
+    ddbMock.on(ScanCommand, { TableName: 'livraria-tb-lotes-test' }).resolves({
+      Items: [
+        {
+          ...lotes[0],
+          transactions: [
+            { id: 'tx-1', date: '2026-07-12', recipient: 'X', amount: -100, receipt_key: 'dev/comprovantes/lote-a/tx-1.pdf' },
+          ],
+        },
+        lotes[1],
+      ],
+    });
+
+    const res = await app.request('/backoffice/lotes/lote-a/transacoes/tx-1/comprovante', {
+      headers: await authHeaders(),
+    });
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ url: 'https://presigned.example/comprovante' });
+  });
+
+  it('404 quando a transação não tem comprovante', async () => {
+    ddbMock.on(ScanCommand, { TableName: 'livraria-tb-lotes-test' }).resolves({
+      Items: [
+        { ...lotes[0], transactions: [{ id: 'tx-2', date: '2026-07-12', recipient: 'X', amount: 100 }] },
+      ],
+    });
+
+    const res = await app.request('/backoffice/lotes/lote-a/transacoes/tx-2/comprovante', {
+      headers: await authHeaders(),
+    });
+    expect(res.status).toBe(404);
+  });
+});
+
+describe('transactions_total nos GETs de lotes', () => {
+  it('lista e detalhe expõem a soma das transações', async () => {
+    ddbMock.on(ScanCommand, { TableName: 'livraria-tb-lotes-test' }).resolves({
+      Items: [
+        {
+          ...lotes[0],
+          transactions: [
+            { id: 't1', date: '2026-07-12', recipient: 'A', amount: -3000 },
+            { id: 't2', date: '2026-07-13', recipient: 'B', amount: 1000 },
+          ],
+        },
+        lotes[1],
+      ],
+    });
+
+    const lista = (await (
+      await app.request('/backoffice/lotes', { headers: await authHeaders() })
+    ).json()) as Array<Record<string, unknown>>;
+    expect(lista.find((l) => l.id === 'lote-a')!.transactions_total).toBe(-2000);
+    expect(lista.find((l) => l.id === 'lote-b')!.transactions_total).toBe(0);
+
+    const detalhe = (await (
+      await app.request('/backoffice/lotes/lote-a', { headers: await authHeaders() })
+    ).json()) as Record<string, unknown>;
+    expect(detalhe.transactions_total).toBe(-2000);
+    expect((detalhe.transactions as unknown[]).length).toBe(2);
   });
 });
 

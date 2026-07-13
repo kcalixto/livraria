@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { ApiError, apiAuthPost, apiGet } from '../../api/client';
 import { clearToken } from '../../backoffice/auth';
-import { textToCents } from '../../lib/format';
+import { formatPrice } from '../../lib/format';
 import { ACTIVE_REGION, ACTIVE_REGION_VALUE } from '../../lib/region';
 import type { Book } from '../../lib/types';
 
@@ -21,13 +21,14 @@ export function LoteForm() {
   const navigate = useNavigate();
   const [books, setBooks] = useState<Book[] | null>(null);
   const [search, setSearch] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
   const [selected, setSelected] = useState<Map<string, number>>(new Map());
   const [date, setDate] = useState(todayISO());
-  const [costText, setCostText] = useState('');
-  const [errors, setErrors] = useState<{ books?: string; cost?: string }>({});
+  const [booksError, setBooksError] = useState('');
   const [apiError, setApiError] = useState(false);
   const [unauthorized, setUnauthorized] = useState(false);
   const [saving, setSaving] = useState(false);
+  const searchAreaRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     apiGet<Book[]>('/livros')
@@ -42,9 +43,21 @@ export function LoteForm() {
       });
   }, []);
 
-  const titleOf = useMemo(() => {
-    const map = new Map((books ?? []).map((b) => [b.id, b.title]));
-    return (id: string) => map.get(id) ?? id;
+  // dropdown fecha ao clicar fora da área de busca
+  useEffect(() => {
+    if (!searchOpen) return;
+    function onClickOutside(e: MouseEvent) {
+      if (searchAreaRef.current && !searchAreaRef.current.contains(e.target as Node)) {
+        setSearchOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', onClickOutside);
+    return () => document.removeEventListener('mousedown', onClickOutside);
+  }, [searchOpen]);
+
+  const bookOf = useMemo(() => {
+    const map = new Map((books ?? []).map((b) => [b.id, b]));
+    return (id: string) => map.get(id);
   }, [books]);
 
   const available = useMemo(() => {
@@ -54,22 +67,27 @@ export function LoteForm() {
     );
   }, [books, search, selected]);
 
+  // custo do lote é CALCULADO: Σ preço do catálogo × quantidade
+  const totalCost = useMemo(
+    () =>
+      [...selected.entries()].reduce(
+        (sum, [id, amount]) => sum + (bookOf(id)?.price ?? 0) * amount,
+        0,
+      ),
+    [selected, bookOf],
+  );
+
   function addBook(id: string) {
     setSelected((prev) => new Map(prev).set(id, 1));
+    setSearchOpen(false);
+    setSearch('');
   }
 
   function setAmount(id: string, amount: number) {
     setSelected((prev) => {
       const next = new Map(prev);
-      next.set(id, amount);
-      return next;
-    });
-  }
-
-  function removeBook(id: string) {
-    setSelected((prev) => {
-      const next = new Map(prev);
-      next.delete(id);
+      if (amount < 1) next.delete(id);
+      else next.set(id, amount);
       return next;
     });
   }
@@ -77,13 +95,12 @@ export function LoteForm() {
   async function submit(e: { preventDefault: () => void }) {
     e.preventDefault();
 
-    const nextErrors: { books?: string; cost?: string } = {};
-    const entries = [...selected.entries()].filter(([, amount]) => amount >= 1);
-    if (entries.length === 0) nextErrors.books = 'Adicione pelo menos um livro ao lote.';
-    const totalCost = textToCents(costText);
-    if (totalCost === null) nextErrors.cost = 'Informe um valor válido (ex.: 80,00).';
-    setErrors(nextErrors);
-    if (Object.keys(nextErrors).length > 0) return;
+    const entries = [...selected.entries()];
+    if (entries.length === 0) {
+      setBooksError('Adicione pelo menos um livro ao lote.');
+      return;
+    }
+    setBooksError('');
 
     setSaving(true);
     setApiError(false);
@@ -132,76 +149,98 @@ export function LoteForm() {
             />
           </div>
           <div>
-            <label className="field-label" htmlFor="lote-valor">
-              Valor total (R$)
-            </label>
-            <input
-              id="lote-valor"
-              className={`field-input${errors.cost ? ' field-input--error' : ''}`}
-              placeholder="80,00"
-              value={costText}
-              onChange={(e) => setCostText(e.target.value)}
-            />
-            {errors.cost && <div className="field-error">{errors.cost}</div>}
-          </div>
-          <div>
             <span className="field-label">Região</span>
             <div className="lote-form__region">{ACTIVE_REGION}</div>
+          </div>
+          <div>
+            <span className="field-label">Total do lote (calculado)</span>
+            <div className="lote-form__total">{formatPrice(totalCost)}</div>
           </div>
         </div>
 
         <div className="lote-form__section">Livros adquiridos</div>
-        {errors.books && <div className="field-error">{errors.books}</div>}
+        {booksError && <div className="field-error">{booksError}</div>}
+
+        <div className="lote-form__search-area" ref={searchAreaRef}>
+          <input
+            className="field-input lote-form__search"
+            placeholder="Buscar por título…"
+            value={search}
+            onFocus={() => setSearchOpen(true)}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setSearchOpen(true);
+            }}
+          />
+          {searchOpen && (
+            <div className="lote-form__available">
+              {available.map((book) => (
+                <div key={book.id} className="lote-form__available-row">
+                  <span>
+                    {book.title}
+                    <span className="lote-form__available-price">
+                      {formatPrice(book.price)}
+                    </span>
+                  </span>
+                  <button
+                    type="button"
+                    className="stage-action"
+                    onClick={() => addBook(book.id)}
+                  >
+                    Adicionar
+                  </button>
+                </div>
+              ))}
+              {available.length === 0 && (
+                <div className="lote-form__no-results">Nenhum título encontrado.</div>
+              )}
+            </div>
+          )}
+        </div>
 
         {selected.size > 0 && (
           <div className="lote-form__selected">
-            {[...selected.entries()].map(([id, amount]) => (
-              <div key={id} className="lote-form__selected-row">
-                <span className="lote-form__selected-title">{titleOf(id)}</span>
-                <input
-                  className="field-input lote-form__qty"
-                  inputMode="numeric"
-                  aria-label={`Quantidade de ${titleOf(id)}`}
-                  value={amount === 0 ? '' : String(amount)}
-                  onChange={(e) =>
-                    setAmount(id, parseInt(e.target.value.replace(/\D/g, ''), 10) || 0)
-                  }
-                />
-                <button
-                  type="button"
-                  className="cart-item__remove"
-                  onClick={() => removeBook(id)}
-                >
-                  Remover
-                </button>
-              </div>
-            ))}
+            {[...selected.entries()].map(([id, amount]) => {
+              const book = bookOf(id);
+              const title = book?.title ?? id;
+              return (
+                <div key={id} className="lote-form__selected-row">
+                  <span className="lote-form__selected-title">{title}</span>
+                  <span className="lote-form__selected-subtotal">
+                    {book ? formatPrice(book.price * amount) : '—'}
+                  </span>
+                  <span className="stepper">
+                    <button
+                      type="button"
+                      className="stepper__btn"
+                      aria-label={`Menos uma unidade de ${title}`}
+                      onClick={() => setAmount(id, amount - 1)}
+                    >
+                      −
+                    </button>
+                    <input
+                      className="stepper__value lote-form__qty"
+                      inputMode="numeric"
+                      aria-label={`Quantidade de ${title}`}
+                      value={String(amount)}
+                      onChange={(e) =>
+                        setAmount(id, parseInt(e.target.value.replace(/\D/g, ''), 10) || 0)
+                      }
+                    />
+                    <button
+                      type="button"
+                      className="stepper__btn"
+                      aria-label={`Mais uma unidade de ${title}`}
+                      onClick={() => setAmount(id, amount + 1)}
+                    >
+                      +
+                    </button>
+                  </span>
+                </div>
+              );
+            })}
           </div>
         )}
-
-        <input
-          className="field-input lote-form__search"
-          placeholder="Buscar por título…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-        <div className="lote-form__available">
-          {available.map((book) => (
-            <div key={book.id} className="lote-form__available-row">
-              <span>{book.title}</span>
-              <button
-                type="button"
-                className="stage-action"
-                onClick={() => addBook(book.id)}
-              >
-                Adicionar
-              </button>
-            </div>
-          ))}
-          {available.length === 0 && (
-            <div className="lote-form__no-results">Nenhum título encontrado.</div>
-          )}
-        </div>
 
         {apiError && (
           <div className="alert alert--error livro-form__api-error">

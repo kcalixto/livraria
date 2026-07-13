@@ -949,7 +949,7 @@ a:hover {
 .order-card__cols,
 .order-card__row {
   display: grid;
-  grid-template-columns: 2.4fr 0.9fr 2fr 1.4fr;
+  grid-template-columns: 2fr 0.7fr 0.9fr 1.9fr 1.6fr;
   gap: 0;
   padding: 8px 16px;
   align-items: center;
@@ -999,21 +999,16 @@ a:hover {
   border: 1px solid #e0cfa8;
 }
 .stage-pill--1 {
-  color: #2f5d5d;
-  background: #e2edea;
-  border: 1px solid #bfd6d0;
-}
-.stage-pill--2 {
   color: #3a4a5a;
   background: #e7ebee;
   border: 1px solid #c4ccd2;
 }
-.stage-pill--3 {
+.stage-pill--2 {
   color: #7a1f1a;
   background: #f3e3e0;
   border: 1px solid #e6c3bd;
 }
-.stage-pill--4 {
+.stage-pill--3 {
   color: #3a5c3a;
   background: #e6ede2;
   border: 1px solid #c8d6c0;
@@ -1034,15 +1029,12 @@ a:hover {
   background: #8a5a1a;
 }
 .stage-seg--on-1 {
-  background: #2f5d5d;
-}
-.stage-seg--on-2 {
   background: #3a4a5a;
 }
-.stage-seg--on-3 {
+.stage-seg--on-2 {
   background: #7a1f1a;
 }
-.stage-seg--on-4 {
+.stage-seg--on-3 {
   background: #3a5c3a;
 }
 .stage-action {
@@ -1068,7 +1060,7 @@ a:hover {
 .sales-table__cols,
 .sales-table__row {
   display: grid;
-  grid-template-columns: 0.9fr 1.3fr 2fr 0.9fr 0.9fr 1fr;
+  grid-template-columns: 0.9fr 1.2fr 1.8fr 0.8fr 0.9fr 0.9fr 0.9fr;
   gap: 0;
   align-items: center;
   padding: 12px 24px;
@@ -1183,28 +1175,6 @@ a:hover {
   margin: 16px 0 0;
 }
 
-@media (max-width: 800px) {
-  .order-card__cols,
-  .order-card__row {
-    grid-template-columns: 1.6fr 0.5fr 1.6fr 1.2fr;
-  }
-  .order-card__price {
-    display: none;
-  }
-  .order-card__cols span:nth-child(3) {
-    display: none;
-  }
-  .sales-table__cols,
-  .sales-table__row {
-    grid-template-columns: 1.2fr 1.6fr 0.9fr 1fr;
-  }
-  .sales-table__contact,
-  .sales-table__cols span:nth-child(2),
-  .sales-table__date,
-  .sales-table__cols span:nth-child(5) {
-    display: none;
-  }
-}
 
 /* ── Ajustes ── */
 .site-header--sticky {
@@ -1636,4 +1606,330 @@ a.btn--secondary:hover {
   font-family: var(--mono);
   font-size: 12px;
   text-align: right;
+}
+
+/* ── Toast + toolbar de pedidos ── */
+.toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 100;
+  max-width: 360px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  border-radius: 4px;
+}
+.toast .alert {
+  font-size: 12px;
+}
+.bo-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 10px;
+}
+.reload-btn {
+  font-size: 18px;
+  line-height: 1;
+  color: var(--wine);
+  background: var(--surface-raised);
+  border: 1px solid var(--border-input);
+  border-radius: 5px;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+.reload-btn:hover {
+  border-color: var(--wine);
+}
+/* pill excepcional de reserva (mesma posição do waiting, cor própria) */
+.stage-pill--reserve {
+  color: #2f5d5d;
+  background: #e2edea;
+  border: 1px solid #bfd6d0;
+}
+.order-card__available {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--success);
+}
+
+/* ── Filtros de Vendas ── */
+.sales-filters {
+  display: flex;
+  gap: 14px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.sales-filters__month {
+  margin-bottom: 0;
+  width: 150px;
+  font-family: var(--mono);
+  font-size: 12px;
+}
+.sales-filters__search {
+  flex: 1;
+  min-width: 200px;
+}
+.sales-filters__search .field-input {
+  margin-bottom: 0;
+}
+.sales-filters__export {
+  height: 42px;
+}
+.sales-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 4px;
+}
+.sales-pagination__info {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* ── LoteForm v2 + Estoque com capas ── */
+.lote-form__total {
+  font-family: var(--mono);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--wine);
+  padding: 10px 13px;
+  background: var(--surface-header);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  margin-bottom: 18px;
+}
+.lote-form__search-area {
+  position: relative;
+  margin-bottom: 14px;
+}
+.lote-form__search-area .lote-form__available {
+  position: absolute;
+  top: calc(100% - 12px);
+  left: 0;
+  right: 0;
+  z-index: 20;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+}
+.lote-form__available-price {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  margin-left: 10px;
+}
+.lote-form__selected-row {
+  grid-template-columns: 1fr auto auto;
+}
+.lote-form__selected-subtotal {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink-body);
+}
+.lote-form__qty {
+  width: 52px;
+  border: none;
+  background: transparent;
+  padding: 5px 4px;
+  font-size: 13px;
+}
+.stock-search {
+  max-width: 380px;
+  margin-bottom: 14px;
+}
+.stock-table__cols--covers,
+.stock-table__row--covers {
+  grid-template-columns: 60px 2.4fr repeat(3, 1fr) 1fr;
+}
+
+/* ── Histórico do lote ── */
+.lote-history {
+  margin-top: 28px;
+}
+.lote-history__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.lote-history__header .lote-form__section {
+  margin: 0;
+  border-bottom: none;
+  padding-bottom: 0;
+}
+.lote-tx-form {
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 18px;
+  margin-bottom: 16px;
+}
+.lote-history__event {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-raised);
+  padding: 14px 16px;
+  margin-bottom: 12px;
+}
+.lote-history__event-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.lote-history__date {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--wine);
+}
+.lote-history__kind {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-mid);
+  flex: 1;
+}
+.lote-history__books {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 12px;
+}
+.lote-history__book {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.lote-history__book-qty {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 700;
+}
+.lote-history__book-title {
+  font-family: var(--serif);
+  font-size: 13.5px;
+  max-width: 180px;
+}
+.lote-history__event .stage-action {
+  margin-top: 10px;
+}
+
+/* ── Mobile do backoffice (≤700px) ── */
+@media (max-width: 700px) {
+  .page--wide {
+    border-left: none;
+    border-right: none;
+  }
+  /* abas em linha única com scroll horizontal */
+  .bo-tabs {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    white-space: nowrap;
+    gap: 16px;
+    padding: 14px 16px;
+    scrollbar-width: none;
+  }
+  .bo-tabs::-webkit-scrollbar {
+    display: none;
+  }
+  .bo-tabs__region {
+    margin-left: 12px;
+  }
+  .bo-tabs__region .region-picker__value {
+    display: none; /* só o rótulo REGIÃO cabe; menu abre com o valor completo */
+  }
+  .bo-content {
+    padding: 12px 12px 28px;
+  }
+
+  /* pedidos: cartão empilhado por unidade */
+  .order-card__header {
+    gap: 6px 14px;
+    padding: 12px 14px;
+  }
+  .order-card__cols {
+    display: none;
+  }
+  .order-card__row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    padding: 14px;
+  }
+  .order-card__book {
+    font-size: 16px;
+  }
+  .order-card__available::before {
+    content: 'Disponível: ';
+    font-size: 10px;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+  .order-card__available,
+  .order-card__price {
+    text-align: left;
+  }
+  .order-card__actions {
+    justify-content: flex-start;
+  }
+  /* alvos de toque maiores */
+  .stage-action {
+    padding: 10px 14px;
+    font-size: 11px;
+  }
+  .pay-inline__input {
+    width: 110px;
+    padding: 10px 8px;
+  }
+
+  /* tabelas informativas: scroll horizontal preservando o grid */
+  .sales-table,
+  .stock-table,
+  .bo-livros,
+  .lotes-table,
+  .lote-detail__scroll {
+    overflow-x: auto;
+  }
+  .sales-table__cols,
+  .sales-table__row {
+    min-width: 720px;
+  }
+  .stock-table__cols,
+  .stock-table__row {
+    min-width: 560px;
+  }
+  .bo-livros__cols,
+  .bo-livros__row {
+    min-width: 640px;
+  }
+  .lotes-table__cols,
+  .lotes-table__row {
+    min-width: 620px;
+  }
+  .lote-detail__cols,
+  .lote-detail__row {
+    min-width: 560px;
+  }
+  .lote-detail__summary {
+    gap: 18px;
+    padding: 14px;
+  }
+  .sales-filters {
+    gap: 10px;
+  }
+  .sales-filters__month {
+    width: 130px;
+  }
+  .livro-form__grid {
+    grid-template-columns: 1fr;
+  }
+  .toast {
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    max-width: none;
+  }
 }

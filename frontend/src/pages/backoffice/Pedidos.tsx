@@ -11,6 +11,8 @@ import {
 } from '../../backoffice/order-status';
 import type { Order, UnitItem } from '../../backoffice/order-status';
 import { useOrders } from '../../backoffice/useOrders';
+import { Toast } from '../../components/Toast';
+import type { ToastData } from '../../components/Toast';
 import type { BookInfo } from '../../backoffice/useOrders';
 
 function orderTotal(order: Order, books: Map<string, BookInfo>): string {
@@ -25,9 +27,10 @@ function orderTotal(order: Order, books: Map<string, BookInfo>): string {
 
 function StatusCell({ item }: { item: UnitItem }) {
   const stage = STAGES[item.status];
+  const pillClass = stage.exceptional ? 'stage-pill--reserve' : `stage-pill--${stage.index}`;
   return (
     <span>
-      <span className={`stage-pill stage-pill--${stage.index}`}>{stage.label}</span>
+      <span className={`stage-pill ${pillClass}`}>{stage.label}</span>
       {item.picked_up && (
         <span className="badge badge--low unit-picked-badge">retirado sem pagamento</span>
       )}
@@ -45,8 +48,7 @@ function StatusCell({ item }: { item: UnitItem }) {
 
 export function Pedidos() {
   const { loading, error, unauthorized, orders, books, reload } = useOrders();
-  const [lastAction, setLastAction] = useState('');
-  const [actionError, setActionError] = useState('');
+  const [toast, setToast] = useState<ToastData | null>(null);
   const [payingUnitId, setPayingUnitId] = useState<string | null>(null);
   const [payText, setPayText] = useState('');
   const pending = orders.filter((o) => !isDelivered(o));
@@ -54,22 +56,21 @@ export function Pedidos() {
   if (unauthorized) return <Navigate to="/backoffice" replace />;
 
   async function patch(order: Order, item: UnitItem, body: Record<string, unknown>, doneLabel: string) {
-    setActionError('');
-    try {
+        try {
       await apiAuthPatch(`/backoffice/pedidos/${order.id}/status`, {
         ...body,
         unit_id: item.unit_id,
       });
       const book = books.get(item.title_id);
-      setLastAction(`✓ ${shortOrderId(order.id)} · ${book?.title ?? item.title_id} → ${doneLabel}`);
+      setToast({ kind: 'success', message: `✓ ${shortOrderId(order.id)} · ${book?.title ?? item.title_id} → ${doneLabel}` });
       setPayingUnitId(null);
       await reload();
     } catch (err) {
       if (err instanceof ApiError && err.status === 400) {
-        setActionError('Sem estoque disponível na região para essa ação.');
+        setToast({ kind: 'error', message: 'Sem estoque disponível na região para essa ação.' });
         return;
       }
-      setActionError('Não foi possível atualizar o status. Tente de novo.');
+      setToast({ kind: 'error', message: 'Não foi possível atualizar o status. Tente de novo.' });
     }
   }
 
@@ -77,13 +78,12 @@ export function Pedidos() {
     const book = books.get(item.title_id);
     setPayText(book ? centsToText(book.price) : '');
     setPayingUnitId(item.unit_id);
-    setActionError('');
-  }
+      }
 
   async function confirmPayment(order: Order, item: UnitItem) {
     const cents = textToCents(payText);
     if (cents === null) {
-      setActionError('Informe um valor recebido válido (ex.: 42,00).');
+      setToast({ kind: 'error', message: 'Informe um valor recebido válido (ex.: 42,00).' });
       return;
     }
     await patch(
@@ -216,8 +216,17 @@ export function Pedidos() {
 
   return (
     <div className="bo-content">
-      {lastAction && <div className="alert alert--success bo-last-action">{lastAction}</div>}
-      {actionError && <div className="alert alert--error bo-last-action">{actionError}</div>}
+      {toast && <Toast toast={toast} onDone={() => setToast(null)} />}
+      <div className="bo-toolbar">
+        <button
+          className="reload-btn"
+          aria-label="Recarregar"
+          title="Recarregar"
+          onClick={() => void reload()}
+        >
+          ↻
+        </button>
+      </div>
 
       {pending.length === 0 && (
         <div className="bo-empty">
@@ -237,6 +246,7 @@ export function Pedidos() {
           </div>
           <div className="order-card__cols">
             <span>Livro</span>
+            <span className="t-center">Disponível</span>
             <span>Valor</span>
             <span>Status</span>
             <span className="t-right">Ações</span>
@@ -246,6 +256,9 @@ export function Pedidos() {
             return (
               <div key={item.unit_id} className="order-card__row">
                 <span className="order-card__book">{book?.title ?? item.title_id}</span>
+                <span className="t-center order-card__available">
+                  {book ? book.amount : '—'}
+                </span>
                 <span className="order-card__price">
                   {item.received_amount !== undefined
                     ? formatPrice(item.received_amount)

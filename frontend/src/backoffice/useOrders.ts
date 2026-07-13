@@ -7,6 +7,7 @@ import type { Order } from './order-status';
 export interface BookInfo {
   title: string;
   price: number;
+  amount: number; // estoque disponível na região
 }
 
 interface OrdersState {
@@ -41,7 +42,9 @@ export function useOrders() {
         error: false,
         unauthorized: false,
         orders,
-        books: new Map(livros.map((b) => [b.id, { title: b.title, price: b.price }])),
+        books: new Map(
+          livros.map((b) => [b.id, { title: b.title, price: b.price, amount: b.amount }]),
+        ),
       });
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {

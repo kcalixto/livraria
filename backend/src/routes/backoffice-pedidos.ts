@@ -16,6 +16,7 @@ const UNIT_FIELDS = [
   'lote_id',
   'received_amount',
   'picked_up',
+  'paid_at',
   'updated_at',
 ] as const;
 
@@ -183,6 +184,7 @@ backofficePedidos.patch('/:id/status', async (c) => {
       );
     }
     spec.sets.received_amount = body.received_amount;
+    spec.sets.paid_at = new Date().toISOString(); // data do pagamento (relatórios)
   }
 
   // entrada em estado que deduz estoque, ainda sem lote → aloca FIFO

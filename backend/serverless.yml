@@ -28,10 +28,13 @@ provider:
   deploymentBucket:
     name: kcalixto-serverless-framework
   environment:
+    STAGE: ${self:provider.stage}
+    ASSETS_S3_BUCKET_NAME: livraria-assets-bucket
     LIVROS_TABLE_NAME: ${self:custom.table.livros.${self:provider.stage}}
     PEDIDOS_TABLE_NAME: ${self:custom.table.pedidos.${self:provider.stage}}
     LOTES_TABLE_NAME: ${self:custom.table.lotes.${self:provider.stage}}
     LIVRARIA_FRONT_END_API_KEY: ${ssm:/livraria/front-end-api-key}
+    BACKOFFICE_ADMIN_API_KEY: ${ssm:/livraria/backoffice-admin-api-key}
     BACKOFFICE_KEY: ${ssm:/livraria/backoffice-key}
     JWT_SECRET: ${ssm:/livraria/jwt-secret}
   iam:
@@ -51,6 +54,11 @@ provider:
             - !GetAtt TabelaPedidos.Arn
             - !GetAtt TabelaLotes.Arn
             - !Sub '${TabelaPedidos.Arn}/index/*'
+        - Effect: Allow
+          Action:
+            - s3:PutObject
+            - s3:GetObject
+          Resource: arn:aws:s3:::livraria-assets-bucket/${self:provider.stage}/comprovantes/*
 
 plugins:
   - serverless-esbuild

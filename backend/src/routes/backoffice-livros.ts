@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { DeleteCommand, PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { ConditionalCheckFailedException } from '@aws-sdk/client-dynamodb';
 import { docClient } from '../lib/db';
+import { adminApiKeyMiddleware } from '../middlewares/admin-api-key';
 import { jwtMiddleware } from '../middlewares/jwt';
 
 const REQUIRED_FIELDS = ['title', 'price'] as const;
@@ -81,7 +82,7 @@ backofficeLivros.put('/:id', async (c) => {
   }
 });
 
-backofficeLivros.delete('/:id', async (c) => {
+backofficeLivros.delete('/:id', adminApiKeyMiddleware, async (c) => {
   await docClient.send(
     new DeleteCommand({
       TableName: process.env.LIVROS_TABLE_NAME,

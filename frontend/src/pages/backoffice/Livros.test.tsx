@@ -75,20 +75,10 @@ describe('Backoffice — Livros', () => {
     expect(await screen.findByRole('link', { name: /novo livro/i })).toBeInTheDocument();
   });
 
-  it('excluir pede confirmação e chama DELETE com Bearer', async () => {
+  it('não tem botão de excluir (exclusão é segmentada por chave admin, via curl)', async () => {
     renderPage();
-
-    const excluirButtons = await screen.findAllByRole('button', { name: /^excluir$/i });
-    await userEvent.click(excluirButtons[0]);
-    await userEvent.click(screen.getByRole('button', { name: /confirmar exclusão/i }));
-
-    const deleteCall = fetchMock.mock.calls.find(([, init]) => init?.method === 'DELETE');
-    expect(deleteCall).toBeTruthy();
-    const [url, init] = deleteCall as [string, RequestInit];
-    expect(url).toMatch(/\/backoffice\/livros\/47aeb72f-5448-4859-b6b0-13b7079e095f$/);
-    const headers = init.headers as Record<string, string>;
-    expect(headers.authorization).toBe('Bearer jwt-abc');
-    expect(headers['x-api-key']).toBe('test-key');
+    await screen.findByText('A Comuna e o Fogo');
+    expect(screen.queryByRole('button', { name: /excluir/i })).not.toBeInTheDocument();
   });
 
   it('mostra o início do uuid e copia o id completo ao clicar', async () => {

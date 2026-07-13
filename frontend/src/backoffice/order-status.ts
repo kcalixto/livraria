@@ -12,6 +12,7 @@ export interface UnitItem {
   lote_id?: string;
   received_amount?: number;
   picked_up?: boolean;
+  paid_at?: string;
   updated_at?: string;
 }
 
@@ -28,38 +29,19 @@ export interface Order {
 interface StageInfo {
   index: number;
   label: string;
-  next: OrderStatus | null;
-  nextLabel: string | null;
+  exceptional?: boolean; // fora do fluxo sequencial (como picked_up)
 }
 
-export const STAGE_COUNT = 5;
+// Fluxo NORMAL tem 4 estágios; "Em Reserva" é estado excepcional que ocupa a
+// mesma posição de waiting (deduz estoque, mas não avança o fluxo).
+export const STAGE_COUNT = 4;
 
 export const STAGES: Record<OrderStatus, StageInfo> = {
-  'waiting-payment': {
-    index: 0,
-    label: 'Esperando pagamento',
-    next: 'in-reserve',
-    nextLabel: 'Reservar',
-  },
-  'in-reserve': {
-    index: 1,
-    label: 'Em Reserva',
-    next: 'payment-received',
-    nextLabel: 'Confirmar pagamento',
-  },
-  'payment-received': {
-    index: 2,
-    label: 'Pagamento efetuado',
-    next: 'sent-to-delivery',
-    nextLabel: 'Enviar p/ entrega',
-  },
-  'sent-to-delivery': {
-    index: 3,
-    label: 'Enviado para entrega',
-    next: 'received',
-    nextLabel: 'Marcar entregue',
-  },
-  received: { index: 4, label: 'Entregue', next: null, nextLabel: null },
+  'waiting-payment': { index: 0, label: 'Esperando pagamento' },
+  'in-reserve': { index: 0, label: 'Em Reserva', exceptional: true },
+  'payment-received': { index: 1, label: 'Pagamento efetuado' },
+  'sent-to-delivery': { index: 2, label: 'Enviado para entrega' },
+  received: { index: 3, label: 'Entregue' },
 };
 
 // unidade finalizada = aparece em Vendas

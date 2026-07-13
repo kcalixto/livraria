@@ -2,8 +2,18 @@ import { useCallback, useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { ApiError, apiAuthGet, apiGet } from '../../api/client';
 import { clearToken } from '../../backoffice/auth';
+import { CoverThumb } from '../../components/CoverThumb';
 import { ACTIVE_REGION } from '../../lib/region';
 import type { Book } from '../../lib/types';
+
+const SEARCH_DEBOUNCE_MS = 200;
+
+function normalize(text: string): string {
+  return text
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase();
+}
 
 interface StockRow {
   book_id: string;
@@ -28,6 +38,14 @@ function qtyClass(qty: number): string {
 
 export function Estoque() {
   const [state, setState] = useState<State>({ kind: 'loading' });
+  const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  // debounce: atualiza a filtragem só depois de 200ms sem digitação
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   const load = useCallback(async () => {
     setState({ kind: 'loading' });
@@ -68,30 +86,47 @@ export function Estoque() {
     );
   }
 
+  const query = normalize(debouncedSearch.trim());
+  const rows = state.rows.filter((row) => {
+    if (!query) return true;
+    const title = state.titles.get(row.book_id) ?? row.book_id;
+    return normalize(title).includes(query);
+  });
+
   return (
     <div className="bo-content">
       <div className="stock-region">Saldo real · {ACTIVE_REGION}</div>
-      {state.rows.length === 0 ? (
+      <input
+        className="field-input stock-search"
+        placeholder="Buscar por título…"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+      />
+      {rows.length === 0 ? (
         <div className="bo-empty">
-          <div className="bo-empty__title">Nenhum livro em estoque</div>
-          <div className="bo-empty__sub">Registre um lote de aquisição na aba Lotes.</div>
+          <div className="bo-empty__title">Nenhum livro encontrado</div>
+          <div className="bo-empty__sub">
+            {state.rows.length === 0
+              ? 'Registre um lote de aquisição na aba Lotes.'
+              : 'Ajuste a busca por título.'}
+          </div>
         </div>
       ) : (
         <div className="stock-table">
-          <div className="stock-table__cols">
+          <div className="stock-table__cols stock-table__cols--covers">
+            <span>Capa</span>
             <span>Título</span>
-            <span className="t-center">Adquirido</span>
             <span className="t-center">Reservado</span>
             <span className="t-center">Retirado</span>
             <span className="t-center">Vendido</span>
             <span className="t-right">Disponível</span>
           </div>
-          {state.rows.map((row) => (
-            <div key={row.book_id} className="stock-table__row">
+          {rows.map((row) => (
+            <div key={row.book_id} className="stock-table__row stock-table__row--covers">
+              <CoverThumb id={row.book_id} title={state.titles.get(row.book_id) ?? row.book_id} />
               <span className="stock-table__title">
                 {state.titles.get(row.book_id) ?? row.book_id}
               </span>
-              <span className="t-center stock-qty">{row.acquired}</span>
               <span className="t-center stock-qty">{row.reserved}</span>
               <span className="t-center stock-qty">{row.picked_up}</span>
               <span className="t-center stock-qty">{row.sold}</span>

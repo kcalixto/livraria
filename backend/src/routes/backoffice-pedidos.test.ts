@@ -220,7 +220,7 @@ describe('PATCH — transições e alocação FIFO', () => {
     expect(ddbMock.commandCalls(UpdateCommand)).toHaveLength(0);
   });
 
-  it('in-reserve→payment-received mantém o lote e grava o valor recebido', async () => {
+  it('in-reserve→payment-received mantém o lote e grava valor recebido + paid_at', async () => {
     const line = unit({
       book_id: 'livro-a#u1',
       unit_id: 'u1',
@@ -238,6 +238,8 @@ describe('PATCH — transições e alocação FIFO', () => {
     expect(res.status).toBe(200);
     const input = ddbMock.commandCalls(UpdateCommand)[0].args[0].input;
     expect(input.ExpressionAttributeValues![':received_amount']).toBe(5500);
+    // data do pagamento registrada (pro CSV de vendas)
+    expect(input.ExpressionAttributeValues![':paid_at']).toMatch(/^\d{4}-\d{2}-\d{2}T/);
     // não realoca lote
     expect(input.ExpressionAttributeValues![':lote_id']).toBeUndefined();
   });

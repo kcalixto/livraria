@@ -27,6 +27,7 @@ async function authHeaders(): Promise<Record<string, string>> {
 beforeEach(() => {
   ddbMock.reset();
   process.env.LIVRARIA_FRONT_END_API_KEY = 'chave-front';
+  process.env.BACKOFFICE_ADMIN_API_KEY = 'chave-admin';
   process.env.JWT_SECRET = 'segredo-jwt-teste';
   process.env.LIVROS_TABLE_NAME = 'livraria-tb-livros-test';
 });
@@ -160,13 +161,13 @@ describe('PUT /backoffice/livros/:id', () => {
   });
 });
 
-describe('DELETE /backoffice/livros/:id', () => {
-  it('deleta e retorna 204', async () => {
+describe('DELETE /backoffice/livros/:id (segmentado por chave admin)', () => {
+  it('deleta e retorna 204 com JWT + x-admin-api-key corretos', async () => {
     ddbMock.on(DeleteCommand).resolves({});
 
     const res = await app.request('/backoffice/livros/b1', {
       method: 'DELETE',
-      headers: await authHeaders(),
+      headers: { ...(await authHeaders()), 'x-admin-api-key': 'chave-admin' },
     });
 
     expect(res.status).toBe(204);
@@ -175,10 +176,26 @@ describe('DELETE /backoffice/livros/:id', () => {
     expect(input.Key).toEqual({ id: 'b1' });
   });
 
+  it('retorna 401 sem x-admin-api-key (mesmo com JWT válido)', async () => {
+    const res = await app.request('/backoffice/livros/b1', {
+      method: 'DELETE',
+      headers: await authHeaders(),
+    });
+    expect(res.status).toBe(401);
+  });
+
+  it('retorna 401 com x-admin-api-key incorreta', async () => {
+    const res = await app.request('/backoffice/livros/b1', {
+      method: 'DELETE',
+      headers: { ...(await authHeaders()), 'x-admin-api-key': 'errada' },
+    });
+    expect(res.status).toBe(401);
+  });
+
   it('retorna 401 sem JWT', async () => {
     const res = await app.request('/backoffice/livros/b1', {
       method: 'DELETE',
-      headers: { 'x-api-key': 'chave-front' },
+      headers: { 'x-api-key': 'chave-front', 'x-admin-api-key': 'chave-admin' },
     });
     expect(res.status).toBe(401);
   });

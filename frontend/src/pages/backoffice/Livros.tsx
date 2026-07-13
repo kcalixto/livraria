@@ -1,25 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
-import { ApiError, apiAuthDelete, apiGet } from "../../api/client";
+import { ApiError, apiGet } from "../../api/client";
 import { clearToken } from "../../backoffice/auth";
-import { bookCoverPath } from "../../lib/covers";
+import { CoverThumb } from "../../components/CoverThumb";
 import { formatPrice } from "../../lib/format";
 import type { Book } from "../../lib/types";
-
-// capa mini com o mesmo fallback listrado do catálogo quando não há arquivo
-function CoverThumb({ id, title }: { id: string; title: string }) {
-  const [broken, setBroken] = useState(false);
-
-  return (
-    <span className="bo-livros__cover">
-      {broken ? (
-        <span className="bo-livros__cover-fallback" title={title} />
-      ) : (
-        <img src={bookCoverPath(id)} alt="" onError={() => setBroken(true)} />
-      )}
-    </span>
-  );
-}
 
 // id encurtado clicável: copia o uuid completo (nome do arquivo da capa)
 function IdChip({ id }: { id: string }) {
@@ -46,8 +31,6 @@ type State =
 
 export function Livros() {
   const [state, setState] = useState<State>({ kind: "loading" });
-  const [confirmingId, setConfirmingId] = useState<string | null>(null);
-  const [deleting, setDeleting] = useState(false);
 
   const load = useCallback(async () => {
     setState({ kind: "loading" });
@@ -67,24 +50,6 @@ export function Livros() {
   useEffect(() => {
     void load();
   }, [load]);
-
-  async function remove(id: string) {
-    setDeleting(true);
-    try {
-      await apiAuthDelete(`/backoffice/livros/${id}`);
-      setConfirmingId(null);
-      await load();
-    } catch (err) {
-      if (err instanceof ApiError && err.status === 401) {
-        clearToken();
-        setState({ kind: "unauthorized" });
-        return;
-      }
-      setState({ kind: "error" });
-    } finally {
-      setDeleting(false);
-    }
-  }
 
   if (state.kind === "unauthorized")
     return <Navigate to="/backoffice" replace />;
@@ -140,38 +105,12 @@ export function Livros() {
               </span>
               <span className="bo-livros__year">{book.year ?? "—"}</span>
               <span className="t-right bo-livros__actions">
-                {confirmingId === book.id ? (
-                  <>
-                    <button
-                      className="stage-action bo-livros__confirm"
-                      disabled={deleting}
-                      onClick={() => void remove(book.id)}
-                    >
-                      Confirmar exclusão
-                    </button>
-                    <button
-                      className="stage-action"
-                      onClick={() => setConfirmingId(null)}
-                    >
-                      Cancelar
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <Link
-                      className="stage-action"
-                      to={`/backoffice/livros/${book.id}/editar`}
-                    >
-                      Editar
-                    </Link>
-                    <button
-                      className="stage-action"
-                      onClick={() => setConfirmingId(book.id)}
-                    >
-                      Excluir
-                    </button>
-                  </>
-                )}
+                <Link
+                  className="stage-action"
+                  to={`/backoffice/livros/${book.id}/editar`}
+                >
+                  Editar
+                </Link>
               </span>
             </div>
           ))}
