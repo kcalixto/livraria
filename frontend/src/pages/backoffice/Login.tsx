@@ -1,10 +1,17 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { apiPost } from '../../api/client';
 import { setToken } from '../../backoffice/auth';
 
+interface LoginState {
+  expired?: boolean;
+  from?: string;
+}
+
 export function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const state = (location.state ?? {}) as LoginState;
   const [password, setPassword] = useState('');
   const [error, setError] = useState(false);
   const [checking, setChecking] = useState(false);
@@ -16,7 +23,8 @@ export function Login() {
     try {
       const { token } = await apiPost<{ token: string }>('/backoffice/login', { password });
       setToken(token);
-      navigate('/backoffice/pedidos');
+      // volta pra onde o operador estava quando a sessão caiu
+      navigate(state.from ?? '/backoffice/pedidos');
     } catch {
       setError(true);
     } finally {
@@ -29,6 +37,12 @@ export function Login() {
       <form className="bo-login__card" onSubmit={(e) => void submit(e)}>
         <div className="bo-login__brand">Livraria Local</div>
         <div className="bo-login__sub">Acesso restrito</div>
+
+        {state.expired && (
+          <div className="alert alert--warn bo-login__expired">
+            Sessão expirada — entre de novo.
+          </div>
+        )}
 
         <label className="field-label" htmlFor="bo-senha">
           Senha

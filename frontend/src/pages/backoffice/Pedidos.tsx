@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Navigate } from 'react-router-dom';
+import { RedirectToLogin } from '../../components/RedirectToLogin';
 import { ApiError, apiAuthPatch } from '../../api/client';
-import { centsToText, formatPrice, textToCents } from '../../lib/format';
+import { centsToText, formatPrice, normalizeText, textToCents } from '../../lib/format';
 import {
   formatOrderDate,
   isDelivered,
@@ -11,6 +11,7 @@ import {
 } from '../../backoffice/order-status';
 import type { Order, UnitItem } from '../../backoffice/order-status';
 import { useOrders } from '../../backoffice/useOrders';
+import { ContactLink } from '../../components/ContactLink';
 import { Toast } from '../../components/Toast';
 import type { ToastData } from '../../components/Toast';
 import type { BookInfo } from '../../backoffice/useOrders';
@@ -47,13 +48,29 @@ function StatusCell({ item }: { item: UnitItem }) {
 }
 
 export function Pedidos() {
-  const { loading, error, unauthorized, orders, books, reload } = useOrders();
+  const { loading, refreshing, error, unauthorized, orders, books, reload } = useOrders();
   const [toast, setToast] = useState<ToastData | null>(null);
   const [payingUnitId, setPayingUnitId] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [payText, setPayText] = useState('');
-  const pending = orders.filter((o) => !isDelivered(o));
+  // busca por código/nome/contato/título + chip de status
+  const query = normalizeText(search.trim());
+  const queryId = search.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+  const pending = orders
+    .filter((o) => !isDelivered(o))
+    .filter((o) => {
+      if (statusFilter && !o.items.some((i) => i.status === statusFilter)) return false;
+      if (!query) return true;
+      if (queryId && o.id.toUpperCase().includes(queryId)) return true;
+      if (normalizeText(o.name).includes(query)) return true;
+      if (normalizeText(o.contact).includes(query)) return true;
+      return o.items.some((i) =>
+        normalizeText(books.get(i.title_id)?.title ?? '').includes(query),
+      );
+    });
 
-  if (unauthorized) return <Navigate to="/backoffice" replace />;
+  if (unauthorized) return <RedirectToLogin />;
 
   async function patch(order: Order, item: UnitItem, body: Record<string, unknown>, doneLabel: string) {
         try {
@@ -101,8 +118,17 @@ export function Pedidos() {
           <input
             className="field-input pay-inline__input"
             aria-label="Valor recebido"
+            autoFocus
+            inputMode="decimal"
             value={payText}
             onChange={(e) => setPayText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                void confirmPayment(order, item);
+              }
+              if (e.key === 'Escape') setPayingUnitId(null);
+            }}
           />
           <button className="stage-action" onClick={() => void confirmPayment(order, item)}>
             Confirmar
@@ -217,9 +243,32 @@ export function Pedidos() {
   return (
     <div className="bo-content">
       {toast && <Toast toast={toast} onDone={() => setToast(null)} />}
-      <div className="bo-toolbar">
+      <div className="bo-toolbar bo-toolbar--filters">
+        <input
+          className="field-input pedidos-search"
+          placeholder="Buscar por código, cliente, contato ou título…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+        <div className="status-chips">
+          {[
+            { label: 'Todos', value: null },
+            { label: 'Esperando', value: 'waiting-payment' },
+            { label: 'Reserva', value: 'in-reserve' },
+            { label: 'Pagos', value: 'payment-received' },
+            { label: 'Entrega', value: 'sent-to-delivery' },
+          ].map(({ label, value }) => (
+            <button
+              key={label}
+              className={`status-chip${statusFilter === value ? ' status-chip--active' : ''}`}
+              onClick={() => setStatusFilter(value)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
         <button
-          className="reload-btn"
+          className={`reload-btn${refreshing ? ' reload-btn--spinning' : ''}`}
           aria-label="Recarregar"
           title="Recarregar"
           onClick={() => void reload()}
@@ -240,7 +289,9 @@ export function Pedidos() {
           <div className="order-card__header">
             <span className="order-card__id">{shortOrderId(order.id)}</span>
             <span className="order-card__name">{order.name}</span>
-            <span className="order-card__contact">{order.contact}</span>
+            <span className="order-card__contact">
+              <ContactLink contact={order.contact} />
+            </span>
             <span className="order-card__date">{formatOrderDate(order.created_at)}</span>
             <span className="order-card__total">{orderTotal(order, books)}</span>
           </div>
@@ -255,8 +306,21 @@ export function Pedidos() {
             const book = books.get(item.title_id);
             return (
               <div key={item.unit_id} className="order-card__row">
-                <span className="order-card__book">{book?.title ?? item.title_id}</span>
-                <span className="t-center order-card__available">
+                <span className="order-card__book">
+                  {book?.title ?? item.title_id}
+                  {book?.amount === 0 && item.status === 'waiting-payment' && !item.picked_up && (
+                    <span className="badge unit-no-stock-badge">sem estoque</span>
+                  )}
+                </span>
+                <span
+                  className={`t-center order-card__available${
+                    book && book.amount === 0
+                      ? ' order-card__available--zero'
+                      : book && book.amount <= 3
+                        ? ' order-card__available--low'
+                        : ''
+                  }`}
+                >
                   {book ? book.amount : '—'}
                 </span>
                 <span className="order-card__price">

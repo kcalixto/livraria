@@ -94,6 +94,21 @@ describe('Backoffice — Vendas', () => {
     expect(screen.getByText('10/07 · 12h')).toBeInTheDocument(); // finalização
   });
 
+  it('mostra o total do período filtrado (Σ recebido)', async () => {
+    stubFetch([
+      order('PED001', '2026-07-01T10:00:00.000Z', [
+        soldUnit({ received_amount: 4200 }),
+        soldUnit({ received_amount: 10000 }),
+      ]),
+    ]);
+    renderPage();
+
+    await setRange('2026-07', '2026-07');
+    await screen.findAllByText('#PED-001');
+    expect(screen.getByText(/2 vendas/i)).toBeInTheDocument();
+    expect(screen.getByText('R$ 142,00', { selector: '.sales-summary *' })).toBeInTheDocument();
+  });
+
   it('filtra pelo mês de finalização', async () => {
     stubFetch([
       order('JUNHO1', '2026-06-01T10:00:00.000Z', [

@@ -1933,3 +1933,118 @@ a.btn--secondary:hover {
     max-width: none;
   }
 }
+
+/* ── UX nível 1 ── */
+.bo-toolbar--filters {
+  justify-content: flex-start;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.pedidos-search {
+  margin-bottom: 0;
+  flex: 1;
+  min-width: 220px;
+  max-width: 420px;
+}
+.status-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.status-chip {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ink-mid);
+  background: var(--surface-raised);
+  border: 1px solid var(--border-input);
+  border-radius: 20px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+.status-chip--active {
+  color: var(--wine-fg);
+  background: var(--wine);
+  border-color: var(--wine);
+}
+.bo-toolbar--filters .reload-btn {
+  margin-left: auto;
+}
+.reload-btn--spinning {
+  animation: spin 0.8s linear infinite;
+}
+.order-card__available--low {
+  color: var(--warn);
+}
+.order-card__available--zero {
+  color: var(--error);
+}
+.unit-no-stock-badge {
+  color: var(--error);
+  background: var(--error-bg);
+  border: 1px solid var(--error-border);
+  margin-left: 8px;
+  font-size: 10px;
+}
+.contact-link {
+  text-decoration: underline;
+  text-decoration-color: var(--border-input);
+  text-underline-offset: 3px;
+}
+
+/* ── Sessão + sumário de vendas ── */
+.logout-btn {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--ink-mid);
+  background: transparent;
+  border: 1px solid var(--border-input);
+  border-radius: 4px;
+  padding: 7px 12px;
+  cursor: pointer;
+  margin-left: 10px;
+}
+.logout-btn:hover {
+  color: var(--wine);
+  border-color: var(--wine);
+}
+.session-warning {
+  font-family: var(--mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  color: var(--warn);
+  background: var(--warn-bg);
+  border: 1px solid var(--warn-border);
+  border-radius: 3px;
+  padding: 4px 8px;
+  margin-left: 10px;
+  white-space: nowrap;
+}
+.bo-login__expired {
+  margin-bottom: 18px;
+}
+.sales-summary {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: var(--surface-header);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 10px 16px;
+  margin-bottom: 14px;
+}
+.sales-summary__total {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--success);
+}

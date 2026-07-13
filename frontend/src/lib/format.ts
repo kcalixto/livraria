@@ -5,6 +5,14 @@ export function formatPrice(cents: number): string {
   return brl.format(cents / 100).replace(/[\u00a0\u202f]/g, ' ');
 }
 
+// busca acento-insensível (reusada nas telas do backoffice)
+export function normalizeText(text: string): string {
+  return text
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase();
+}
+
 export function centsToText(cents: number): string {
   return (cents / 100).toFixed(2).replace('.', ',');
 }

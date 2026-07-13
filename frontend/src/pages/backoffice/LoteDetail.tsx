@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link, Navigate, useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
+import { RedirectToLogin } from '../../components/RedirectToLogin';
 import { ApiError, apiAuthGet, apiAuthPost, apiGet } from '../../api/client';
 import { clearToken } from '../../backoffice/auth';
 import { formatLoteDate } from '../../backoffice/lotes';
@@ -139,7 +140,7 @@ export function LoteDetail() {
     }
   }
 
-  if (state.kind === 'unauthorized') return <Navigate to="/backoffice" replace />;
+  if (state.kind === 'unauthorized') return <RedirectToLogin />;
   if (state.kind === 'loading') return <div className="bo-loading">Carregando…</div>;
   if (state.kind === 'error') {
     return (

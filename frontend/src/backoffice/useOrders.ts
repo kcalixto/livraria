@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
-import { ApiError, apiAuthGet, apiGet } from '../api/client';
+import { useCallback } from 'react';
+import { apiAuthGet, apiGet } from '../api/client';
 import type { Book } from '../lib/types';
-import { clearToken } from './auth';
 import type { Order } from './order-status';
+import { useBackofficeResource } from './useBackofficeResource';
 
 export interface BookInfo {
   title: string;
@@ -10,10 +10,7 @@ export interface BookInfo {
   amount: number; // estoque disponível na região
 }
 
-interface OrdersState {
-  loading: boolean;
-  error: boolean;
-  unauthorized: boolean;
+interface OrdersData {
   orders: Order[];
   books: Map<string, BookInfo>;
 }
@@ -22,43 +19,29 @@ interface OrdersState {
 // guardam snapshot de título/preço: junta com o catálogo atual (título
 // removido do catálogo aparece com o title_id e valor "—").
 export function useOrders() {
-  const [state, setState] = useState<OrdersState>({
-    loading: true,
-    error: false,
-    unauthorized: false,
-    orders: [],
-    books: new Map(),
-  });
-
-  const load = useCallback(async () => {
-    setState((s) => ({ ...s, loading: true, error: false }));
-    try {
-      const [livros, orders] = await Promise.all([
-        apiGet<Book[]>('/livros'),
-        apiAuthGet<Order[]>('/backoffice/pedidos'),
-      ]);
-      setState({
-        loading: false,
-        error: false,
-        unauthorized: false,
-        orders,
-        books: new Map(
-          livros.map((b) => [b.id, { title: b.title, price: b.price, amount: b.amount }]),
-        ),
-      });
-    } catch (err) {
-      if (err instanceof ApiError && err.status === 401) {
-        clearToken();
-        setState((s) => ({ ...s, loading: false, unauthorized: true }));
-        return;
-      }
-      setState((s) => ({ ...s, loading: false, error: true }));
-    }
+  const fetcher = useCallback(async (): Promise<OrdersData> => {
+    const [livros, orders] = await Promise.all([
+      apiGet<Book[]>('/livros'),
+      apiAuthGet<Order[]>('/backoffice/pedidos'),
+    ]);
+    return {
+      orders,
+      books: new Map(
+        livros.map((b) => [b.id, { title: b.title, price: b.price, amount: b.amount }]),
+      ),
+    };
   }, []);
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  const { data, loading, refreshing, error, unauthorized, reload } =
+    useBackofficeResource<OrdersData>(fetcher);
 
-  return { ...state, reload: load };
+  return {
+    orders: data?.orders ?? [],
+    books: data?.books ?? new Map<string, BookInfo>(),
+    loading,
+    refreshing,
+    error,
+    unauthorized,
+    reload,
+  };
 }

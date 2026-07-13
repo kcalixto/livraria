@@ -1,12 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { Pedidos } from './Pedidos';
 
 const livros = [
   { id: 'b1', title: 'A Comuna e o Fogo', price: 4200, description: '', amount: 3, status: 'disponível' },
-  { id: 'b2', title: 'O Pão e as Rosas', price: 3800, description: '', amount: 3, status: 'disponível' },
+  { id: 'b2', title: 'O Pão e as Rosas', price: 3800, description: '', amount: 0, status: 'disponível' },
 ];
 
 interface UnitItem {
@@ -271,6 +271,129 @@ describe('Backoffice — Pedidos (linhas por unidade)', () => {
     await screen.findByText('Em Reserva');
     expect(document.querySelectorAll('.stage-seg')).toHaveLength(4);
     expect(document.querySelector('.stage-pill--reserve')).toBeInTheDocument();
+  });
+
+  it('reload após ação NÃO pisca a tela: lista continua visível durante o refresh', async () => {
+    let resolveSecondGet: ((r: Response) => void) | null = null;
+    let getCount = 0;
+    fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+      const u = String(url);
+      if (init?.method === 'PATCH') {
+        return Promise.resolve(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+      }
+      if (u.includes('/backoffice/pedidos')) {
+        getCount += 1;
+        if (getCount > 1) {
+          // segundo GET fica pendente até o teste liberar
+          return new Promise<Response>((resolve) => {
+            resolveSecondGet = resolve;
+          });
+        }
+        return Promise.resolve(
+          new Response(
+            JSON.stringify([
+              order('PED001', [{ unit_id: 'u1', title_id: 'b1', status: 'waiting-payment' }]),
+            ]),
+            { status: 200 },
+          ),
+        );
+      }
+      return Promise.resolve(new Response(JSON.stringify(livros), { status: 200 }));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    renderPage();
+
+    await screen.findByText('A Comuna e o Fogo');
+    await userEvent.click(screen.getByRole('button', { name: /^reservar$/i }));
+
+    // refresh em andamento: dados antigos permanecem, sem "Carregando…"
+    expect(screen.getByText('A Comuna e o Fogo')).toBeInTheDocument();
+    expect(screen.queryByText(/carregando/i)).not.toBeInTheDocument();
+
+    resolveSecondGet!(
+      new Response(
+        JSON.stringify([
+          order('PED001', [{ unit_id: 'u1', title_id: 'b1', status: 'in-reserve' }]),
+        ]),
+        { status: 200 },
+      ),
+    );
+    expect(await screen.findByText('Em Reserva')).toBeInTheDocument();
+  });
+
+  it('Disponível 0 aparece em destaque com badge "sem estoque" na unidade aguardando', async () => {
+    stubFetch([
+      order('PED001', [{ unit_id: 'u1', title_id: 'b2', status: 'waiting-payment' }]),
+    ]);
+    // b2 sem estoque
+    renderPage();
+
+    await screen.findByText('O Pão e as Rosas');
+    const available = document.querySelector('.order-card__available')!;
+    expect(available.classList.contains('order-card__available--zero')).toBe(true);
+    expect(screen.getByText(/sem estoque/i, { selector: '.unit-no-stock-badge' })).toBeInTheDocument();
+  });
+
+  it('busca filtra por nome do cliente e chips filtram por status', async () => {
+    stubFetch([
+      order('PED001', [{ unit_id: 'u1', title_id: 'b1', status: 'waiting-payment' }]),
+      order('PED002', [{ unit_id: 'u2', title_id: 'b1', status: 'payment-received' }], {
+        name: 'J. Prestes',
+      }),
+    ]);
+    renderPage();
+    await screen.findByText('Camarada Rosa');
+
+    // busca por nome
+    await userEvent.type(screen.getByPlaceholderText(/buscar/i), 'prestes');
+    await waitFor(() => expect(screen.queryByText('Camarada Rosa')).not.toBeInTheDocument());
+    expect(screen.getByText('J. Prestes')).toBeInTheDocument();
+    await userEvent.clear(screen.getByPlaceholderText(/buscar/i));
+
+    // chip de status
+    await screen.findByText('Camarada Rosa');
+    await userEvent.click(screen.getByRole('button', { name: /^pagos$/i }));
+    expect(screen.queryByText('Camarada Rosa')).not.toBeInTheDocument();
+    expect(screen.getByText('J. Prestes')).toBeInTheDocument();
+  });
+
+  it('contato vira link de WhatsApp quando é telefone e mailto quando é e-mail', async () => {
+    stubFetch([
+      order('PED001', [{ unit_id: 'u1', title_id: 'b1', status: 'waiting-payment' }]),
+      order('PED002', [{ unit_id: 'u2', title_id: 'b1', status: 'waiting-payment' }], {
+        name: 'J. Prestes',
+        contact: 'jprestes@email.com',
+      }),
+    ]);
+    renderPage();
+    await screen.findByText('Camarada Rosa');
+
+    const wa = screen.getByRole('link', { name: /\(11\) 9 8888-0000/ });
+    expect(wa).toHaveAttribute('href', 'https://wa.me/5511988880000');
+    const mail = screen.getByRole('link', { name: /jprestes@email\.com/ });
+    expect(mail).toHaveAttribute('href', 'mailto:jprestes@email.com');
+  });
+
+  it('input de pagamento: Enter confirma e Escape cancela', async () => {
+    stubFetch([
+      order('PED001', [{ unit_id: 'u1', title_id: 'b1', status: 'in-reserve' }]),
+    ]);
+    renderPage();
+
+    await userEvent.click(await screen.findByRole('button', { name: /confirmar pagamento/i }));
+    const input = screen.getByLabelText(/valor recebido/i);
+    expect(input).toHaveFocus();
+
+    await userEvent.keyboard('{Escape}');
+    expect(screen.queryByLabelText(/valor recebido/i)).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /confirmar pagamento/i }));
+    await userEvent.keyboard('{Enter}');
+    const patchCall = fetchMock.mock.calls.find(([, init]) => init?.method === 'PATCH');
+    expect(JSON.parse((patchCall![1] as RequestInit).body as string)).toMatchObject({
+      status: 'payment-received',
+      received_amount: 4200,
+    });
   });
 
   it('token expirado (401): limpa token e volta pro login', async () => {

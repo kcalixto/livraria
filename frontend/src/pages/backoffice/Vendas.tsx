@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Navigate } from 'react-router-dom';
+import { RedirectToLogin } from '../../components/RedirectToLogin';
 import { centsToText, formatPrice } from '../../lib/format';
 import { formatOrderDate, isUnitFinalized, shortOrderId } from '../../backoffice/order-status';
 import type { Order, UnitItem } from '../../backoffice/order-status';
@@ -72,7 +72,7 @@ export function Vendas() {
   const currentPage = Math.min(page, pageCount - 1);
   const visible = filtered.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
 
-  if (unauthorized) return <Navigate to="/backoffice" replace />;
+  if (unauthorized) return <RedirectToLogin />;
   if (loading) return <div className="bo-loading">Carregando…</div>;
   if (error) {
     return (
@@ -179,6 +179,21 @@ export function Vendas() {
         </div>
       ) : (
         <>
+          <div className="sales-summary">
+            <span>
+              {filtered.length} venda{filtered.length === 1 ? '' : 's'} no período
+            </span>
+            <span className="sales-summary__total">
+              {formatPrice(
+                filtered.reduce(
+                  (sum, { item }) =>
+                    sum +
+                    (item.received_amount ?? books.get(item.title_id)?.price ?? 0),
+                  0,
+                ),
+              )}
+            </span>
+          </div>
           <div className="sales-table">
             <div className="sales-table__cols">
               <span>Pedido</span>

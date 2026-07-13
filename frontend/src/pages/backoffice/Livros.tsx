@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link, Navigate } from "react-router-dom";
+import { Link } from 'react-router-dom';
+import { RedirectToLogin } from '../../components/RedirectToLogin';
 import { ApiError, apiGet } from "../../api/client";
 import { clearToken } from "../../backoffice/auth";
 import { CoverThumb } from "../../components/CoverThumb";
@@ -52,7 +53,7 @@ export function Livros() {
   }, [load]);
 
   if (state.kind === "unauthorized")
-    return <Navigate to="/backoffice" replace />;
+    return <RedirectToLogin />;
   if (state.kind === "loading")
     return <div className="bo-loading">Carregando…</div>;
   if (state.kind === "error") {

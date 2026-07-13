@@ -38,6 +38,33 @@ describe('Login do backoffice', () => {
     expect(sessionStorage.getItem('livraria:token')).toBe('jwt-abc');
   });
 
+  it('mostra aviso de sessão expirada e retorna à rota de origem após o login', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response(JSON.stringify({ token: 'jwt-novo' }), { status: 200 })),
+    );
+    render(
+      <MemoryRouter
+        initialEntries={[
+          { pathname: '/backoffice', state: { expired: true, from: '/backoffice/vendas' } },
+        ]}
+      >
+        <Routes>
+          <Route path="/backoffice" element={<Login />} />
+          <Route path="/backoffice/pedidos" element={<div>PEDIDOS PAGE</div>} />
+          <Route path="/backoffice/vendas" element={<div>VENDAS PAGE</div>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText(/sessão expirada/i)).toBeInTheDocument();
+
+    await userEvent.type(screen.getByLabelText(/senha/i), 'segredo');
+    await userEvent.click(screen.getByRole('button', { name: /entrar/i }));
+
+    expect(await screen.findByText('VENDAS PAGE')).toBeInTheDocument();
+  });
+
   it('senha errada: mostra erro e não salva token', async () => {
     vi.stubGlobal(
       'fetch',
