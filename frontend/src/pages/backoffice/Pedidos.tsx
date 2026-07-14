@@ -7,6 +7,7 @@ import { socialPriceOf } from '../../lib/types';
 import {
   formatOrderDate,
   isUnitClosed,
+  isUnitFinalized,
   shortOrderId,
   STAGE_COUNT,
   STAGES,
@@ -38,7 +39,8 @@ function orderTotal(order: Order, books: Map<string, BookInfo>): string {
 }
 
 function StatusCell({ item }: { item: UnitItem }) {
-  const stage = STAGES[item.status];
+  // retirada + paga = finalizada: exibe como entregue (regra do CLAUDE.md)
+  const stage = isUnitFinalized(item) ? STAGES.received : STAGES[item.status];
   const pillClass = stage.pill
     ? `stage-pill--${stage.pill}`
     : stage.exceptional
@@ -47,7 +49,7 @@ function StatusCell({ item }: { item: UnitItem }) {
   return (
     <span role="cell">
       <span className={`stage-pill ${pillClass}`}>{stage.label}</span>
-      {item.picked_up && (
+      {item.picked_up && !isUnitFinalized(item) && (
         <span className="badge badge--low unit-picked-badge">retirado sem pagamento</span>
       )}
       {item.cancel_requested && item.status !== 'cancelled' && (
@@ -229,6 +231,11 @@ export function Pedidos() {
     }
 
     if (item.status === 'cancelled') return null;
+
+    // retirada + paga já é venda concluída: nenhuma transição válida resta
+    if (isUnitFinalized(item)) {
+      return <span className="stage-action stage-action--done">Concluído</span>;
+    }
 
     if (item.picked_up) {
       return (

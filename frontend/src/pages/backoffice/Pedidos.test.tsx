@@ -770,6 +770,32 @@ describe('Backoffice — Pedidos (linhas por unidade)', () => {
     }
   });
 
+  it('unidade retirada e paga é finalizada: pill Entregue, sem ações de pagamento/desfazer', async () => {
+    stubFetch([
+      order('PED001', [
+        {
+          unit_id: 'u1',
+          title_id: 'b1',
+          status: 'payment-received',
+          picked_up: true,
+          received_amount: 1000,
+        },
+        { unit_id: 'u2', title_id: 'b2', status: 'sent-to-delivery' },
+      ]),
+    ]);
+    renderPage();
+
+    await screen.findByText('Camarada Rosa');
+    // exibida como entregue (regra: picked_up + payment-received finaliza)
+    expect(screen.getByText('Entregue', { selector: '.stage-pill' })).toBeInTheDocument();
+    expect(screen.getByText('Concluído')).toBeInTheDocument();
+    // nenhuma ação inválida disponível
+    expect(screen.queryByRole('button', { name: /confirmar pagamento/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /desfazer retirado/i })).not.toBeInTheDocument();
+    // a badge de retirado some depois de paga
+    expect(screen.queryByText(/retirado sem pagamento/i)).not.toBeInTheDocument();
+  });
+
   it('token expirado (401): limpa token e volta pro login', async () => {
     vi.stubGlobal(
       'fetch',
