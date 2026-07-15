@@ -2802,3 +2802,109 @@ a.btn--secondary:hover {
   color: var(--error);
   font-weight: 700;
 }
+
+/* ============ Fila de Pedidos: chips com somas, alerta e accordion ============ */
+.status-chip__meta {
+  margin-left: 7px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.status-chip--active .status-chip__meta {
+  color: var(--wine-fg);
+  opacity: 0.75;
+}
+
+/* alerta de retirado sem pagamento: ícone + tooltip (mesmo padrão do action-icon) */
+.picked-alert {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+  margin-left: 8px;
+  color: var(--error);
+}
+.picked-alert svg {
+  width: 15px;
+  height: 15px;
+}
+.picked-alert::after {
+  content: attr(aria-label);
+  position: absolute;
+  bottom: calc(100% + 7px);
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+  color: var(--surface);
+  background: var(--ink);
+  border-radius: 4px;
+  padding: 5px 8px;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 30;
+}
+.picked-alert::before {
+  content: '';
+  position: absolute;
+  bottom: calc(100% + 2px);
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: var(--ink);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 30;
+}
+.picked-alert:hover::after,
+.picked-alert:hover::before {
+  opacity: 1;
+  transition: opacity 0.12s ease 0.2s;
+}
+
+/* header do card tem overflow:hidden acima: tooltip abre PRA BAIXO pra não clipar */
+.order-card__header .action-icon::after {
+  bottom: auto;
+  top: calc(100% + 7px);
+}
+.order-card__header .action-icon::before {
+  bottom: auto;
+  top: calc(100% + 2px);
+  border-top-color: transparent;
+  border-bottom-color: var(--ink);
+}
+
+/* accordion dos pedidos fechados (entregues/cancelados) no fim da fila */
+.delivered-accordion {
+  margin-top: 22px;
+}
+.delivered-accordion__toggle {
+  width: 100%;
+  padding: 11px;
+  margin-bottom: 14px;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ink-mid);
+  background: var(--surface-header);
+  border: 1px dashed var(--border-input);
+  border-radius: 6px;
+  cursor: pointer;
+}
+.delivered-accordion__toggle:hover {
+  color: var(--ink);
+  border-color: var(--ink);
+}
+
+@media (max-width: 700px) {
+  /* touch não tem hover: some com o tooltip do alerta (o pill já diz o estado) */
+  .picked-alert::after,
+  .picked-alert::before {
+    display: none;
+  }
+}

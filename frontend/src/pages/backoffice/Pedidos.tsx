@@ -18,7 +18,7 @@ import type { Order, UnitItem } from '../../backoffice/order-status';
 import { canWrite } from '../../backoffice/auth';
 import { useIsMobile } from '../../backoffice/useIsMobile';
 import { useOrders } from '../../backoffice/useOrders';
-import { ActionIcon } from '../../components/ActionIcon';
+import { ActionGlyph, ActionIcon } from '../../components/ActionIcon';
 import { ClampedText } from '../../components/ClampedText';
 import { ConfirmActionModal } from '../../components/ConfirmActionModal';
 import { ContactLink } from '../../components/ContactLink';
@@ -48,27 +48,55 @@ function StatusCell({ item }: { item: UnitItem }) {
     : stage.exceptional
       ? 'stage-pill--reserve'
       : `stage-pill--${stage.index}`;
+  // unidade retirada tem fluxo curto (waiting → pago/entregue): barra de 2 segmentos
+  const segCount = item.picked_up ? 2 : STAGE_COUNT;
+  const segOn = item.picked_up ? (isUnitFinalized(item) ? 1 : 0) : stage.index;
   return (
     <span role="cell">
       <span className={`stage-pill ${pillClass}`}>{stage.label}</span>
       {item.picked_up && !isUnitFinalized(item) && (
-        <span className="badge badge--low unit-picked-badge">retirado sem pagamento</span>
+        <span className="picked-alert" role="img" aria-label="retirado sem pagamento">
+          <ActionGlyph icon="alert" />
+        </span>
       )}
       {item.cancel_requested && item.status !== 'cancelled' && (
         <span className="badge badge--zero unit-cancel-badge">cancelamento solicitado</span>
       )}
       {item.status !== 'cancelled' && (
         <span className="stage-segs" aria-hidden="true">
-          {Array.from({ length: STAGE_COUNT }, (_, i) => (
+          {Array.from({ length: segCount }, (_, i) => (
             <span
               key={i}
-              className={`stage-seg${i <= stage.index ? ` stage-seg--on-${stage.index}` : ''}`}
+              className={`stage-seg${i <= segOn ? ` stage-seg--on-${stage.index}` : ''}`}
             />
           ))}
         </span>
       )}
     </span>
   );
+}
+
+// chips da fila: filtram por predicado de unidade (estado + retirada), não por status cru
+type ChipKey = 'awaiting-payment' | 'picked-unpaid' | 'reserved' | 'awaiting-delivery';
+
+const CHIP_PREDICATES: Record<ChipKey, (item: UnitItem) => boolean> = {
+  'awaiting-payment': (i) => i.status === 'waiting-payment' && !i.picked_up,
+  'picked-unpaid': (i) => i.status === 'waiting-payment' && i.picked_up === true,
+  reserved: (i) => i.status === 'in-reserve',
+  'awaiting-delivery': (i) =>
+    (i.status === 'payment-received' && !i.picked_up) || i.status === 'sent-to-delivery',
+};
+
+const CHIP_OPTIONS: { label: string; value: ChipKey | null }[] = [
+  { label: 'Todos', value: null },
+  { label: 'Pagamento pendente', value: 'awaiting-payment' },
+  { label: 'Retirado sem pagamento', value: 'picked-unpaid' },
+  { label: 'Reservados', value: 'reserved' },
+  { label: 'Entrega pendente', value: 'awaiting-delivery' },
+];
+
+function bookCount(n: number): string {
+  return `${n} livro${n === 1 ? '' : 's'}`;
 }
 
 export function Pedidos() {
@@ -97,27 +125,49 @@ export function Pedidos() {
     danger?: boolean;
   } | null>(null);
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<ChipKey | null>(null);
+  const [showDelivered, setShowDelivered] = useState(false);
   const [payText, setPayText] = useState('');
   const [paySocial, setPaySocial] = useState(false);
-  // busca por código/nome/contato/título + chip de status
+  // busca por código/nome/contato/título + chip de predicado
   const query = normalizeText(search.trim());
   const queryId = search.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
-  const pending = orders
-    // sai da fila quando TODAS as unidades fecharam (venda concluída ou cancelada)
-    .filter((o) => !o.items.every(isUnitClosed))
-    .filter((o) => {
-      if (statusFilter && !o.items.some((i) => i.status === statusFilter)) return false;
-      if (!query) return true;
-      if (queryId && o.id.toUpperCase().includes(queryId)) return true;
-      if (normalizeText(o.name).includes(query)) return true;
-      if (normalizeText(o.contact).includes(query)) return true;
-      return o.items.some((i) =>
-        normalizeText(books.get(i.title_id)?.title ?? '').includes(query),
-      );
-    })
+  const matchesSearch = (o: Order) => {
+    if (!query) return true;
+    if (queryId && o.id.toUpperCase().includes(queryId)) return true;
+    if (normalizeText(o.name).includes(query)) return true;
+    if (normalizeText(o.contact).includes(query)) return true;
+    return o.items.some((i) =>
+      normalizeText(books.get(i.title_id)?.title ?? '').includes(query),
+    );
+  };
+  // aberto = alguma unidade ainda no fluxo (não concluída nem cancelada)
+  const open = orders.filter((o) => !o.items.every(isUnitClosed));
+  const pending = open
+    .filter((o) => !statusFilter || o.items.some(CHIP_PREDICATES[statusFilter]))
+    .filter(matchesSearch)
     // fila: o pedido mais recente primeiro (pedido do dono, com a data editável)
     .sort((a, b) => orderedAt(b).localeCompare(orderedAt(a)));
+  // fechados ficam no accordion do fim da lista (busca vale, chips não)
+  const delivered = orders
+    .filter((o) => o.items.every(isUnitClosed))
+    .filter(matchesSearch)
+    .sort((a, b) => orderedAt(b).localeCompare(orderedAt(a)));
+  // somas dos chips: sobre toda a fila aberta, antes de busca/filtro
+  const openItems = open.flatMap((o) => o.items);
+  const chipMeta: Record<ChipKey, string> = {
+    // decisão do dono: TODO dinheiro a receber, incluindo retirados sem pagamento
+    'awaiting-payment': formatPrice(
+      openItems
+        .filter((i) => i.status === 'waiting-payment')
+        .reduce((sum, i) => sum + (books.get(i.title_id)?.price ?? 0), 0),
+    ),
+    'picked-unpaid': bookCount(openItems.filter(CHIP_PREDICATES['picked-unpaid']).length),
+    reserved: bookCount(openItems.filter(CHIP_PREDICATES.reserved).length),
+    'awaiting-delivery': bookCount(
+      openItems.filter(CHIP_PREDICATES['awaiting-delivery']).length,
+    ),
+  };
 
   if (unauthorized) return <RedirectToLogin />;
 
@@ -407,58 +457,9 @@ export function Pedidos() {
     );
   }
 
-  return (
-    <div className="bo-content">
-      {toast && <Toast toast={toast} onDone={() => setToast(null)} />}
-      <div className="bo-toolbar bo-toolbar--filters">
-        <div className="pedidos-search-row">
-          <input
-            className="field-input pedidos-search"
-            placeholder="Buscar por código, cliente, contato ou título…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-          <button
-            className={`reload-btn${refreshing ? ' reload-btn--spinning' : ''}`}
-            aria-label="Recarregar"
-            title="Recarregar"
-            onClick={() => void reload()}
-          >
-            ↻
-          </button>
-        </div>
-        <div className="status-chips">
-          {[
-            { label: 'Todos', value: null },
-            { label: 'Esperando', value: 'waiting-payment' },
-            { label: 'Reserva', value: 'in-reserve' },
-            { label: 'Pagos', value: 'payment-received' },
-            { label: 'Entrega', value: 'sent-to-delivery' },
-          ].map(({ label, value }) => (
-            <button
-              key={label}
-              className={`status-chip${statusFilter === value ? ' status-chip--active' : ''}`}
-              onClick={() => setStatusFilter(value)}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {pending.length === 0 ? (
-        <div className="bo-empty">
-          <div className="bo-empty__title">Nenhum pedido pendente</div>
-          <div className="bo-empty__sub">Tudo em dia por aqui.</div>
-        </div>
-      ) : (
-        <div className="pending-count">
-          {pending.length} pedido{pending.length === 1 ? '' : 's'} pendente
-          {pending.length === 1 ? '' : 's'}
-        </div>
-      )}
-
-      {pending.map((order) => (
+  // card do pedido: mesmo markup na fila e no accordion de entregues
+  function renderOrderCard(order: Order) {
+    return (
         <div
           key={order.id}
           className="order-card"
@@ -734,7 +735,69 @@ export function Pedidos() {
             );
           })}
         </div>
-      ))}
+    );
+  }
+
+  return (
+    <div className="bo-content">
+      {toast && <Toast toast={toast} onDone={() => setToast(null)} />}
+      <div className="bo-toolbar bo-toolbar--filters">
+        <div className="pedidos-search-row">
+          <input
+            className="field-input pedidos-search"
+            placeholder="Buscar por código, cliente, contato ou título…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          <button
+            className={`reload-btn${refreshing ? ' reload-btn--spinning' : ''}`}
+            aria-label="Recarregar"
+            title="Recarregar"
+            onClick={() => void reload()}
+          >
+            ↻
+          </button>
+        </div>
+        <div className="status-chips">
+          {CHIP_OPTIONS.map(({ label, value }) => (
+            <button
+              key={label}
+              className={`status-chip${statusFilter === value ? ' status-chip--active' : ''}`}
+              onClick={() => setStatusFilter(value)}
+            >
+              {label}
+              {value && <span className="status-chip__meta">{chipMeta[value]}</span>}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {pending.length === 0 ? (
+        <div className="bo-empty">
+          <div className="bo-empty__title">Nenhum pedido pendente</div>
+          <div className="bo-empty__sub">Tudo em dia por aqui.</div>
+        </div>
+      ) : (
+        <div className="pending-count">
+          {pending.length} pedido{pending.length === 1 ? '' : 's'} pendente
+          {pending.length === 1 ? '' : 's'}
+        </div>
+      )}
+
+      {pending.map(renderOrderCard)}
+
+      {delivered.length > 0 && (
+        <div className="delivered-accordion">
+          <button
+            className="delivered-accordion__toggle"
+            aria-expanded={showDelivered}
+            onClick={() => setShowDelivered((v) => !v)}
+          >
+            {showDelivered ? 'Ocultar entregues' : `Mostrar entregues (${delivered.length})`}
+          </button>
+          {showDelivered && delivered.map(renderOrderCard)}
+        </div>
+      )}
 
       {pendingAction && (
         <ConfirmActionModal

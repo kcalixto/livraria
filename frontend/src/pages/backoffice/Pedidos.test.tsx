@@ -77,8 +77,10 @@ describe('Backoffice — Pedidos (linhas por unidade)', () => {
 
     expect(await screen.findByText('Camarada Rosa')).toBeInTheDocument();
     expect(screen.getAllByText('A Comuna e o Fogo')).toHaveLength(2);
-    // total do pedido = 2 × 42,00
-    expect(screen.getByText('R$ 84,00')).toBeInTheDocument();
+    // total do pedido = 2 × 42,00 (o chip de soma também exibe, então mira o header)
+    expect(
+      screen.getByText('R$ 84,00', { selector: '.order-card__total' }),
+    ).toBeInTheDocument();
     // valor de cada linha = preço unitário
     expect(screen.getAllByText('R$ 42,00')).toHaveLength(2);
   });
@@ -186,10 +188,8 @@ describe('Backoffice — Pedidos (linhas por unidade)', () => {
       unit_id: 'u1',
     });
 
-    // a segunda (já retirada) tem badge e ação de desfazer
-    expect(
-      screen.getByText(/retirado sem pagamento/i, { selector: '.unit-picked-badge' }),
-    ).toBeInTheDocument();
+    // a segunda (já retirada) tem o alerta e ação de desfazer
+    expect(screen.getByLabelText(/retirado sem pagamento/i)).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: /desfazer retirado/i }));
     const undoCall = fetchMock.mock.calls.filter(([, init]) => init?.method === 'PATCH').pop();
     expect(JSON.parse((undoCall![1] as RequestInit).body as string)).toEqual({
@@ -351,9 +351,9 @@ describe('Backoffice — Pedidos (linhas por unidade)', () => {
     expect(screen.getByText('J. Prestes')).toBeInTheDocument();
     await userEvent.clear(screen.getByPlaceholderText(/buscar/i));
 
-    // chip de status
+    // chip de predicado: pago aguardando envio = Entrega pendente
     await screen.findByText('Camarada Rosa');
-    await userEvent.click(screen.getByRole('button', { name: /^pagos$/i }));
+    await userEvent.click(screen.getByRole('button', { name: /entrega pendente/i }));
     expect(screen.queryByText('Camarada Rosa')).not.toBeInTheDocument();
     expect(screen.getByText('J. Prestes')).toBeInTheDocument();
   });
@@ -792,8 +792,87 @@ describe('Backoffice — Pedidos (linhas por unidade)', () => {
     // nenhuma ação inválida disponível
     expect(screen.queryByRole('button', { name: /confirmar pagamento/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /desfazer retirado/i })).not.toBeInTheDocument();
-    // a badge de retirado some depois de paga
-    expect(screen.queryByText(/retirado sem pagamento/i)).not.toBeInTheDocument();
+    // o alerta de retirado some depois de paga
+    expect(screen.queryByLabelText(/retirado sem pagamento/i)).not.toBeInTheDocument();
+  });
+
+  it('chips com somas: Pagamento pendente em R$ (inclui retirados), demais em livros', async () => {
+    stubFetch([
+      order('PED001', [
+        { unit_id: 'u1', title_id: 'b1', status: 'waiting-payment' }, // 42,00
+        { unit_id: 'u2', title_id: 'b2', status: 'waiting-payment', picked_up: true }, // 38,00 (retirado conta na soma)
+        { unit_id: 'u3', title_id: 'b1', status: 'in-reserve' },
+        { unit_id: 'u4', title_id: 'b1', status: 'payment-received' },
+        { unit_id: 'u5', title_id: 'b2', status: 'sent-to-delivery' },
+      ]),
+    ]);
+    renderPage();
+    await screen.findByText('Camarada Rosa');
+
+    expect(
+      screen.getByRole('button', { name: /pagamento pendente/i }).textContent,
+    ).toContain('R$ 80,00');
+    expect(
+      screen.getByRole('button', { name: /retirado sem pagamento/i }).textContent,
+    ).toContain('1 livro');
+    expect(screen.getByRole('button', { name: /reservados/i }).textContent).toContain(
+      '1 livro',
+    );
+    expect(
+      screen.getByRole('button', { name: /entrega pendente/i }).textContent,
+    ).toContain('2 livros');
+  });
+
+  it('chip filtra a fila pelo predicado da unidade', async () => {
+    stubFetch([
+      order('PED001', [{ unit_id: 'u1', title_id: 'b1', status: 'waiting-payment' }]),
+      order('PED002', [{ unit_id: 'u2', title_id: 'b2', status: 'sent-to-delivery' }], {
+        name: 'Outro Camarada',
+      }),
+    ]);
+    renderPage();
+    await screen.findByText('#PED-001');
+
+    await userEvent.click(screen.getByRole('button', { name: /entrega pendente/i }));
+    expect(screen.queryByText('#PED-001')).toBeNull();
+    expect(screen.getByText('#PED-002')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /^todos$/i }));
+    expect(screen.getByText('#PED-001')).toBeInTheDocument();
+  });
+
+  it('entregues ficam num accordion: escondidos por padrão, Mostrar entregues expande', async () => {
+    stubFetch([
+      order('PED001', [{ unit_id: 'u1', title_id: 'b1', status: 'waiting-payment' }]),
+      order('PED002', [{ unit_id: 'u2', title_id: 'b1', status: 'received' }], {
+        name: 'Entregue Silva',
+      }),
+    ]);
+    renderPage();
+    await screen.findByText('#PED-001');
+    expect(screen.queryByText('Entregue Silva')).toBeNull();
+
+    await userEvent.click(screen.getByRole('button', { name: /mostrar entregues \(1\)/i }));
+    expect(screen.getByText('Entregue Silva')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /ocultar entregues/i }));
+    expect(screen.queryByText('Entregue Silva')).toBeNull();
+  });
+
+  it('unidade retirada: barra de 2 segmentos e ícone de alerta no lugar do texto', async () => {
+    stubFetch([
+      order('PED001', [
+        { unit_id: 'u1', title_id: 'b1', status: 'waiting-payment', picked_up: true },
+      ]),
+    ]);
+    renderPage();
+    await screen.findByText('A Comuna e o Fogo');
+
+    // fluxo do retirado tem só 2 estágios (waiting → pago/entregue)
+    expect(document.querySelectorAll('.stage-seg')).toHaveLength(2);
+    // alerta vermelho com tooltip via aria-label; sem o texto extenso na linha
+    expect(screen.getByLabelText(/retirado sem pagamento/i)).toBeInTheDocument();
+    expect(document.querySelector('.unit-picked-badge')).toBeNull();
   });
 
   it('header do card tem Editar pedido (admin) que navega pra tela de edição', async () => {
