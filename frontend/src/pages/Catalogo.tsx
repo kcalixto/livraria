@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { apiGet } from '../api/client';
 import { Header } from '../components/Header';
 import { LivroEntry } from '../components/LivroEntry';
+import { normalizeText } from '../lib/format';
 import { ACTIVE_REGION } from '../lib/region';
 import type { Book } from '../lib/types';
 
@@ -30,6 +31,7 @@ function LoadingSkeleton() {
 
 export function Catalogo() {
   const [state, setState] = useState<State>({ kind: 'loading' });
+  const [search, setSearch] = useState('');
 
   const load = useCallback(async () => {
     setState({ kind: 'loading' });
@@ -57,6 +59,17 @@ export function Catalogo() {
           </p>
         </div>
 
+        {state.kind === 'ready' && state.books.length > 0 && (
+          <input
+            className="field-input catalog__search"
+            type="search"
+            placeholder="Buscar por título…"
+            aria-label="Buscar por título"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        )}
+
         {state.kind === 'loading' && <LoadingSkeleton />}
 
         {state.kind === 'error' && (
@@ -77,10 +90,23 @@ export function Catalogo() {
         )}
 
         {state.kind === 'ready' &&
-          // esgotados por último; sort estável preserva a ordem da API entre os grupos
-          [...state.books]
-            .sort((a, b) => Number(a.amount === 0) - Number(b.amount === 0))
-            .map((book) => <LivroEntry key={book.id} book={book} />)}
+          (() => {
+            const query = normalizeText(search.trim());
+            // busca antes do sort; esgotados por último, sort estável preserva a ordem da API
+            const visible = state.books
+              .filter((book) => !query || normalizeText(book.title).includes(query))
+              .sort((a, b) => Number(a.amount === 0) - Number(b.amount === 0));
+            if (state.books.length > 0 && visible.length === 0) {
+              return (
+                <div className="catalog__empty">
+                  <p className="catalog__empty-title">
+                    Nenhum título encontrado para <strong>{search.trim()}</strong>.
+                  </p>
+                </div>
+              );
+            }
+            return visible.map((book) => <LivroEntry key={book.id} book={book} />);
+          })()}
       </main>
     </div>
   );

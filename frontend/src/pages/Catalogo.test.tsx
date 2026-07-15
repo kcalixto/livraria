@@ -103,6 +103,30 @@ describe('Catalogo', () => {
     ]);
   });
 
+  it('busca por título filtra o catálogo (sem acento) e tem estado vazio', async () => {
+    const catalog = [
+      { id: 'd1', title: 'Educação Popular', description: '', price: 100, amount: 5, status: 'disponível' },
+      { id: 'd2', title: 'O Pão e as Rosas', description: '', price: 100, amount: 2, status: 'disponível' },
+    ];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response(JSON.stringify(catalog), { status: 200 })),
+    );
+
+    renderPage();
+    await screen.findByRole('heading', { name: 'Educação Popular' });
+
+    // busca sem acento acha título acentuado
+    await userEvent.type(screen.getByPlaceholderText(/buscar por título/i), 'educacao');
+    expect(screen.getByRole('heading', { name: 'Educação Popular' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'O Pão e as Rosas' })).toBeNull();
+
+    // sem resultado: estado vazio da busca
+    await userEvent.clear(screen.getByPlaceholderText(/buscar por título/i));
+    await userEvent.type(screen.getByPlaceholderText(/buscar por título/i), 'zzz');
+    expect(screen.getByText(/nenhum título encontrado/i)).toBeInTheDocument();
+  });
+
   it('mostra o picker de região com a única opção ativa', async () => {
     vi.stubGlobal(
       'fetch',

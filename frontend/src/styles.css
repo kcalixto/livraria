@@ -2908,3 +2908,12 @@ a.btn--secondary:hover {
     display: none;
   }
 }
+
+/* busca do catálogo público */
+.catalog__search {
+  width: 100%;
+  max-width: 420px;
+  margin-bottom: 26px;
+  font-family: var(--mono);
+  font-size: 13px;
+}

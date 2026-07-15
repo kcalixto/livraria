@@ -72,6 +72,9 @@ functions:
       - httpApi: '*'
 
 resources:
+  Conditions:
+    # backup diário só em produção (dev é descartável)
+    IsPrd: !Equals ['${self:provider.stage}', 'prd']
   Resources:
     TabelaLivros:
       Type: AWS::DynamoDB::Table
@@ -122,3 +125,50 @@ resources:
                 KeyType: HASH
             Projection:
               ProjectionType: ALL
+
+    # ── Backup diário das tabelas de produção (AWS Backup, retenção 7 dias) ──
+    BackupVault:
+      Type: AWS::Backup::BackupVault
+      Condition: IsPrd
+      DeletionPolicy: Retain
+      Properties:
+        BackupVaultName: livraria-backup-vault
+    BackupPlan:
+      Type: AWS::Backup::BackupPlan
+      Condition: IsPrd
+      Properties:
+        BackupPlan:
+          BackupPlanName: livraria-daily-backup
+          BackupPlanRule:
+            - RuleName: daily-7d
+              TargetBackupVault: !Ref BackupVault
+              # 07:00 UTC ≈ 04:00 BRT, fora do horário de uso
+              ScheduleExpression: cron(0 7 * * ? *)
+              Lifecycle:
+                DeleteAfterDays: 7
+    BackupRole:
+      Type: AWS::IAM::Role
+      Condition: IsPrd
+      Properties:
+        RoleName: livraria-backup-role
+        AssumeRolePolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Principal:
+                Service: backup.amazonaws.com
+              Action: sts:AssumeRole
+        ManagedPolicyArns:
+          - arn:aws:iam::aws:policy/service-role/AWSBackupServiceRolePolicyForBackup
+    BackupSelection:
+      Type: AWS::Backup::BackupSelection
+      Condition: IsPrd
+      Properties:
+        BackupPlanId: !Ref BackupPlan
+        BackupSelection:
+          SelectionName: livraria-tables
+          IamRoleArn: !GetAtt BackupRole.Arn
+          Resources:
+            - !GetAtt TabelaLivros.Arn
+            - !GetAtt TabelaPedidos.Arn
+            - !GetAtt TabelaLotes.Arn
