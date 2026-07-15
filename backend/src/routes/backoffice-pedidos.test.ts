@@ -695,3 +695,210 @@ describe('PATCH — retirada sem pagamento em nível de pedido (evento)', () => 
     }
   });
 });
+
+describe('PUT — edição administrativa do pedido e da unidade', () => {
+  beforeEach(() => {
+    process.env.LOTES_TABLE_NAME = 'livraria-tb-lotes-test';
+    ddbMock.on(UpdateCommand).resolves({});
+  });
+
+  async function putOrder(body: Record<string, unknown>) {
+    return app.request('/backoffice/pedidos/PED001', {
+      method: 'PUT',
+      body: JSON.stringify(body),
+      headers: { ...(await authHeader()), 'content-type': 'application/json' },
+    });
+  }
+
+  async function putUnit(unitId: string, body: Record<string, unknown>) {
+    return app.request(`/backoffice/pedidos/PED001/unidades/${unitId}`, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+      headers: { ...(await authHeader()), 'content-type': 'application/json' },
+    });
+  }
+
+  it('PUT do pedido grava name e ordered_at em TODAS as linhas, sem tocar created_at', async () => {
+    ddbMock.on(QueryCommand).resolves({
+      Items: [
+        unit({ book_id: 'livro-a#u1', unit_id: 'u1' }),
+        unit({ book_id: 'livro-a#u2', unit_id: 'u2' }),
+      ],
+    });
+
+    const res = await putOrder({ name: 'Nome Corrigido', ordered_at: '2026-03-01' });
+
+    expect(res.status).toBe(200);
+    const calls = ddbMock.commandCalls(UpdateCommand);
+    expect(calls).toHaveLength(2);
+    for (const call of calls) {
+      const input = call.args[0].input;
+      expect(input.ExpressionAttributeValues![':name']).toBe('Nome Corrigido');
+      expect(input.ExpressionAttributeValues![':ordered_at']).toBe('2026-03-01T12:00:00.000Z');
+      expect(input.UpdateExpression).not.toContain('created_at');
+    expect(input.UpdateExpression).not.toContain('updated_at');
+      expect(input.UpdateExpression).not.toContain('updated_at');
+    }
+  });
+
+  it('PUT do pedido valida name e ordered_at', async () => {
+    ddbMock.on(QueryCommand).resolves({ Items: [unit({})] });
+    expect((await putOrder({ name: 'x'.repeat(81) })).status).toBe(400);
+    expect((await putOrder({ ordered_at: 'não-é-data' })).status).toBe(400);
+    expect((await putOrder({})).status).toBe(400); // nada pra atualizar
+    expect(ddbMock.commandCalls(UpdateCommand)).toHaveLength(0);
+  });
+
+  it('PUT da unidade grava valor, finalized_at, social_price e observação', async () => {
+    ddbMock.on(QueryCommand).resolves({
+      Items: [unit({ book_id: 'livro-a#u1', unit_id: 'u1', status: 'payment-received', lote_id: 'lote-antigo' })],
+    });
+
+    const res = await putUnit('u1', {
+      received_amount: 2500,
+      finalized_at: '2026-04-05',
+      social_price: true,
+      observation: 'corrigido pelo admin',
+    });
+
+    expect(res.status).toBe(200);
+    const input = ddbMock.commandCalls(UpdateCommand)[0].args[0].input;
+    expect(input.ExpressionAttributeValues![':received_amount']).toBe(2500);
+    expect(input.ExpressionAttributeValues![':finalized_at']).toBe('2026-04-05T12:00:00.000Z');
+    expect(input.ExpressionAttributeValues![':social_price']).toBe(true);
+    expect(input.ExpressionAttributeValues![':observation']).toBe('corrigido pelo admin');
+    expect(input.UpdateExpression).not.toContain('created_at');
+  });
+
+  it('PUT da unidade com status que deduz aloca lote quando falta', async () => {
+    const line = unit({ book_id: 'livro-a#u1', unit_id: 'u1' }); // waiting, sem lote
+    ddbMock.on(QueryCommand).resolves({ Items: [line] });
+    mockLotes([LOTE_ANTIGO]);
+    mockPedidosScan([line]);
+
+    const res = await putUnit('u1', { status: 'received' });
+
+    expect(res.status).toBe(200);
+    const input = ddbMock.commandCalls(UpdateCommand)[0].args[0].input;
+    expect(input.ExpressionAttributeValues![':status']).toBe('received');
+    expect(input.ExpressionAttributeValues![':lote_id']).toBe('lote-antigo');
+  });
+
+  it('PUT da unidade voltando pra waiting devolve o lote; social_price false remove', async () => {
+    ddbMock.on(QueryCommand).resolves({
+      Items: [unit({ book_id: 'livro-a#u1', unit_id: 'u1', status: 'payment-received', lote_id: 'lote-antigo', social_price: true })],
+    });
+
+    const res = await putUnit('u1', { status: 'waiting-payment', social_price: false });
+
+    expect(res.status).toBe(200);
+    const input = ddbMock.commandCalls(UpdateCommand)[0].args[0].input;
+    expect(input.UpdateExpression).toContain('REMOVE');
+    expect(input.UpdateExpression).toContain('#lote_id');
+    expect(input.UpdateExpression).toContain('#social_price');
+  });
+
+  it('PUT da unidade: 404 quando não existe, 400 sem campos', async () => {
+    ddbMock.on(QueryCommand).resolves({ Items: [unit({ unit_id: 'u1' })] });
+    expect((await putUnit('nao-tem', { received_amount: 1 })).status).toBe(404);
+    expect((await putUnit('u1', {})).status).toBe(400);
+  });
+});
+
+describe('DELETE — remoção definitiva (≠ cancelar)', () => {
+  it('DELETE do pedido apaga todas as linhas em lote', async () => {
+    const { BatchWriteCommand } = await import('@aws-sdk/lib-dynamodb');
+    ddbMock.on(QueryCommand).resolves({
+      Items: [
+        unit({ book_id: 'livro-a#u1', unit_id: 'u1' }),
+        unit({ book_id: 'livro-a#u2', unit_id: 'u2' }),
+      ],
+    });
+    ddbMock.on(BatchWriteCommand).resolves({});
+
+    const res = await app.request('/backoffice/pedidos/PED001', {
+      method: 'DELETE',
+      headers: await authHeader(),
+    });
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({ id: 'PED001', deleted: 2 });
+    const calls = ddbMock.commandCalls(BatchWriteCommand);
+    expect(calls).toHaveLength(1);
+    const reqs = calls[0].args[0].input.RequestItems!['livraria-tb-pedidos-test'];
+    expect(reqs.map((r) => r.DeleteRequest!.Key!.book_id).sort()).toEqual([
+      'livro-a#u1',
+      'livro-a#u2',
+    ]);
+  });
+
+  it('DELETE do pedido: 404 quando não existe', async () => {
+    ddbMock.on(QueryCommand).resolves({ Items: [] });
+    const res = await app.request('/backoffice/pedidos/XXXXXX', {
+      method: 'DELETE',
+      headers: await authHeader(),
+    });
+    expect(res.status).toBe(404);
+  });
+
+  it('DELETE da unidade apaga só a linha; 404 pra unidade inexistente', async () => {
+    const { DeleteCommand } = await import('@aws-sdk/lib-dynamodb');
+    ddbMock.on(QueryCommand).resolves({
+      Items: [
+        unit({ book_id: 'livro-a#u1', unit_id: 'u1' }),
+        unit({ book_id: 'livro-a#u2', unit_id: 'u2' }),
+      ],
+    });
+    ddbMock.on(DeleteCommand).resolves({});
+
+    const res = await app.request('/backoffice/pedidos/PED001/unidades/u2', {
+      method: 'DELETE',
+      headers: await authHeader(),
+    });
+
+    expect(res.status).toBe(200);
+    const input = ddbMock.commandCalls(DeleteCommand)[0].args[0].input;
+    expect(input.Key).toEqual({ id: 'PED001', book_id: 'livro-a#u2' });
+
+    const notFound = await app.request('/backoffice/pedidos/PED001/unidades/nao-tem', {
+      method: 'DELETE',
+      headers: await authHeader(),
+    });
+    expect(notFound.status).toBe(404);
+  });
+
+  it('viewer não deleta (401)', async () => {
+    const { sign } = await import('hono/jwt');
+    const token = await sign(
+      { role: 'viewer', exp: Math.floor(Date.now() / 1000) + 3600 },
+      'segredo-jwt-teste',
+    );
+    const res = await app.request('/backoffice/pedidos/PED001', {
+      method: 'DELETE',
+      headers: { 'x-api-key': 'chave-front', authorization: `Bearer ${token}` },
+    });
+    expect(res.status).toBe(401);
+  });
+});
+
+describe('GET agrupado expõe ordered_at e finalized_at', () => {
+  it('ordered_at no pedido e finalized_at na unidade', async () => {
+    ddbMock.on(ScanCommand).resolves({
+      Items: [
+        unit({
+          book_id: 'livro-a#u1',
+          unit_id: 'u1',
+          ordered_at: '2026-03-01T12:00:00.000Z',
+          finalized_at: '2026-04-05T12:00:00.000Z',
+        }),
+      ],
+    });
+
+    const res = await app.request('/backoffice/pedidos', { headers: await authHeader() });
+    const orders = (await res.json()) as Array<Record<string, unknown>>;
+    expect(orders[0].ordered_at).toBe('2026-03-01T12:00:00.000Z');
+    expect((orders[0].items as Array<Record<string, unknown>>)[0].finalized_at).toBe(
+      '2026-04-05T12:00:00.000Z',
+    );
+  });
+});

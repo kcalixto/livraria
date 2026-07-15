@@ -1,5 +1,11 @@
 import { Hono } from 'hono';
-import { QueryCommand, ScanCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import {
+  BatchWriteCommand,
+  DeleteCommand,
+  QueryCommand,
+  ScanCommand,
+  UpdateCommand,
+} from '@aws-sdk/lib-dynamodb';
 import { docClient } from '../lib/db';
 import { isOrderStatus, isUnitFinalized } from '../lib/order-status';
 import type { OrderStatus } from '../lib/order-status';
@@ -8,7 +14,8 @@ import { jwtMiddleware } from '../middlewares/jwt';
 import { requireRole } from '../middlewares/require-role';
 
 // campos do agrupador (iguais em todas as linhas do pedido)
-const ORDER_FIELDS = ['name', 'contact', 'region', 'created_at'] as const;
+// ordered_at: "Pedido em" editável pelo admin (created_at fica intocado)
+const ORDER_FIELDS = ['name', 'contact', 'region', 'created_at', 'ordered_at'] as const;
 // campos por unidade
 const UNIT_FIELDS = [
   'unit_id',
@@ -21,6 +28,7 @@ const UNIT_FIELDS = [
   'observation',
   'social_price',
   'cancel_requested',
+  'finalized_at', // "Finalizado em" editável pelo admin (updated_at fica intocado)
   'updated_at',
 ] as const;
 
@@ -56,11 +64,10 @@ interface UpdateSpec {
   removes: string[];
 }
 
-async function applyUpdate(id: string, bookKey: unknown, spec: UpdateSpec) {
-  const sets = { ...spec.sets, updated_at: new Date().toISOString() };
+async function sendUpdate(id: string, bookKey: unknown, spec: UpdateSpec) {
   const names: Record<string, string> = {};
   const values: Record<string, unknown> = {};
-  const setParts = Object.entries(sets).map(([field, value]) => {
+  const setParts = Object.entries(spec.sets).map(([field, value]) => {
     names[`#${field}`] = field;
     values[`:${field}`] = value;
     return `#${field} = :${field}`;
@@ -82,6 +89,27 @@ async function applyUpdate(id: string, bookKey: unknown, spec: UpdateSpec) {
       ExpressionAttributeValues: values,
     }),
   );
+}
+
+// fluxo operacional: toda mudança carimba updated_at (data de finalização)
+async function applyUpdate(id: string, bookKey: unknown, spec: UpdateSpec) {
+  await sendUpdate(id, bookKey, {
+    sets: { ...spec.sets, updated_at: new Date().toISOString() },
+    removes: spec.removes,
+  });
+}
+
+// edição administrativa: corrige dados SEM tocar created_at/updated_at
+async function applyEdit(id: string, bookKey: unknown, spec: UpdateSpec) {
+  await sendUpdate(id, bookKey, spec);
+}
+
+// datas editáveis aceitam YYYY-MM-DD (vira meio-dia UTC, sem recuo de fuso) ou ISO completo
+function parseEditDate(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return `${value}T12:00:00.000Z`;
+  if (!Number.isNaN(Date.parse(value))) return new Date(value).toISOString();
+  return null;
 }
 
 export const backofficePedidos = new Hono();
@@ -323,4 +351,171 @@ backofficePedidos.patch('/:id/status', requireRole('admin'), async (c) => {
 
   await applyUpdate(id, line.book_id, spec);
   return c.json({ id, unit_id: body.unit_id, status: target });
+});
+
+// ── Edição administrativa (corrige dados sem tocar created_at/updated_at) ──
+
+// dados do agrupador: name e ordered_at ("Pedido em") em TODAS as linhas
+backofficePedidos.put('/:id', requireRole('admin'), async (c) => {
+  const body = await c.req.json().catch(() => null);
+  if (!body) return c.json({ error: 'invalid json' }, 400);
+
+  const sets: Record<string, unknown> = {};
+  if (body.name !== undefined) {
+    if (typeof body.name !== 'string' || body.name.trim() === '' || body.name.length > 80) {
+      return c.json({ error: 'name must be a string with 1..80 characters' }, 400);
+    }
+    sets.name = body.name.trim();
+  }
+  if (body.ordered_at !== undefined) {
+    const parsed = parseEditDate(body.ordered_at);
+    if (!parsed) return c.json({ error: 'ordered_at must be an ISO date' }, 400);
+    sets.ordered_at = parsed;
+  }
+  if (Object.keys(sets).length === 0) {
+    return c.json({ error: 'nothing to update' }, 400);
+  }
+
+  const id = c.req.param('id');
+  const existing = await docClient.send(
+    new QueryCommand({
+      TableName: process.env.PEDIDOS_TABLE_NAME,
+      KeyConditionExpression: 'id = :id',
+      ExpressionAttributeValues: { ':id': id },
+    }),
+  );
+  const lines = existing.Items ?? [];
+  if (lines.length === 0) return c.json({ error: 'not found' }, 404);
+
+  for (const line of lines) {
+    await applyEdit(id, line.book_id, { sets, removes: [] });
+  }
+  return c.json({ id, updated: lines.length });
+});
+
+// dados da unidade: valor, finalizado em, status (set direto com efeitos de
+// estoque preservados), preço social e observação
+backofficePedidos.put('/:id/unidades/:unitId', requireRole('admin'), async (c) => {
+  const body = await c.req.json().catch(() => null);
+  if (!body) return c.json({ error: 'invalid json' }, 400);
+
+  const spec: UpdateSpec = { sets: {}, removes: [] };
+  if (body.received_amount !== undefined) {
+    if (
+      typeof body.received_amount !== 'number' ||
+      !Number.isInteger(body.received_amount) ||
+      body.received_amount < 0
+    ) {
+      return c.json({ error: 'received_amount must be a non-negative integer (cents)' }, 400);
+    }
+    spec.sets.received_amount = body.received_amount;
+  }
+  if (body.finalized_at !== undefined) {
+    const parsed = parseEditDate(body.finalized_at);
+    if (!parsed) return c.json({ error: 'finalized_at must be an ISO date' }, 400);
+    spec.sets.finalized_at = parsed;
+  }
+  if (body.social_price !== undefined) {
+    if (typeof body.social_price !== 'boolean') {
+      return c.json({ error: 'social_price must be a boolean' }, 400);
+    }
+    if (body.social_price) spec.sets.social_price = true;
+    else spec.removes.push('social_price');
+  }
+  if (body.observation !== undefined) {
+    if (typeof body.observation !== 'string' || body.observation.length > MAX_OBSERVATION_CHARS) {
+      return c.json({ error: `observation must be at most ${MAX_OBSERVATION_CHARS} characters` }, 400);
+    }
+    const observation = body.observation.trim();
+    if (observation === '') spec.removes.push('observation');
+    else spec.sets.observation = observation;
+  }
+  if (body.status !== undefined && !isOrderStatus(body.status)) {
+    return c.json({ error: 'status must be a valid order status' }, 400);
+  }
+  if (body.status === undefined && Object.keys(spec.sets).length === 0 && spec.removes.length === 0) {
+    return c.json({ error: 'nothing to update' }, 400);
+  }
+
+  const id = c.req.param('id');
+  const existing = await docClient.send(
+    new QueryCommand({
+      TableName: process.env.PEDIDOS_TABLE_NAME,
+      KeyConditionExpression: 'id = :id',
+      ExpressionAttributeValues: { ':id': id },
+    }),
+  );
+  const line = (existing.Items ?? []).find((item) => item.unit_id === c.req.param('unitId'));
+  if (!line) return c.json({ error: 'not found' }, 404);
+
+  if (body.status !== undefined) {
+    const target = body.status as OrderStatus;
+    spec.sets.status = target;
+    if (target === 'cancelled') {
+      spec.removes.push('lote_id', 'picked_up', 'cancel_requested');
+    } else if (target === 'waiting-payment' && line.picked_up !== true) {
+      // sem retirada, waiting não segura estoque
+      if (line.lote_id) spec.removes.push('lote_id');
+    } else if (target !== 'waiting-payment' && !line.lote_id) {
+      // entrou em estado que deduz sem lote: aloca FIFO
+      const loteId = await allocateLote(line);
+      if (!loteId) {
+        return c.json({ error: 'no available stock in region to allocate this unit' }, 400);
+      }
+      spec.sets.lote_id = loteId;
+    }
+  }
+
+  await applyEdit(id, line.book_id, spec);
+  return c.json({ id, unit_id: line.unit_id, edited: true });
+});
+
+// ── Remoção definitiva (≠ cancelar: apaga da base, sem histórico) ──
+
+backofficePedidos.delete('/:id', requireRole('admin'), async (c) => {
+  const id = c.req.param('id');
+  const existing = await docClient.send(
+    new QueryCommand({
+      TableName: process.env.PEDIDOS_TABLE_NAME,
+      KeyConditionExpression: 'id = :id',
+      ExpressionAttributeValues: { ':id': id },
+    }),
+  );
+  const lines = existing.Items ?? [];
+  if (lines.length === 0) return c.json({ error: 'not found' }, 404);
+
+  const BATCH = 25;
+  for (let i = 0; i < lines.length; i += BATCH) {
+    await docClient.send(
+      new BatchWriteCommand({
+        RequestItems: {
+          [process.env.PEDIDOS_TABLE_NAME!]: lines
+            .slice(i, i + BATCH)
+            .map((line) => ({ DeleteRequest: { Key: { id, book_id: line.book_id } } })),
+        },
+      }),
+    );
+  }
+  return c.json({ id, deleted: lines.length });
+});
+
+backofficePedidos.delete('/:id/unidades/:unitId', requireRole('admin'), async (c) => {
+  const id = c.req.param('id');
+  const existing = await docClient.send(
+    new QueryCommand({
+      TableName: process.env.PEDIDOS_TABLE_NAME,
+      KeyConditionExpression: 'id = :id',
+      ExpressionAttributeValues: { ':id': id },
+    }),
+  );
+  const line = (existing.Items ?? []).find((item) => item.unit_id === c.req.param('unitId'));
+  if (!line) return c.json({ error: 'not found' }, 404);
+
+  await docClient.send(
+    new DeleteCommand({
+      TableName: process.env.PEDIDOS_TABLE_NAME,
+      Key: { id, book_id: line.book_id },
+    }),
+  );
+  return c.json({ id, unit_id: line.unit_id, deleted: 1 });
 });
