@@ -8,6 +8,7 @@ import {
   formatOrderDate,
   isUnitClosed,
   isUnitFinalized,
+  orderedAt,
   shortOrderId,
   STAGE_COUNT,
   STAGES,
@@ -108,8 +109,8 @@ export function Pedidos() {
         normalizeText(books.get(i.title_id)?.title ?? '').includes(query),
       );
     })
-    // fila de atendimento: o pedido mais antigo primeiro
-    .sort((a, b) => a.created_at.localeCompare(b.created_at));
+    // fila: o pedido mais recente primeiro (pedido do dono, com a data editável)
+    .sort((a, b) => orderedAt(b).localeCompare(orderedAt(a)));
 
   if (unauthorized) return <RedirectToLogin />;
 
@@ -463,7 +464,7 @@ export function Pedidos() {
             <span className="order-card__contact" role="cell">
               <ContactLink contact={order.contact} />
             </span>
-            <span className="order-card__date" role="cell">{formatOrderDate(order.created_at)}</span>
+            <span className="order-card__date" role="cell">{formatOrderDate(orderedAt(order))}</span>
             <span className="order-card__total" role="cell">{orderTotal(order, books)}</span>
             <span className="order-card__order-actions" role="cell">
               {cancellingOrderId === order.id ? (

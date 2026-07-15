@@ -17,6 +17,7 @@ interface SaleUnit {
   social_price?: boolean;
   paid_at?: string;
   updated_at?: string;
+  finalized_at?: string;
 }
 
 function order(id: string, created_at: string, items: SaleUnit[]) {
@@ -108,6 +109,30 @@ describe('Backoffice — Vendas', () => {
     await screen.findAllByText('#PED-001');
     expect(screen.getByText(/2 vendas/i)).toBeInTheDocument();
     expect(screen.getByText('R$ 142,00', { selector: '.sales-summary *' })).toBeInTheDocument();
+  });
+
+  it('datas editadas pelo admin (ordered_at/finalized_at) prevalecem na exibição e no filtro', async () => {
+    stubFetch([
+      {
+        ...order('PED001', '2026-07-01T10:00:00.000Z', [
+          soldUnit({
+            updated_at: '2026-07-10T15:00:00.000Z',
+            finalized_at: '2026-04-05T12:00:00.000Z',
+          }),
+        ]),
+        ordered_at: '2026-03-01T12:00:00.000Z',
+      },
+    ]);
+    renderPage();
+
+    // no mês do updated_at NÃO aparece; no mês do finalized_at sim
+    await setRange('2026-07', '2026-07');
+    expect(await screen.findByText(/nenhuma venda no período/i)).toBeInTheDocument();
+
+    await setRange('2026-04', '2026-04');
+    await screen.findAllByText('#PED-001');
+    expect(screen.getByText('01/03 · 9h')).toBeInTheDocument(); // pedido em (ordered_at)
+    expect(screen.getByText('05/04 · 9h')).toBeInTheDocument(); // finalizado em (finalized_at)
   });
 
   it('filtra pelo mês de finalização', async () => {

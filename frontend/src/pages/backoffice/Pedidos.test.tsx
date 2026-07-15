@@ -415,7 +415,7 @@ describe('Backoffice — Pedidos (linhas por unidade)', () => {
     });
   });
 
-  it('fila de pendentes ordenada do mais antigo pro mais novo, com contagem', async () => {
+  it('fila de pendentes ordenada do mais recente pro mais antigo, com contagem', async () => {
     stubFetch([
       order('NOVO01', [{ unit_id: 'u1', title_id: 'b1', status: 'waiting-payment' }], {
         created_at: '2026-07-12T10:00:00.000Z',
@@ -430,7 +430,7 @@ describe('Backoffice — Pedidos (linhas por unidade)', () => {
     const ids = Array.from(document.querySelectorAll('.order-card__id')).map(
       (e) => e.textContent,
     );
-    expect(ids).toEqual(['#VEL-HO1', '#NOV-O01']); // mais antigo primeiro
+    expect(ids).toEqual(['#NOV-O01', '#VEL-HO1']); // mais recente primeiro // mais antigo primeiro
     expect(screen.getByText(/2 pedidos pendentes/i)).toBeInTheDocument();
   });
 

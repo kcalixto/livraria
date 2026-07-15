@@ -3,7 +3,7 @@ import { Loading } from '../../components/Loading';
 import { RedirectToLogin } from '../../components/RedirectToLogin';
 import { csvEscape } from '../../lib/csv';
 import { centsToText, formatPrice, normalizeText } from '../../lib/format';
-import { formatOrderDate, isUnitClosed, shortOrderId } from '../../backoffice/order-status';
+import { finalizedAtOf, formatOrderDate, isUnitClosed, orderedAt, shortOrderId } from '../../backoffice/order-status';
 import type { Order, UnitItem } from '../../backoffice/order-status';
 import { useOrders } from '../../backoffice/useOrders';
 import type { BookInfo } from '../../backoffice/useOrders';
@@ -20,7 +20,7 @@ function currentMonth(): string {
 }
 
 function finalizedAt(row: SaleRow): string {
-  return row.item.updated_at ?? row.order.created_at;
+  return finalizedAtOf(row.item) ?? orderedAt(row.order);
 }
 
 // hífen do código é só visual: normaliza os dois lados da busca
@@ -115,9 +115,9 @@ export function Vendas() {
         csvEscape(book?.title ?? item.title_id),
         value,
         item.social_price ? 'sim' : 'nao',
-        csvDate(order.created_at),
+        csvDate(orderedAt(order)),
         csvDate(item.paid_at),
-        csvDate(item.updated_at),
+        csvDate(finalizedAtOf(item)),
         cancelled ? 'cancelado' : 'concluido',
       ].join(';');
     });
@@ -233,9 +233,9 @@ export function Vendas() {
                     <span className="badge badge--low sales-table__social">social</span>
                   )}
                 </span>
-                <span className="sales-table__date" role="cell">{formatOrderDate(order.created_at)}</span>
+                <span className="sales-table__date" role="cell">{formatOrderDate(orderedAt(order))}</span>
                 <span className="sales-table__date" role="cell">
-                  {item.updated_at ? formatOrderDate(item.updated_at) : '—'}
+                  {finalizedAtOf(item) ? formatOrderDate(finalizedAtOf(item)!) : '—'}
                 </span>
                 <span className="t-right" role="cell">
                   {item.status === 'cancelled' ? (

@@ -17,6 +17,7 @@ export interface UnitItem {
   paid_at?: string;
   observation?: string; // escrita pelo operador; visível na consulta pública
   cancel_requested?: boolean; // cliente pediu cancelamento na consulta pública
+  finalized_at?: string; // "Finalizado em" corrigido pelo admin (prevalece sobre updated_at)
   updated_at?: string;
 }
 
@@ -27,7 +28,17 @@ export interface Order {
   contact: string;
   region: string;
   created_at: string;
+  ordered_at?: string; // "Pedido em" corrigido pelo admin (prevalece sobre created_at)
   items: UnitItem[];
+}
+
+// datas de exibição: a corrigida pelo admin vence; created/updated_at são só do sistema
+export function orderedAt(order: Pick<Order, 'created_at' | 'ordered_at'>): string {
+  return order.ordered_at ?? order.created_at;
+}
+
+export function finalizedAtOf(item: Pick<UnitItem, 'updated_at' | 'finalized_at'>): string | undefined {
+  return item.finalized_at ?? item.updated_at;
 }
 
 interface StageInfo {
