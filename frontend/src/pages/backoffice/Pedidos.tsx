@@ -126,7 +126,8 @@ export function Pedidos() {
   } | null>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<ChipKey | null>(null);
-  const [showDelivered, setShowDelivered] = useState(false);
+  // cards com itens fechados expandidos ("Mostrar entregues" é POR PEDIDO)
+  const [expandedDone, setExpandedDone] = useState<Set<string>>(new Set());
   const [payText, setPayText] = useState('');
   const [paySocial, setPaySocial] = useState(false);
   // busca por código/nome/contato/título + chip de predicado
@@ -147,11 +148,6 @@ export function Pedidos() {
     .filter((o) => !statusFilter || o.items.some(CHIP_PREDICATES[statusFilter]))
     .filter(matchesSearch)
     // fila: o pedido mais recente primeiro (pedido do dono, com a data editável)
-    .sort((a, b) => orderedAt(b).localeCompare(orderedAt(a)));
-  // fechados ficam no accordion do fim da lista (busca vale, chips não)
-  const delivered = orders
-    .filter((o) => o.items.every(isUnitClosed))
-    .filter(matchesSearch)
     .sort((a, b) => orderedAt(b).localeCompare(orderedAt(a)));
   // somas dos chips: sobre toda a fila aberta, antes de busca/filtro
   const openItems = open.flatMap((o) => o.items);
@@ -457,8 +453,22 @@ export function Pedidos() {
     );
   }
 
-  // card do pedido: mesmo markup na fila e no accordion de entregues
+  function toggleDone(orderId: string) {
+    setExpandedDone((prev) => {
+      const next = new Set(prev);
+      if (next.has(orderId)) next.delete(orderId);
+      else next.add(orderId);
+      return next;
+    });
+  }
+
   function renderOrderCard(order: Order) {
+    // itens fechados (entregues/cancelados) recolhidos POR CARD: num pedido
+    // grande, o operador vê só o que falta sem rolar pelo que já foi
+    const openItems = order.items.filter((i) => !isUnitClosed(i));
+    const closedItems = order.items.filter(isUnitClosed);
+    const doneExpanded = expandedDone.has(order.id);
+    const visibleItems = doneExpanded ? [...openItems, ...closedItems] : openItems;
     return (
         <div
           key={order.id}
@@ -609,7 +619,7 @@ export function Pedidos() {
             <span role="columnheader">Status</span>
             <span className="t-right" role="columnheader">Ações</span>
           </div>
-          {order.items.map((item) => {
+          {visibleItems.map((item) => {
             const book = books.get(item.title_id);
             return (
               <Fragment key={item.unit_id}>
@@ -734,6 +744,21 @@ export function Pedidos() {
               </Fragment>
             );
           })}
+          {closedItems.length > 0 && (
+            <div className="order-card__done-row" role="row">
+              <span role="cell">
+                <button
+                  className="order-card__done-toggle"
+                  aria-expanded={doneExpanded}
+                  onClick={() => toggleDone(order.id)}
+                >
+                  {doneExpanded
+                    ? 'Ocultar entregues'
+                    : `Mostrar entregues (${closedItems.length})`}
+                </button>
+              </span>
+            </div>
+          )}
         </div>
     );
   }
@@ -785,19 +810,6 @@ export function Pedidos() {
       )}
 
       {pending.map(renderOrderCard)}
-
-      {delivered.length > 0 && (
-        <div className="delivered-accordion">
-          <button
-            className="delivered-accordion__toggle"
-            aria-expanded={showDelivered}
-            onClick={() => setShowDelivered((v) => !v)}
-          >
-            {showDelivered ? 'Ocultar entregues' : `Mostrar entregues (${delivered.length})`}
-          </button>
-          {showDelivered && delivered.map(renderOrderCard)}
-        </div>
-      )}
 
       {pendingAction && (
         <ConfirmActionModal

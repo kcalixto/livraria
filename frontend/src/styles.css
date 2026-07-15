@@ -2877,28 +2877,29 @@ a.btn--secondary:hover {
   border-bottom-color: var(--ink);
 }
 
-/* accordion dos pedidos fechados (entregues/cancelados) no fim da fila */
-.delivered-accordion {
-  margin-top: 22px;
+/* itens fechados recolhidos POR CARD: toggle no rodapé do pedido */
+.order-card__done-row {
+  border-top: 1px solid var(--border-soft);
 }
-.delivered-accordion__toggle {
+.order-card__done-row > span {
+  display: block;
+}
+.order-card__done-toggle {
   width: 100%;
-  padding: 11px;
-  margin-bottom: 14px;
+  padding: 9px;
   font-family: var(--mono);
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 600;
   letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--ink-mid);
   background: var(--surface-header);
-  border: 1px dashed var(--border-input);
-  border-radius: 6px;
+  border: none;
   cursor: pointer;
 }
-.delivered-accordion__toggle:hover {
+.order-card__done-toggle:hover {
   color: var(--ink);
-  border-color: var(--ink);
+  background: var(--canvas);
 }
 
 @media (max-width: 700px) {

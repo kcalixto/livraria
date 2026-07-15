@@ -561,6 +561,8 @@ describe('Backoffice — Pedidos (linhas por unidade)', () => {
     renderPage();
 
     await screen.findByText('Camarada Rosa');
+    // cancelada fica recolhida: expande o card pra ver
+    await userEvent.click(screen.getByRole('button', { name: /mostrar entregues \(1\)/i }));
     expect(screen.getByText('Cancelado')).toBeInTheDocument();
     // unidade cancelada não tem ações (só a pendente tem)
     expect(screen.getAllByRole('button', { name: /reservar/i })).toHaveLength(1);
@@ -786,6 +788,8 @@ describe('Backoffice — Pedidos (linhas por unidade)', () => {
     renderPage();
 
     await screen.findByText('Camarada Rosa');
+    // finalizada fica recolhida: expande o card pra ver
+    await userEvent.click(screen.getByRole('button', { name: /mostrar entregues \(1\)/i }));
     // exibida como entregue (regra: picked_up + payment-received finaliza)
     expect(screen.getByText('Entregue', { selector: '.stage-pill' })).toBeInTheDocument();
     expect(screen.getByText('Concluído')).toBeInTheDocument();
@@ -841,22 +845,30 @@ describe('Backoffice — Pedidos (linhas por unidade)', () => {
     expect(screen.getByText('#PED-001')).toBeInTheDocument();
   });
 
-  it('entregues ficam num accordion: escondidos por padrão, Mostrar entregues expande', async () => {
+  it('itens entregues ficam recolhidos POR CARD: Mostrar entregues (N) expande só aquele pedido', async () => {
     stubFetch([
-      order('PED001', [{ unit_id: 'u1', title_id: 'b1', status: 'waiting-payment' }]),
-      order('PED002', [{ unit_id: 'u2', title_id: 'b1', status: 'received' }], {
-        name: 'Entregue Silva',
+      order('PED001', [
+        { unit_id: 'u1', title_id: 'b1', status: 'waiting-payment' },
+        { unit_id: 'u2', title_id: 'b2', status: 'received' },
+        { unit_id: 'u3', title_id: 'b2', status: 'received' },
+      ]),
+      order('PED002', [{ unit_id: 'u4', title_id: 'b1', status: 'waiting-payment' }], {
+        name: 'Sem Fechados',
       }),
     ]);
     renderPage();
-    await screen.findByText('#PED-001');
-    expect(screen.queryByText('Entregue Silva')).toBeNull();
+    await screen.findByText('Sem Fechados');
 
-    await userEvent.click(screen.getByRole('button', { name: /mostrar entregues \(1\)/i }));
-    expect(screen.getByText('Entregue Silva')).toBeInTheDocument();
+    // fechados escondidos por padrão: só a linha pendente do PED001 aparece
+    expect(screen.queryByText('O Pão e as Rosas')).toBeNull();
+    // toggle só existe no card que TEM itens fechados
+    expect(screen.getAllByRole('button', { name: /mostrar entregues/i })).toHaveLength(1);
+
+    await userEvent.click(screen.getByRole('button', { name: /mostrar entregues \(2\)/i }));
+    expect(screen.getAllByText('O Pão e as Rosas')).toHaveLength(2);
 
     await userEvent.click(screen.getByRole('button', { name: /ocultar entregues/i }));
-    expect(screen.queryByText('Entregue Silva')).toBeNull();
+    expect(screen.queryByText('O Pão e as Rosas')).toBeNull();
   });
 
   it('unidade retirada: barra de 2 segmentos e ícone de alerta no lugar do texto', async () => {
