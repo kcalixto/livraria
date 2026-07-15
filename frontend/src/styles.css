@@ -2695,3 +2695,110 @@ a.btn--secondary:hover {
   text-decoration: underline;
   text-underline-offset: 3px;
 }
+
+/* ============ Edição administrativa de pedido/item ============ */
+.btn--danger {
+  background: transparent;
+  color: var(--error);
+  border: 1px solid var(--error);
+}
+.btn--danger:hover {
+  background: var(--error-bg);
+}
+.pedido-edit__date {
+  font-family: var(--mono);
+}
+.pedido-edit__items-title {
+  margin: 26px 0 10px;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.pedido-edit__items {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.pedido-edit__item {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.pedido-edit__item:hover {
+  border-color: var(--ink);
+}
+.pedido-edit__item-title {
+  font-weight: 600;
+}
+.pedido-edit__item-value {
+  font-family: var(--mono);
+  font-size: 13px;
+}
+.pedido-edit__delete {
+  margin-top: 26px;
+}
+.pedido-edit__check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  font-size: 14px;
+  cursor: pointer;
+}
+.pedido-edit__meta {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  margin-bottom: 20px;
+}
+.pedido-edit__meta dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px 18px;
+  margin: 0;
+  flex: 1;
+}
+.pedido-edit__meta dt {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.pedido-edit__meta dd {
+  margin: 2px 0 0;
+  font-size: 14px;
+}
+
+/* modal de operação destrutiva: alerta explícito antes do ponto sem retorno */
+.danger-modal__body {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.danger-modal__icon {
+  flex-shrink: 0;
+  color: var(--error);
+  margin-top: 2px;
+}
+.danger-modal__icon svg {
+  width: 22px;
+  height: 22px;
+}
+.danger-modal__description {
+  margin: 0;
+  color: var(--error);
+  font-weight: 700;
+}

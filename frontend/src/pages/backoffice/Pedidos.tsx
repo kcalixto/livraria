@@ -1,4 +1,5 @@
 import { Fragment, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Loading } from '../../components/Loading';
 import { RedirectToLogin } from '../../components/RedirectToLogin';
 import { ApiError, apiAuthPatch } from '../../api/client';
@@ -72,7 +73,13 @@ function StatusCell({ item }: { item: UnitItem }) {
 
 export function Pedidos() {
   const { loading, refreshing, error, unauthorized, orders, books, reload } = useOrders();
-  const [toast, setToast] = useState<ToastData | null>(null);
+  const location = useLocation();
+  const navigate = useNavigate();
+  // "Pedido atualizado/deletado" vindo das telas de edição via navigation state
+  const [toast, setToast] = useState<ToastData | null>(() => {
+    const message = (location.state as { toast?: string } | null)?.toast;
+    return message ? { kind: 'success', message } : null;
+  });
   const [payingUnitId, setPayingUnitId] = useState<string | null>(null);
   const [confirmingUnitId, setConfirmingUnitId] = useState<string | null>(null);
   const [obsUnitId, setObsUnitId] = useState<string | null>(null);
@@ -514,6 +521,14 @@ export function Pedidos() {
                     label="Verificar resumo"
                     onClick={() => setSummaryOrderId(order.id)}
                   />
+                  {writable && (
+                    <ActionIcon
+                      icon="edit"
+                      variant="blue"
+                      label="Editar pedido"
+                      onClick={() => navigate(`/backoffice/pedidos/${order.id}/editar`)}
+                    />
+                  )}
                   {writable && order.items.some(
                     (i) =>
                       !i.picked_up &&

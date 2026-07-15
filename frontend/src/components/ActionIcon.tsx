@@ -11,7 +11,8 @@ export type ActionIconName =
   | 'note'
   | 'cancel'
   | 'summary'
-  | 'edit';
+  | 'edit'
+  | 'alert';
 
 // paths de 16x16, stroke 1.5 (desenho simples, tom editorial)
 const ICON_PATHS: Record<ActionIconName, string> = {
@@ -26,6 +27,7 @@ const ICON_PATHS: Record<ActionIconName, string> = {
   cancel: 'M3.5 3.5l9 9M12.5 3.5l-9 9',
   summary: 'M5 2h6v2H5zM3 4h10v10H3zM5.5 8h5M5.5 11h5',
   edit: 'M3 13v-2.5L10.5 3l2.5 2.5L5.5 13zM9 4.5l2.5 2.5',
+  alert: 'M8 2l6.5 11.5h-13zM8 6.5V10M8 12v.01',
 };
 
 // só o desenho (pra botões que precisam de ícone + texto, como o modal mobile)

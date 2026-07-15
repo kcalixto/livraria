@@ -796,6 +796,55 @@ describe('Backoffice — Pedidos (linhas por unidade)', () => {
     expect(screen.queryByText(/retirado sem pagamento/i)).not.toBeInTheDocument();
   });
 
+  it('header do card tem Editar pedido (admin) que navega pra tela de edição', async () => {
+    stubFetch([
+      order('PED001', [{ unit_id: 'u1', title_id: 'b1', status: 'waiting-payment' }]),
+    ]);
+    render(
+      <MemoryRouter initialEntries={['/backoffice/pedidos']}>
+        <Routes>
+          <Route path="/backoffice/pedidos" element={<Pedidos />} />
+          <Route path="/backoffice/pedidos/:id/editar" element={<div>EDITAR PEDIDO</div>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await userEvent.click(await screen.findByRole('button', { name: /editar pedido/i }));
+    expect(await screen.findByText('EDITAR PEDIDO')).toBeInTheDocument();
+  });
+
+  it('viewer (leitura) não vê Editar pedido no header', async () => {
+    // token com payload {role:'viewer'}
+    sessionStorage.setItem(
+      'livraria:token',
+      `x.${btoa(JSON.stringify({ role: 'viewer' }))}.y`,
+    );
+    stubFetch([
+      order('PED001', [{ unit_id: 'u1', title_id: 'b1', status: 'waiting-payment' }]),
+    ]);
+    renderPage();
+
+    expect(await screen.findByText('Camarada Rosa')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /editar pedido/i })).toBeNull();
+  });
+
+  it('mostra toast vindo do navigation state (volta da edição/delete)', async () => {
+    stubFetch([
+      order('PED001', [{ unit_id: 'u1', title_id: 'b1', status: 'waiting-payment' }]),
+    ]);
+    render(
+      <MemoryRouter
+        initialEntries={[{ pathname: '/backoffice/pedidos', state: { toast: 'Pedido deletado' } }]}
+      >
+        <Routes>
+          <Route path="/backoffice/pedidos" element={<Pedidos />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('Pedido deletado')).toBeInTheDocument();
+  });
+
   it('token expirado (401): limpa token e volta pro login', async () => {
     vi.stubGlobal(
       'fetch',
