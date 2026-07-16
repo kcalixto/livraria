@@ -4,7 +4,7 @@ Webapp de livraria **social, sem fim de lucro**, de um coletivo local: catálogo
 
 ## Stack
 
-- **frontend/** — Vite + React (TS), deploy em S3 static website hosting
+- **frontend/** — Vite + React (TS), deploy em S3 static website hosting atrás de CloudFront (HTTPS + headers de segurança)
 - **backend/** — Node 20 TS, Hono numa única Lambda (Serverless Framework v3), DynamoDB, `sa-east-1`
 - Design: fonte da verdade no projeto Claude Design "Livraria local design system"
 - Regras de negócio e convenções completas: [CLAUDE.md](CLAUDE.md)
@@ -14,8 +14,11 @@ Webapp de livraria **social, sem fim de lucro**, de um coletivo local: catálogo
 | | dev | prd |
 |---|---|---|
 | API | `https://a07s4i4gvb.execute-api.sa-east-1.amazonaws.com` | `https://l674u4xyoj.execute-api.sa-east-1.amazonaws.com` |
-| Site | `http://livraria-serverless-deployment-dev.s3-website-sa-east-1.amazonaws.com` | `http://livraria-serverless-deplyment-prd.s3-website-sa-east-1.amazonaws.com` |
+| Site (CloudFront) | `https://d3ahs91xggvxw0.cloudfront.net` | nasce no próximo deploy prd (Output `SiteCdnDomain` do stack `livraria-prd`) |
+| Site (S3 legado) | `http://livraria-serverless-deployment-dev.s3-website-sa-east-1.amazonaws.com` | `http://livraria-serverless-deplyment-prd.s3-website-sa-east-1.amazonaws.com` |
 | Tabelas | `livraria-tb-{livros,pedidos,lotes}-dev` | `livraria-tb-{livros,pedidos,lotes}-prd` |
+
+O endereço oficial do site é o do **CloudFront** (HTTPS, HSTS/nosniff/frame-deny, fallback SPA, cache de `assets/*` na edge). O endpoint S3 continua funcionando como origem/legado, mas não deve ser divulgado.
 
 Capas de livro: arquivos em `frontend/public/images/<stage>/<id-do-livro>.jpg` — entram no build do site e são servidas pela mesma origem (capa nova exige novo build/deploy; comprimir com `frontend/scripts/compress-covers.sh`, teto 200KB). Comprovantes pix de transações de lote: privados em `livraria-assets-bucket/<stage>/comprovantes/`, lidos só por URL pré-assinada. Deployment bucket do serverless: `kcalixto-serverless-framework`.
 
