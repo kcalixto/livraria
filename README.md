@@ -14,7 +14,7 @@ Webapp de livraria **social, sem fim de lucro**, de um coletivo local: catálogo
 | | dev | prd |
 |---|---|---|
 | API | `https://a07s4i4gvb.execute-api.sa-east-1.amazonaws.com` | `https://l674u4xyoj.execute-api.sa-east-1.amazonaws.com` |
-| Site (CloudFront) | `https://d3ahs91xggvxw0.cloudfront.net` | nasce no próximo deploy prd (Output `SiteCdnDomain` do stack `livraria-prd`) |
+| Site (CloudFront) | `https://d3ahs91xggvxw0.cloudfront.net` | `https://d2xomctaj8njm0.cloudfront.net` |
 | Site (S3 legado) | `http://livraria-serverless-deployment-dev.s3-website-sa-east-1.amazonaws.com` | `http://livraria-serverless-deplyment-prd.s3-website-sa-east-1.amazonaws.com` |
 | Tabelas | `livraria-tb-{livros,pedidos,lotes}-dev` | `livraria-tb-{livros,pedidos,lotes}-prd` |
 
