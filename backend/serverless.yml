@@ -2,6 +2,10 @@ service: livraria
 frameworkVersion: '3'
 
 custom:
+  # buckets do site estático (criados fora deste stack; typo do prd é real)
+  siteBucket:
+    dev: livraria-serverless-deployment-dev
+    prd: livraria-serverless-deplyment-prd
   table:
     livros:
       dev: livraria-tb-livros-dev
@@ -39,6 +43,8 @@ provider:
     BACKOFFICE_VIEWER_KEY: ${ssm:/livraria/backoffice-viewer-key}
     BACKOFFICE_STOCK_KEY: ${ssm:/livraria/backoffice-stock-key}
     JWT_SECRET: ${ssm:/livraria/jwt-secret}
+    # domínio da distribuição do site: entra no allowlist de CORS do Hono
+    SITE_CDN_DOMAIN: !GetAtt SiteCdn.DomainName
   iam:
     role:
       statements:
@@ -126,6 +132,69 @@ resources:
             Projection:
               ProjectionType: ALL
 
+    # ── CloudFront na frente do site estático (HTTPS + headers de segurança) ──
+    # O site continua no bucket S3 (website hosting); a distribuição só
+    # embrulha: TLS, HSTS/nosniff/frame-deny por header, cache dos assets
+    # com hash e fallback SPA (404 → index.html). Sem domínio custom: usa
+    # o *.cloudfront.net com o certificado default.
+    SiteSecurityHeaders:
+      Type: AWS::CloudFront::ResponseHeadersPolicy
+      Properties:
+        ResponseHeadersPolicyConfig:
+          Name: livraria-security-headers-${self:provider.stage}
+          SecurityHeadersConfig:
+            StrictTransportSecurity:
+              AccessControlMaxAgeSec: 31536000
+              IncludeSubdomains: true
+              Override: true
+            ContentTypeOptions:
+              Override: true
+            FrameOptions:
+              FrameOption: DENY
+              Override: true
+            ReferrerPolicy:
+              ReferrerPolicy: strict-origin-when-cross-origin
+              Override: true
+    SiteCdn:
+      Type: AWS::CloudFront::Distribution
+      Properties:
+        DistributionConfig:
+          Enabled: true
+          Comment: livraria site ${self:provider.stage}
+          HttpVersion: http2and3
+          IPV6Enabled: true
+          # inclui as edges da América do Sul (usuários em SP)
+          PriceClass: PriceClass_All
+          DefaultRootObject: index.html
+          Origins:
+            - Id: site-s3-website
+              DomainName: ${self:custom.siteBucket.${self:provider.stage}}.s3-website-sa-east-1.amazonaws.com
+              CustomOriginConfig:
+                # endpoint de website do S3 não fala HTTPS; o TLS fica na borda
+                OriginProtocolPolicy: http-only
+          DefaultCacheBehavior:
+            # index.html e capas SEM cache na edge: deploy/capa nova aparece
+            # na hora, sem precisar de invalidation no CI
+            TargetOriginId: site-s3-website
+            ViewerProtocolPolicy: redirect-to-https
+            CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad # Managed-CachingDisabled
+            ResponseHeadersPolicyId: !Ref SiteSecurityHeaders
+            Compress: true
+          CacheBehaviors:
+            # bundles têm hash no nome: cache agressivo é seguro
+            - PathPattern: assets/*
+              TargetOriginId: site-s3-website
+              ViewerProtocolPolicy: redirect-to-https
+              CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6 # Managed-CachingOptimized
+              ResponseHeadersPolicyId: !Ref SiteSecurityHeaders
+              Compress: true
+          CustomErrorResponses:
+            # SPA: rota desconhecida cai no index.html (React Router resolve)
+            - ErrorCode: 404
+              ResponseCode: 200
+              ResponsePagePath: /index.html
+              ErrorCachingMinTTL: 0
+
     # ── Backup diário das tabelas de produção (AWS Backup, retenção 7 dias) ──
     BackupVault:
       Type: AWS::Backup::BackupVault
@@ -172,3 +241,8 @@ resources:
             - !GetAtt TabelaLivros.Arn
             - !GetAtt TabelaPedidos.Arn
             - !GetAtt TabelaLotes.Arn
+
+  Outputs:
+    SiteCdnDomain:
+      Description: Dominio do site atras do CloudFront
+      Value: !GetAtt SiteCdn.DomainName

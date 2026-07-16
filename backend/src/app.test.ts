@@ -50,4 +50,32 @@ describe('CORS', () => {
 
     expect(res.headers.get('access-control-allow-origin')).toBeTruthy();
   });
+
+  it('aceita o domínio do CloudFront do site quando SITE_CDN_DOMAIN está setada', async () => {
+    process.env.SITE_CDN_DOMAIN = 'd111abc222.cloudfront.net';
+    try {
+      const res = await app.request('/pedidos', {
+        method: 'OPTIONS',
+        headers: {
+          origin: 'https://d111abc222.cloudfront.net',
+          'access-control-request-method': 'POST',
+        },
+      });
+      expect(res.headers.get('access-control-allow-origin')).toBe(
+        'https://d111abc222.cloudfront.net',
+      );
+
+      // qualquer OUTRA distribuição cloudfront continua barrada
+      const outro = await app.request('/pedidos', {
+        method: 'OPTIONS',
+        headers: {
+          origin: 'https://d999xyz888.cloudfront.net',
+          'access-control-request-method': 'POST',
+        },
+      });
+      expect(outro.headers.get('access-control-allow-origin')).toBeNull();
+    } finally {
+      delete process.env.SITE_CDN_DOMAIN;
+    }
+  });
 });

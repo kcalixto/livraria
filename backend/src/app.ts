@@ -20,10 +20,15 @@ const ALLOWED_ORIGINS = [
 app.use(
   "*",
   cors({
-    origin: (origin) =>
-      ALLOWED_ORIGINS.includes(origin) || origin.startsWith("http://localhost:")
+    origin: (origin) => {
+      // atrás do CloudFront o site ganha domínio próprio; o CloudFormation
+      // resolve o domínio no deploy e injeta via env (lido lazy p/ testes)
+      const cdn = process.env.SITE_CDN_DOMAIN;
+      if (cdn && origin === `https://${cdn}`) return origin;
+      return ALLOWED_ORIGINS.includes(origin) || origin.startsWith("http://localhost:")
         ? origin
-        : null,
+        : null;
+    },
   }),
 );
 
