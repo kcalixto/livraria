@@ -2973,3 +2973,42 @@ a.btn--secondary:hover {
   text-transform: uppercase;
   color: var(--muted);
 }
+
+/* card de pedido recolhível: header clicável + chevron (o controle acessível) */
+.order-card__header {
+  cursor: pointer;
+}
+.order-card__fold {
+  flex-shrink: 0;
+  width: 22px;
+  padding: 0;
+  font-size: 12px;
+  line-height: 1;
+  color: var(--ink-mid);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+.order-card__fold:hover {
+  color: var(--ink);
+}
+.order-card--folded .order-card__header {
+  border-bottom: none;
+}
+
+@media (max-width: 700px) {
+  /* header do card é grid de áreas: o chevron precisa da sua */
+  .order-card__header {
+    grid-template-columns: auto 1fr auto;
+    grid-template-areas:
+      'fold id total'
+      'fold name contact'
+      'fold date actions';
+  }
+  .order-card__fold {
+    grid-area: fold;
+    align-self: center;
+    font-size: 15px;
+    width: 26px;
+  }
+}

@@ -128,6 +128,9 @@ export function Pedidos() {
   const [statusFilter, setStatusFilter] = useState<ChipKey | null>(null);
   // cards com itens fechados expandidos ("Mostrar entregues" é POR PEDIDO)
   const [expandedDone, setExpandedDone] = useState<Set<string>>(new Set());
+  // card recolhido/expandido por pedido; o default vem do dispositivo (no
+  // celular a fila nasce fechada), então guardamos só quem o operador mexeu
+  const [foldOverrides, setFoldOverrides] = useState<Map<string, boolean>>(new Map());
   const [payText, setPayText] = useState('');
   const [paySocial, setPaySocial] = useState(false);
   // busca por código/nome/contato/título + chip de predicado
@@ -453,6 +456,10 @@ export function Pedidos() {
     );
   }
 
+  function toggleFold(orderId: string, open: boolean) {
+    setFoldOverrides((prev) => new Map(prev).set(orderId, !open));
+  }
+
   function toggleDone(orderId: string) {
     setExpandedDone((prev) => {
       const next = new Set(prev);
@@ -469,22 +476,48 @@ export function Pedidos() {
     const closedItems = order.items.filter(isUnitClosed);
     const doneExpanded = expandedDone.has(order.id);
     const visibleItems = doneExpanded ? [...openItems, ...closedItems] : openItems;
+    // no celular a fila nasce recolhida (cabe mais pedido na tela)
+    const open = foldOverrides.get(order.id) ?? !isMobile;
+    const bodyId = `pedido-${order.id}-itens`;
     return (
         <div
           key={order.id}
-          className="order-card"
+          className={`order-card${open ? '' : ' order-card--folded'}`}
           role="table"
           aria-label={`Pedido ${shortOrderId(order.id)}`}
         >
-          <div className="order-card__header" role="row">
+          {/* clicar no header dobra/desdobra; o controle de verdade (teclado e
+              leitor de tela) é o chevron com aria-expanded */}
+          <div className="order-card__header" role="row" onClick={() => toggleFold(order.id, open)}>
+            <button
+              className="order-card__fold"
+              aria-expanded={open}
+              aria-controls={bodyId}
+              aria-label={open ? 'Recolher pedido' : 'Expandir pedido'}
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleFold(order.id, open);
+              }}
+            >
+              {open ? '▾' : '▸'}
+            </button>
             <span className="order-card__id" role="cell">{shortOrderId(order.id)}</span>
             <span className="order-card__name" role="cell">{order.name}</span>
-            <span className="order-card__contact" role="cell">
+            <span
+              className="order-card__contact"
+              role="cell"
+              onClick={(e) => e.stopPropagation()}
+            >
               <ContactLink contact={order.contact} />
             </span>
             <span className="order-card__date" role="cell">{formatOrderDate(orderedAt(order))}</span>
             <span className="order-card__total" role="cell">{orderTotal(order, books)}</span>
-            <span className="order-card__order-actions" role="cell">
+            {/* os ActionIcon não recebem o evento: barra a propagação aqui */}
+            <span
+              className="order-card__order-actions"
+              role="cell"
+              onClick={(e) => e.stopPropagation()}
+            >
               {cancellingOrderId === order.id ? (
                 <span className="pay-inline">
                   <span className="confirm-inline__hint">
@@ -612,6 +645,8 @@ export function Pedidos() {
               )}
             </span>
           </div>
+          {open && (
+          <div id={bodyId}>
           <div className="order-card__cols" role="row">
             <span role="columnheader">Livro</span>
             <span className="t-center" role="columnheader">Disponível</span>
@@ -758,6 +793,8 @@ export function Pedidos() {
                 </button>
               </span>
             </div>
+          )}
+          </div>
           )}
         </div>
     );

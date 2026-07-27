@@ -56,12 +56,36 @@ function renderPage() {
   );
 }
 
+function mockMobile() {
+  vi.spyOn(window, 'matchMedia').mockImplementation(
+    (query: string) =>
+      ({
+        matches: query.includes('max-width: 700px'),
+        media: query,
+        onchange: null,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        addListener: () => {},
+        removeListener: () => {},
+        dispatchEvent: () => false,
+      }) as unknown as MediaQueryList,
+  );
+}
+
+// no mobile o card nasce recolhido: abre antes de mexer nos itens
+async function expandCard() {
+  await userEvent.click(await screen.findByRole('button', { name: /expandir pedido/i }));
+}
+
 beforeEach(() => {
   sessionStorage.setItem('livraria:token', 'jwt-abc');
 });
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  // spy de matchMedia (mockMobile) não pode vazar pro próximo teste, nem
+  // quando o teste falha antes de restaurar
+  vi.restoreAllMocks();
   sessionStorage.clear();
 });
 
@@ -683,23 +707,12 @@ describe('Backoffice — Pedidos (linhas por unidade)', () => {
   });
 
   it('mobile: ação abre modal de confirmação descritivo antes do PATCH', async () => {
-    vi.spyOn(window, 'matchMedia').mockImplementation(
-      (query: string) =>
-        ({
-          matches: query.includes('max-width: 700px'),
-          media: query,
-          onchange: null,
-          addEventListener: () => {},
-          removeEventListener: () => {},
-          addListener: () => {},
-          removeListener: () => {},
-          dispatchEvent: () => false,
-        }) as unknown as MediaQueryList,
-    );
+    mockMobile();
     stubFetch([
       order('PED001', [{ unit_id: 'u1', title_id: 'b1', status: 'waiting-payment' }]),
     ]);
     renderPage();
+    await expandCard();
 
     await userEvent.click(await screen.findByRole('button', { name: /^reservar$/i }));
     // modal descreve a ação; nada de PATCH ainda
@@ -714,27 +727,15 @@ describe('Backoffice — Pedidos (linhas por unidade)', () => {
       status: 'in-reserve',
       unit_id: 'u1',
     });
-    vi.restoreAllMocks();
   });
 
   it('mobile: ação irreversível vai direto pro modal (sem confirmação inline dupla)', async () => {
-    vi.spyOn(window, 'matchMedia').mockImplementation(
-      (query: string) =>
-        ({
-          matches: query.includes('max-width: 700px'),
-          media: query,
-          onchange: null,
-          addEventListener: () => {},
-          removeEventListener: () => {},
-          addListener: () => {},
-          removeListener: () => {},
-          dispatchEvent: () => false,
-        }) as unknown as MediaQueryList,
-    );
+    mockMobile();
     stubFetch([
       order('PED001', [{ unit_id: 'u1', title_id: 'b1', status: 'sent-to-delivery' }]),
     ]);
     renderPage();
+    await expandCard();
 
     await userEvent.click(await screen.findByRole('button', { name: /marcar entregue/i }));
     const dialog = await screen.findByRole('dialog');
@@ -746,7 +747,6 @@ describe('Backoffice — Pedidos (linhas por unidade)', () => {
       status: 'received',
       unit_id: 'u1',
     });
-    vi.restoreAllMocks();
   });
 
   it('viewer (leitura): sem ações de escrita, mas com Verificar resumo e busca', async () => {
@@ -885,6 +885,52 @@ describe('Backoffice — Pedidos (linhas por unidade)', () => {
     // alerta vermelho com tooltip via aria-label; sem o texto extenso na linha
     expect(screen.getByLabelText(/retirado sem pagamento/i)).toBeInTheDocument();
     expect(document.querySelector('.unit-picked-badge')).toBeNull();
+  });
+
+  it('desktop: card nasce aberto e clicar no header recolhe (some o conteúdo)', async () => {
+    stubFetch([
+      order('PED001', [{ unit_id: 'u1', title_id: 'b1', status: 'waiting-payment' }]),
+    ]);
+    renderPage();
+    await screen.findByText('Camarada Rosa');
+
+    expect(screen.getByText('A Comuna e o Fogo')).toBeInTheDocument();
+
+    await userEvent.click(document.querySelector('.order-card__header') as HTMLElement);
+
+    expect(screen.queryByText('A Comuna e o Fogo')).not.toBeInTheDocument();
+    // o header (id, cliente, total) continua visível
+    expect(screen.getByText('Camarada Rosa')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /expandir pedido/i })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+  });
+
+  it('mobile: card nasce fechado e o chevron abre', async () => {
+    mockMobile();
+    stubFetch([
+      order('PED001', [{ unit_id: 'u1', title_id: 'b1', status: 'waiting-payment' }]),
+    ]);
+    renderPage();
+    await screen.findByText('Camarada Rosa');
+
+    expect(screen.queryByText('A Comuna e o Fogo')).not.toBeInTheDocument();
+
+    await expandCard();
+    expect(screen.getByText('A Comuna e o Fogo')).toBeInTheDocument();
+  });
+
+  it('clicar num ícone de ação do header NÃO recolhe o card', async () => {
+    stubFetch([
+      order('PED001', [{ unit_id: 'u1', title_id: 'b1', status: 'waiting-payment' }]),
+    ]);
+    renderPage();
+    await screen.findByText('Camarada Rosa');
+
+    await userEvent.click(screen.getByRole('button', { name: /verificar resumo/i }));
+    // o modal abriu e o conteúdo do card continua lá
+    expect(screen.getByText('A Comuna e o Fogo')).toBeInTheDocument();
   });
 
   it('header do card tem Editar pedido (admin) que navega pra tela de edição', async () => {
