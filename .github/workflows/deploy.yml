@@ -73,7 +73,9 @@ jobs:
           else
             npx tsc -b && npx vite build --mode development
           fi
-          aws s3 sync dist/ "s3://$SITE_BUCKET" --delete
+          # .DS_Store: o CI roda em checkout limpo, mas deploy manual de um Mac
+          # publica o lixo do Finder junto (tudo em public/ entra no dist/)
+          aws s3 sync dist/ "s3://$SITE_BUCKET" --delete --exclude "*.DS_Store"
 
       # o cache da borda já é curto (só assets/* com hash ficam guardados),
       # mas invalidar depois do sync garante que ninguém veja build velho
