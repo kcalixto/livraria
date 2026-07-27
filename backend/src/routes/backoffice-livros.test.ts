@@ -4,6 +4,7 @@ import {
   DeleteCommand,
   DynamoDBDocumentClient,
   PutCommand,
+  ScanCommand,
   UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
 import { ConditionalCheckFailedException } from '@aws-sdk/client-dynamodb';
@@ -26,6 +27,9 @@ async function authHeaders(): Promise<Record<string, string>> {
 
 beforeEach(() => {
   ddbMock.reset();
+  // acervo vazio por padrão: o slug é derivado com um Scan (unicidade), e cada
+  // teste de colisão sobrescreve este mock com os slugs que quiser
+  ddbMock.on(ScanCommand).resolves({ Items: [] });
   process.env.LIVRARIA_FRONT_END_API_KEY = 'chave-front';
   process.env.BACKOFFICE_ADMIN_API_KEY = 'chave-admin';
   process.env.JWT_SECRET = 'segredo-jwt-teste';
@@ -84,6 +88,49 @@ describe('POST /backoffice/livros', () => {
     const calls = ddbMock.commandCalls(PutCommand);
     expect(calls).toHaveLength(1);
     expect(calls[0].args[0].input.TableName).toBe('livraria-tb-livros-test');
+  });
+
+  it('deriva o slug do título e ignora slug vindo no body', async () => {
+    ddbMock.on(ScanCommand).resolves({ Items: [] });
+    ddbMock.on(PutCommand).resolves({});
+
+    const res = await app.request('/backoffice/livros', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...validBody,
+        title: 'Educação e Ação',
+        slug: 'hackeado-pelo-cliente',
+      }),
+      headers: await authHeaders(),
+    });
+
+    expect(res.status).toBe(201);
+    expect((await res.json()) as Record<string, unknown>).toMatchObject({
+      slug: 'educacao-e-acao',
+    });
+    expect(ddbMock.commandCalls(PutCommand)[0].args[0].input.Item).toMatchObject({
+      slug: 'educacao-e-acao',
+    });
+  });
+
+  it('sufixa o slug quando o título colide com um livro existente', async () => {
+    ddbMock.on(ScanCommand).resolves({
+      Items: [
+        { id: 'b9', slug: 'o-capital' },
+        { id: 'b8', slug: 'o-capital-2' },
+      ],
+    });
+    ddbMock.on(PutCommand).resolves({});
+
+    const res = await app.request('/backoffice/livros', {
+      method: 'POST',
+      body: JSON.stringify(validBody), // title: 'O Capital'
+      headers: await authHeaders(),
+    });
+
+    expect((await res.json()) as Record<string, unknown>).toMatchObject({
+      slug: 'o-capital-3',
+    });
   });
 
   it('retorna 400 quando faltam campos obrigatórios (title, price)', async () => {
@@ -155,6 +202,48 @@ describe('PUT /backoffice/livros/:id', () => {
     const input = ddbMock.commandCalls(UpdateCommand)[0].args[0].input;
     expect(input.TableName).toBe('livraria-tb-livros-test');
     expect(input.ConditionExpression).toContain('attribute_exists');
+  });
+
+  it('regera o slug quando o título muda', async () => {
+    ddbMock.on(ScanCommand).resolves({ Items: [{ id: 'b1', slug: 'o-capital' }] });
+    ddbMock.on(UpdateCommand).resolves({ Attributes: { id: 'b1' } });
+
+    await app.request('/backoffice/livros/b1', {
+      method: 'PUT',
+      body: JSON.stringify({ title: 'A Ideologia Alemã' }),
+      headers: await authHeaders(),
+    });
+
+    const input = ddbMock.commandCalls(UpdateCommand)[0].args[0].input;
+    expect(input.ExpressionAttributeValues?.[':slug']).toBe('a-ideologia-alema');
+  });
+
+  it('não vira -2 quando o título salvo é o mesmo (ignora o próprio slug)', async () => {
+    ddbMock.on(ScanCommand).resolves({ Items: [{ id: 'b1', slug: 'o-capital' }] });
+    ddbMock.on(UpdateCommand).resolves({ Attributes: { id: 'b1' } });
+
+    await app.request('/backoffice/livros/b1', {
+      method: 'PUT',
+      body: JSON.stringify({ title: 'O Capital' }),
+      headers: await authHeaders(),
+    });
+
+    const input = ddbMock.commandCalls(UpdateCommand)[0].args[0].input;
+    expect(input.ExpressionAttributeValues?.[':slug']).toBe('o-capital');
+  });
+
+  it('não toca no slug quando o PUT não manda título', async () => {
+    ddbMock.on(UpdateCommand).resolves({ Attributes: { id: 'b1' } });
+
+    await app.request('/backoffice/livros/b1', {
+      method: 'PUT',
+      body: JSON.stringify({ price: 6000 }),
+      headers: await authHeaders(),
+    });
+
+    const input = ddbMock.commandCalls(UpdateCommand)[0].args[0].input;
+    expect(input.UpdateExpression).not.toContain('slug');
+    expect(ddbMock.commandCalls(ScanCommand)).toHaveLength(0);
   });
 
   it('retorna 400 quando social_price do PUT é inválido', async () => {

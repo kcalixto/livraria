@@ -30,6 +30,17 @@ describe('GET /livros', () => {
     expect(await res.json()).toEqual([]);
   });
 
+  it('expõe o slug do livro (o front monta o caminho da capa com ele)', async () => {
+    ddbMock.on(ScanCommand, { TableName: 'livraria-tb-livros-test' }).resolves({
+      Items: [{ id: 'b1', title: 'A Comuna e o Fogo', price: 100, slug: 'a-comuna-e-o-fogo' }],
+    });
+
+    const res = await app.request('/livros', { headers: KEY_HEADER });
+    const body = (await res.json()) as Array<{ slug: string }>;
+
+    expect(body[0].slug).toBe('a-comuna-e-o-fogo');
+  });
+
   it('ordena por created_at descendente (mais novos primeiro)', async () => {
     ddbMock.on(ScanCommand, { TableName: 'livraria-tb-livros-test' }).resolves({
       Items: [

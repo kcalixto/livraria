@@ -1,7 +1,8 @@
 import { Hono } from 'hono';
-import { DeleteCommand, PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { DeleteCommand, PutCommand, ScanCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { ConditionalCheckFailedException } from '@aws-sdk/client-dynamodb';
 import { docClient } from '../lib/db';
+import { slugify } from '../lib/slug';
 import { adminApiKeyMiddleware } from '../middlewares/admin-api-key';
 import { jwtMiddleware } from '../middlewares/jwt';
 import { requireRole } from '../middlewares/require-role';
@@ -13,6 +14,30 @@ const ALL_FIELDS = [...REQUIRED_FIELDS, ...OPTIONAL_FIELDS];
 
 function invalidPrice(price: unknown): boolean {
   return typeof price !== 'number' || !Number.isInteger(price) || price < 0;
+}
+
+// Slug derivado do título, único no acervo. O Scan projeta só id+slug e o
+// acervo tem dezenas de livros — cabe folgado numa página (limite de 1MB).
+// Corrida entre dois POSTs simultâneos poderia repetir um slug; a livraria
+// opera com um admin, e o efeito (duas capas com o mesmo arquivo) aparece na
+// hora na tela Livros. Unicidade de verdade exigiria tabela auxiliar.
+async function uniqueSlug(title: string, selfId?: string): Promise<string> {
+  const base = slugify(title);
+  const result = await docClient.send(
+    new ScanCommand({
+      TableName: process.env.LIVROS_TABLE_NAME,
+      ProjectionExpression: 'id, slug',
+    }),
+  );
+  const taken = new Set(
+    (result.Items ?? [])
+      .filter((item) => item.id !== selfId) // editar o próprio livro não colide
+      .map((item) => item.slug as string),
+  );
+  if (!taken.has(base)) return base;
+  let n = 2;
+  while (taken.has(`${base}-${n}`)) n++;
+  return `${base}-${n}`;
 }
 
 export const backofficeLivros = new Hono();
@@ -37,6 +62,9 @@ backofficeLivros.post('/', requireRole('admin'), async (c) => {
   const now = new Date().toISOString();
   const book: Record<string, unknown> = {
     id: crypto.randomUUID(),
+    // fora de ALL_FIELDS de propósito: o cliente nunca escolhe o slug (o loop
+    // abaixo só copia campos conhecidos, então body.slug é ignorado)
+    slug: await uniqueSlug(body.title),
     created_at: now,
     updated_at: now,
   };
@@ -65,9 +93,21 @@ backofficeLivros.put('/:id', requireRole('admin'), async (c) => {
     return c.json({ error: 'social_price must be a non-negative integer (cents)' }, 400);
   }
 
-  const setParts = updates.map((f) => `#${f} = :${f}`);
-  const names = Object.fromEntries(updates.map((f) => [`#${f}`, f]));
-  const values = Object.fromEntries(updates.map((f) => [`:${f}`, body[f]]));
+  const setParts: string[] = updates.map((f) => `#${f} = :${f}`);
+  const names: Record<string, string> = Object.fromEntries(
+    updates.map((f) => [`#${f}`, f]),
+  );
+  const values: Record<string, unknown> = Object.fromEntries(
+    updates.map((f) => [`:${f}`, body[f]]),
+  );
+
+  // título mudou = slug muda junto (e o arquivo da capa precisa ser renomeado
+  // no repo — o form avisa). Sem o selfId o livro colidiria consigo mesmo.
+  if (body.title !== undefined) {
+    setParts.push('#slug = :slug');
+    names['#slug'] = 'slug';
+    values[':slug'] = await uniqueSlug(body.title, c.req.param('id'));
+  }
 
   try {
     const result = await docClient.send(
