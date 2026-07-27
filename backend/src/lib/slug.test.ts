@@ -53,4 +53,23 @@ describe('slugify', () => {
   it('documenta que letras sem decomposição NFD caem no fallback', () => {
     expect(slugify('ß æ ø')).toBe('livro');
   });
+
+  // o script de migração é .mjs e não consegue importar este módulo TS, então
+  // carrega uma cópia da função. Este teste é o que impede as duas de divergirem.
+  it('a cópia dentro de scripts/backfill-slug.mjs produz o mesmo resultado', async () => {
+    // @ts-expect-error script .mjs de migração não tem tipos — é justamente a cópia sob teste
+    const { slugify: copia } = await import('../../scripts/backfill-slug.mjs');
+    const titulos = [
+      'Educação e Ação',
+      'O Capital, Vol. II (1867)',
+      '“Aspas curvas” e ‘simples’',
+      '  espaços   demais  ',
+      '!!!???',
+      'Manifesto do Partido Comunista seguido da Crítica da Economia Política e outros ensaios',
+      'a'.repeat(73),
+    ];
+    for (const titulo of titulos) {
+      expect(copia(titulo)).toBe(slugify(titulo));
+    }
+  });
 });
