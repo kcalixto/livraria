@@ -1,11 +1,13 @@
 import { Hono } from 'hono';
 import { PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { ConditionalCheckFailedException } from '@aws-sdk/client-dynamodb';
 import { GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { docClient } from '../lib/db';
 import { s3Client } from '../lib/s3';
 import { DEFAULT_REGION } from '../lib/constants';
 import { computeStock } from '../lib/stock';
+import { stripControlChars } from '../lib/sanitize';
 import { jwtMiddleware } from '../middlewares/jwt';
 import { requireRole } from '../middlewares/require-role';
 
@@ -30,10 +32,27 @@ function parseBooks(books: unknown): LoteBookInput[] | null {
     const bookId = (book as LoteBookInput)?.book_id;
     const amount = (book as LoteBookInput)?.amount;
     if (typeof bookId !== 'string' || bookId === '') return null;
-    if (typeof amount !== 'number' || !Number.isInteger(amount) || amount < 1) return null;
+    if (typeof amount !== 'number' || !Number.isInteger(amount) || amount < 0) return null;
+    // linha zerada é rascunho do form (o operador apagou pra redigitar): sai
+    // do lote em vez de derrubar o cadastro inteiro
+    if (amount === 0) continue;
     parsed.push({ book_id: bookId, amount });
   }
-  return parsed;
+  return parsed.length > 0 ? parsed : null;
+}
+
+// observação do lote: texto curto de contexto da compra, opcional
+const MAX_LOTE_OBSERVATION_CHARS = 200;
+
+type ObservationResult = { error: string } | { observation: string };
+
+// valida o tamanho ANTES do trim (limite é sobre o payload cru) e devolve o
+// texto limpo; string vazia significa "remover"
+function parseObservation(value: unknown): ObservationResult {
+  if (typeof value !== 'string' || value.length > MAX_LOTE_OBSERVATION_CHARS) {
+    return { error: `observation must be a string of at most ${MAX_LOTE_OBSERVATION_CHARS} characters` };
+  }
+  return { observation: stripControlChars(value).trim() };
 }
 
 export const backofficeLotes = new Hono();
@@ -65,6 +84,13 @@ backofficeLotes.post('/', requireRole('admin'), async (c) => {
     return c.json({ error: 'total_cost must be a non-negative integer (cents)' }, 400);
   }
 
+  let observation = '';
+  if (body.observation !== undefined) {
+    const parsed = parseObservation(body.observation);
+    if ('error' in parsed) return c.json(parsed, 400);
+    observation = parsed.observation;
+  }
+
   const now = new Date().toISOString();
   const lote = {
     id: crypto.randomUUID(),
@@ -72,6 +98,7 @@ backofficeLotes.post('/', requireRole('admin'), async (c) => {
     region: body.region,
     books,
     total_cost: body.total_cost,
+    ...(observation && { observation }), // vazia = nem grava o atributo
     created_at: now,
     updated_at: now,
   };
@@ -80,6 +107,43 @@ backofficeLotes.post('/', requireRole('admin'), async (c) => {
     new PutCommand({ TableName: process.env.LOTES_TABLE_NAME, Item: lote }),
   );
   return c.json(lote, 201);
+});
+
+// Edição do lote: hoje só a observação (o resto do lote é histórico de compra
+// e não se corrige por aqui). Vazia REMOVE o atributo.
+backofficeLotes.patch('/:id', requireRole('admin'), async (c) => {
+  const body = await c.req.json().catch(() => null);
+  if (!body || body.observation === undefined) {
+    return c.json({ error: 'observation is required' }, 400);
+  }
+  const parsed = parseObservation(body.observation);
+  if ('error' in parsed) return c.json(parsed, 400);
+  const { observation } = parsed;
+
+  try {
+    const result = await docClient.send(
+      new UpdateCommand({
+        TableName: process.env.LOTES_TABLE_NAME,
+        Key: { id: c.req.param('id') },
+        ConditionExpression: 'attribute_exists(id)',
+        UpdateExpression: observation
+          ? 'SET #observation = :observation, updated_at = :updated_at'
+          : 'SET updated_at = :updated_at REMOVE #observation',
+        ExpressionAttributeNames: { '#observation': 'observation' },
+        ExpressionAttributeValues: {
+          ':updated_at': new Date().toISOString(),
+          ...(observation && { ':observation': observation }),
+        },
+        ReturnValues: 'ALL_NEW',
+      }),
+    );
+    return c.json(result.Attributes);
+  } catch (err) {
+    if (err instanceof ConditionalCheckFailedException) {
+      return c.json({ error: 'not found' }, 404);
+    }
+    throw err;
+  }
 });
 
 interface LoteTransaction {

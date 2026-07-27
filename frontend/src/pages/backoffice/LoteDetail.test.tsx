@@ -10,6 +10,7 @@ const livros = [
 
 const detalhe = {
   id: 'lote-a',
+  observation: 'comprado na feira do livro',
   date: '2026-07-01',
   region: 'SP, Capital - Zona Sul',
   total_cost: 8000,
@@ -160,5 +161,23 @@ describe('Backoffice — Detalhe do lote', () => {
     await userEvent.upload(screen.getByLabelText(/comprovante/i), big);
 
     expect(await screen.findByText(/no máximo 5MB/i)).toBeInTheDocument();
+  });
+
+  it('mostra a observação do lote e permite editar (PATCH)', async () => {
+    renderPage();
+    await screen.findByText(/comprado na feira do livro/i);
+
+    await userEvent.click(screen.getByRole('button', { name: /editar observação/i }));
+    const campo = screen.getByLabelText(/observação/i);
+    expect(campo).toHaveAttribute('maxLength', '200');
+    await userEvent.clear(campo);
+    await userEvent.type(campo, 'doação da editora');
+    await userEvent.click(screen.getByRole('button', { name: /^salvar$/i }));
+
+    const patch = fetchMock.mock.calls.find(([, i]) => (i as RequestInit)?.method === 'PATCH');
+    expect(String(patch![0])).toMatch(/\/backoffice\/lotes\/lote-a$/);
+    expect(JSON.parse((patch![1] as RequestInit).body as string)).toEqual({
+      observation: 'doação da editora',
+    });
   });
 });

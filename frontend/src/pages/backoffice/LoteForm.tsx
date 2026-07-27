@@ -1,3 +1,4 @@
+import { CoverThumb } from '../../components/CoverThumb';
 import { Loading } from '../../components/Loading';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
@@ -29,6 +30,9 @@ export function LoteForm() {
   // linhas compradas pelo preço social (o custo real pago no lote)
   const [socialCost, setSocialCost] = useState<Set<string>>(new Set());
   const [date, setDate] = useState(todayISO());
+  const [observation, setObservation] = useState('');
+  // input de quantidade em edição (id + texto cru), pra permitir campo vazio
+  const [qtyDraft, setQtyDraft] = useState<{ id: string; text: string } | null>(null);
   const [booksError, setBooksError] = useState('');
   const [apiError, setApiError] = useState(false);
   const [unauthorized, setUnauthorized] = useState(false);
@@ -95,25 +99,47 @@ export function LoteForm() {
     });
   }
 
-  // dropdown fica aberto: o fluxo comum é adicionar vários livros em sequência
+  // fecha o dropdown junto: o operador confere o livro entrando na lista
   function addBook(id: string) {
     setSelected((prev) => new Map(prev).set(id, 1));
     setSearch('');
+    setSearchOpen(false);
   }
 
+  // 0 é quantidade válida (rascunho de digitação): só o stepper de menos
+  // remove a linha, e o Salvar trava enquanto houver zerado
   function setAmount(id: string, amount: number) {
+    setSelected((prev) => new Map(prev).set(id, Math.max(0, amount)));
+  }
+
+  function removeBook(id: string) {
     setSelected((prev) => {
       const next = new Map(prev);
-      if (amount < 1) next.delete(id);
-      else next.set(id, amount);
+      next.delete(id);
       return next;
     });
+    setQtyDraft(null);
   }
+
+  // enquanto o input está em foco o valor vive no rascunho: dá pra apagar o
+  // "1" e digitar "10" sem a linha sumir no meio do caminho
+  function commitDraft() {
+    if (!qtyDraft) return;
+    setAmount(qtyDraft.id, parseInt(qtyDraft.text, 10) || 0);
+    setQtyDraft(null);
+  }
+
+  function qtyValue(id: string, amount: number): string {
+    return qtyDraft?.id === id ? qtyDraft.text : String(amount);
+  }
+
+  // cadastro inconsistente: título na lista com quantidade 0
+  const hasZeroed = [...selected.values()].some((amount) => amount === 0);
 
   async function submit(e: { preventDefault: () => void }) {
     e.preventDefault();
 
-    const entries = [...selected.entries()];
+    const entries = [...selected.entries()].filter(([, amount]) => amount > 0);
     if (entries.length === 0) {
       setBooksError('Adicione pelo menos um livro ao lote.');
       return;
@@ -128,6 +154,7 @@ export function LoteForm() {
         region: ACTIVE_REGION_VALUE,
         books: entries.map(([book_id, amount]) => ({ book_id, amount })),
         total_cost: totalCost,
+        ...(observation.trim() && { observation: observation.trim() }),
       });
       navigate('/backoffice/lotes', { state: { toast: 'Lote registrado' } });
     } catch (err) {
@@ -171,10 +198,25 @@ export function LoteForm() {
             <div className="lote-form__region">{ACTIVE_REGION}</div>
           </div>
           <div>
-            <span className="field-label">Total do lote (calculado)</span>
+            <span className="field-label">Total do lote</span>
             <div className="lote-form__total">{formatPrice(totalCost)}</div>
+            <span className="lote-form__total-hint">Σ preço × quantidade</span>
           </div>
         </div>
+
+        <label className="field-label" htmlFor="lote-observacao">
+          Observação (opcional)
+        </label>
+        <textarea
+          id="lote-observacao"
+          rows={2}
+          maxLength={200}
+          className="field-input livro-form__textarea"
+          placeholder="Contexto da compra: de quem veio, condição, combinado…"
+          value={observation}
+          onChange={(e) => setObservation(e.target.value)}
+        />
+        <div className="lote-form__counter">{observation.length}/200</div>
 
         <div className="lote-form__section">Livros adquiridos</div>
         {booksError && <div className="field-error">{booksError}</div>}
@@ -194,6 +236,7 @@ export function LoteForm() {
             <div className="lote-form__available">
               {available.map((book) => (
                 <div key={book.id} className="lote-form__available-row">
+                  <CoverThumb slug={book.slug} title={book.title} />
                   <span>
                     {book.title}
                     <span className="lote-form__available-price">
@@ -223,6 +266,7 @@ export function LoteForm() {
               const title = book?.title ?? id;
               return (
                 <div key={id} className="lote-form__selected-row">
+                  <CoverThumb slug={book?.slug} title={title} />
                   <span className="lote-form__selected-title">{title}</span>
                   <label className="lote-form__social-toggle">
                     <input
@@ -240,7 +284,9 @@ export function LoteForm() {
                       type="button"
                       className="stepper__btn"
                       aria-label={`Menos uma unidade de ${title}`}
-                      onClick={() => setAmount(id, amount - 1)}
+                      onClick={() =>
+                        amount <= 1 ? removeBook(id) : setAmount(id, amount - 1)
+                      }
                     >
                       −
                     </button>
@@ -248,9 +294,11 @@ export function LoteForm() {
                       className="stepper__value lote-form__qty"
                       inputMode="numeric"
                       aria-label={`Quantidade de ${title}`}
-                      value={String(amount)}
+                      value={qtyValue(id, amount)}
+                      onFocus={() => setQtyDraft({ id, text: String(amount) })}
+                      onBlur={commitDraft}
                       onChange={(e) =>
-                        setAmount(id, parseInt(e.target.value.replace(/\D/g, ''), 10) || 0)
+                        setQtyDraft({ id, text: e.target.value.replace(/\D/g, '') })
                       }
                     />
                     <button
@@ -274,7 +322,16 @@ export function LoteForm() {
           </div>
         )}
 
-        <button className="btn btn--primary btn--block" type="submit" disabled={saving}>
+        {hasZeroed && (
+          <div className="field-error">
+            Informe a quantidade dos títulos zerados (ou remova com o −).
+          </div>
+        )}
+        <button
+          className="btn btn--primary btn--block"
+          type="submit"
+          disabled={saving || hasZeroed}
+        >
           {saving ? 'Salvando…' : 'Salvar lote'}
         </button>
       </form>

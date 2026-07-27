@@ -1746,15 +1746,21 @@ a.btn--secondary:hover {
 }
 
 /* ── LoteForm v2 + Estoque com capas ── */
+/* valor calculado, não campo: sem moldura nem fundo de input (fica ao lado de
+   um input de verdade no mesmo grid, e a borda fazia parecer editável) */
 .lote-form__total {
   font-family: var(--mono);
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 700;
   color: var(--wine);
-  padding: 10px 13px;
-  background: var(--surface-header);
-  border: 1px solid var(--border);
-  border-radius: 4px;
+  padding: 10px 0 0;
+}
+.lote-form__total-hint {
+  display: block;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--muted);
   margin-bottom: 18px;
 }
 .lote-form__search-area {
@@ -2925,4 +2931,45 @@ a.btn--secondary:hover {
   align-items: flex-start;
   gap: 2px;
   min-width: 0;
+}
+
+/* form de lote: capa ao lado do título (busca e selecionados) e contador */
+.lote-form__selected-row {
+  grid-template-columns: auto 1fr 90px auto;
+}
+.lote-form__available-row .bo-livros__cover {
+  margin-right: 10px;
+  flex-shrink: 0;
+}
+.lote-form__counter {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--muted);
+  text-align: right;
+  margin-bottom: 14px;
+}
+
+/* observação do lote na tela de detalhe */
+.lote-detail__obs {
+  margin: 0 0 18px;
+  padding: 10px 14px;
+  background: var(--surface-header);
+  border-left: 3px solid var(--border);
+  font-size: 14px;
+  color: var(--ink-body);
+}
+.lote-detail__obs-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+.lote-detail__obs-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
 }

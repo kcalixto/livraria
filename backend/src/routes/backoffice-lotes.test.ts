@@ -6,6 +6,7 @@ import {
   ScanCommand,
   UpdateCommand,
 } from '@aws-sdk/lib-dynamodb';
+import { ConditionalCheckFailedException } from '@aws-sdk/client-dynamodb';
 import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { sign } from 'hono/jwt';
 import { app } from '../app';
@@ -120,7 +121,53 @@ describe('POST /backoffice/lotes', () => {
     expect(put.TableName).toBe('livraria-tb-lotes-test');
   });
 
+  it('grava observação aparada e sem caracteres de controle', async () => {
+    const res = await app.request('/backoffice/lotes', {
+      method: 'POST',
+      body: JSON.stringify({ ...validBody, observation: '  compra na feira  ' }),
+      headers: await authHeaders(),
+    });
+
+    expect(res.status).toBe(201);
+    const put = ddbMock.commandCalls(PutCommand)[0].args[0].input;
+    expect(put.Item?.observation).toBe('compra na feira');
+  });
+
+  it('não grava o atributo quando a observação vem vazia', async () => {
+    const res = await app.request('/backoffice/lotes', {
+      method: 'POST',
+      body: JSON.stringify({ ...validBody, observation: '   ' }),
+      headers: await authHeaders(),
+    });
+
+    expect(res.status).toBe(201);
+    expect(ddbMock.commandCalls(PutCommand)[0].args[0].input.Item).not.toHaveProperty(
+      'observation',
+    );
+  });
+
+  it('descarta títulos com quantidade zero, mantendo os demais', async () => {
+    const res = await app.request('/backoffice/lotes', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...validBody,
+        books: [
+          { book_id: 'b1', amount: 5 },
+          { book_id: 'b2', amount: 0 },
+        ],
+      }),
+      headers: await authHeaders(),
+    });
+
+    expect(res.status).toBe(201);
+    expect(ddbMock.commandCalls(PutCommand)[0].args[0].input.Item?.books).toEqual([
+      { book_id: 'b1', amount: 5 },
+    ]);
+  });
+
   it.each([
+    ['observação acima de 200 chars', { ...validBody, observation: 'x'.repeat(201) }],
+    ['observação de tipo errado', { ...validBody, observation: 42 }],
     ['sem date', { ...validBody, date: '' }],
     ['sem region', { ...validBody, region: undefined }],
     ['books vazio', { ...validBody, books: [] }],
@@ -135,6 +182,86 @@ describe('POST /backoffice/lotes', () => {
       headers: await authHeaders(),
     });
     expect(res.status).toBe(400);
+  });
+});
+
+describe('PATCH /backoffice/lotes/:id (observação editável)', () => {
+  beforeEach(() => {
+    ddbMock.on(UpdateCommand).resolves({ Attributes: { id: 'lote-a' } });
+  });
+
+  it('grava a observação aparada e sem caracteres de controle', async () => {
+    const res = await app.request('/backoffice/lotes/lote-a', {
+      method: 'PATCH',
+      body: JSON.stringify({ observation: '  doação da editora  ' }),
+      headers: await authHeaders(),
+    });
+
+    expect(res.status).toBe(200);
+    const input = ddbMock.commandCalls(UpdateCommand)[0].args[0].input;
+    expect(input.TableName).toBe('livraria-tb-lotes-test');
+    expect(input.ExpressionAttributeValues?.[':observation']).toBe('doação da editora');
+    expect(input.ConditionExpression).toContain('attribute_exists');
+  });
+
+  it('observação vazia REMOVE o atributo', async () => {
+    await app.request('/backoffice/lotes/lote-a', {
+      method: 'PATCH',
+      body: JSON.stringify({ observation: '   ' }),
+      headers: await authHeaders(),
+    });
+
+    const input = ddbMock.commandCalls(UpdateCommand)[0].args[0].input;
+    expect(input.UpdateExpression).toContain('REMOVE');
+    expect(input.UpdateExpression).toContain('observation');
+  });
+
+  it('retorna 400 acima de 200 chars', async () => {
+    const res = await app.request('/backoffice/lotes/lote-a', {
+      method: 'PATCH',
+      body: JSON.stringify({ observation: 'x'.repeat(201) }),
+      headers: await authHeaders(),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it('retorna 400 quando o body não traz observação', async () => {
+    const res = await app.request('/backoffice/lotes/lote-a', {
+      method: 'PATCH',
+      body: JSON.stringify({ date: '2026-01-01' }),
+      headers: await authHeaders(),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it('retorna 404 quando o lote não existe', async () => {
+    ddbMock.on(UpdateCommand).rejects(
+      new ConditionalCheckFailedException({ $metadata: {}, message: 'nope' }),
+    );
+
+    const res = await app.request('/backoffice/lotes/sumido', {
+      method: 'PATCH',
+      body: JSON.stringify({ observation: 'x' }),
+      headers: await authHeaders(),
+    });
+    expect(res.status).toBe(404);
+  });
+
+  it('perfil de leitura (viewer) não escreve: 401', async () => {
+    const token = await sign(
+      { role: 'viewer', exp: Math.floor(Date.now() / 1000) + 3600 },
+      'segredo-jwt-teste',
+    );
+    const res = await app.request('/backoffice/lotes/lote-a', {
+      method: 'PATCH',
+      body: JSON.stringify({ observation: 'x' }),
+      headers: {
+        'x-api-key': 'chave-front',
+        authorization: `Bearer ${token}`,
+        'content-type': 'application/json',
+      },
+    });
+    expect(res.status).toBe(401);
   });
 });
 

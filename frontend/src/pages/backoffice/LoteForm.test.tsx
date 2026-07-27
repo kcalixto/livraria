@@ -57,16 +57,87 @@ describe('Backoffice — Novo lote', () => {
     expect(screen.getByText('A Comuna e o Fogo')).toBeInTheDocument();
   });
 
-  it('dropdown continua aberto após Adicionar (vários livros em sequência)', async () => {
+  it('dropdown FECHA após Adicionar (o operador vê o livro entrar na lista)', async () => {
     renderPage();
     await openSearch();
 
     const row = screen.getByText('A Comuna e o Fogo').closest('.lote-form__available-row')!;
     await userEvent.click(row.querySelector('button')!);
 
-    // ainda dá pra adicionar o próximo sem refocar a busca
-    expect(screen.getByText('O Pão e as Rosas')).toBeInTheDocument();
-    expect(screen.getByText('Manual do Agitador Cultural')).toBeInTheDocument();
+    // some a lista de resultados; fica só o livro adicionado
+    expect(document.querySelector('.lote-form__available')).toBeNull();
+    expect(screen.queryByText('O Pão e as Rosas')).not.toBeInTheDocument();
+    expect(screen.getByText('A Comuna e o Fogo')).toBeInTheDocument();
+  });
+
+  it('apagar a quantidade não remove a linha; sair do campo vazio assume 0', async () => {
+    renderPage();
+    await openSearch();
+    const row = screen.getByText('A Comuna e o Fogo').closest('.lote-form__available-row')!;
+    await userEvent.click(row.querySelector('button')!);
+
+    const qty = screen.getByLabelText(/quantidade de a comuna e o fogo/i);
+    await userEvent.clear(qty);
+
+    // a linha continua de pé, com o campo vazio pra digitar
+    expect(qty).toHaveValue('');
+    expect(screen.getByText('A Comuna e o Fogo')).toBeInTheDocument();
+
+    await userEvent.type(qty, '10');
+    expect(qty).toHaveValue('10');
+
+    // limpar e sair do campo: assume 0 (e aí o salvar trava)
+    await userEvent.clear(qty);
+    await userEvent.tab();
+    expect(qty).toHaveValue('0');
+  });
+
+  it('Salvar lote fica desabilitado enquanto houver título zerado', async () => {
+    renderPage();
+    await openSearch();
+    const row = screen.getByText('A Comuna e o Fogo').closest('.lote-form__available-row')!;
+    await userEvent.click(row.querySelector('button')!);
+
+    const salvar = screen.getByRole('button', { name: /salvar lote/i });
+    expect(salvar).toBeEnabled();
+
+    const qty = screen.getByLabelText(/quantidade de a comuna e o fogo/i);
+    await userEvent.clear(qty);
+    await userEvent.tab();
+
+    expect(salvar).toBeDisabled();
+    expect(screen.getByText(/quantidade/i, { selector: '.field-error' })).toBeInTheDocument();
+  });
+
+  it('mostra a capa do livro na busca e na lista de selecionados', async () => {
+    renderPage();
+    await openSearch();
+    expect(document.querySelectorAll('.lote-form__available .bo-livros__cover').length).toBe(3);
+
+    const row = screen.getByText('A Comuna e o Fogo').closest('.lote-form__available-row')!;
+    await userEvent.click(row.querySelector('button')!);
+
+    expect(
+      document.querySelector('.lote-form__selected-row .bo-livros__cover'),
+    ).toBeInTheDocument();
+  });
+
+  it('observação vai no payload com limite de 200 chars', async () => {
+    renderPage();
+    await openSearch();
+    const row = screen.getByText('A Comuna e o Fogo').closest('.lote-form__available-row')!;
+    await userEvent.click(row.querySelector('button')!);
+
+    const obs = screen.getByLabelText(/observação/i);
+    expect(obs).toHaveAttribute('maxLength', '200');
+    await userEvent.type(obs, 'comprado na feira do livro');
+    expect(screen.getByText('26/200')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /salvar lote/i }));
+    const postCall = fetchMock.mock.calls.find(([, i]) => (i as RequestInit)?.method === 'POST');
+    expect(JSON.parse((postCall![1] as RequestInit).body as string)).toMatchObject({
+      observation: 'comprado na feira do livro',
+    });
   });
 
   it('checkbox "custo social" por linha usa o preço social no total do lote', async () => {

@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { BatchWriteCommand, QueryCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
 import { docClient } from '../lib/db';
 import { isUnitFinalized, ORDER_STATUS_WAITING_PAYMENT } from '../lib/order-status';
+import { stripControlChars } from '../lib/sanitize';
 
 const ORDER_CODE_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
 const ORDER_CODE_LENGTH = 6;
@@ -11,11 +12,6 @@ const MAX_CODE_ATTEMPTS = 5;
 const FIELD_LIMITS = { name: 80, contact: 120, region: 60 } as const;
 const MAX_UNITS_PER_ORDER = 40;
 const MAX_UNITS_PER_TITLE = 20;
-
-// caracteres de controle não têm uso legítimo em nome/contato
-function stripControlChars(text: string): string {
-  return [...text].filter((ch) => ch.charCodeAt(0) >= 0x20 && ch.charCodeAt(0) !== 0x7f).join('');
-}
 
 function generateOrderCode(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(ORDER_CODE_LENGTH));

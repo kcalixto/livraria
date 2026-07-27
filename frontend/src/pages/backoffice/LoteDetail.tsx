@@ -2,7 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Loading } from '../../components/Loading';
 import { RedirectToLogin } from '../../components/RedirectToLogin';
-import { ApiError, apiAuthGet, apiAuthPost, apiGet } from '../../api/client';
+import { ApiError, apiAuthGet, apiAuthPatch, apiAuthPost, apiGet } from '../../api/client';
+import { ClampedText } from '../../components/ClampedText';
 import { canWrite, clearToken } from '../../backoffice/auth';
 import { formatLoteDate } from '../../backoffice/lotes';
 import type { LoteDetailData, LoteTransaction } from '../../backoffice/lotes';
@@ -47,6 +48,9 @@ export function LoteDetail() {
   const { id } = useParams();
   const [state, setState] = useState<State>({ kind: 'loading' });
   const [formOpen, setFormOpen] = useState(false);
+  const [obsOpen, setObsOpen] = useState(false);
+  const [obsText, setObsText] = useState('');
+  const [obsSaving, setObsSaving] = useState(false);
   const [txType, setTxType] = useState<'entrada' | 'saida'>('entrada');
   const [txValue, setTxValue] = useState('');
   const [txRecipient, setTxRecipient] = useState('');
@@ -105,6 +109,20 @@ export function LoteDetail() {
       window.open(url, '_blank');
     } catch {
       setTxError('Não foi possível abrir o comprovante.');
+    }
+  }
+
+  // observação vazia REMOVE o atributo no backend — mesma regra da unidade
+  async function saveObservation() {
+    setObsSaving(true);
+    try {
+      await apiAuthPatch(`/backoffice/lotes/${id}`, { observation: obsText.trim() });
+      setObsOpen(false);
+      await load();
+    } catch {
+      setTxError('Não foi possível salvar a observação.');
+    } finally {
+      setObsSaving(false);
     }
   }
 
@@ -201,6 +219,64 @@ export function LoteDetail() {
           </span>
         </div>
       </div>
+
+      {(lote.observation || obsOpen) && (
+        <div className="lote-detail__obs">
+          <div className="lote-detail__obs-header">
+            <span className="lote-detail__obs-label">Observação</span>
+            {canWrite() && !obsOpen && (
+              <button
+                className="stage-action"
+                onClick={() => {
+                  setObsText(lote.observation ?? '');
+                  setObsOpen(true);
+                }}
+              >
+                Editar observação
+              </button>
+            )}
+          </div>
+          {obsOpen ? (
+            <>
+              <textarea
+                className="field-input"
+                aria-label="Observação"
+                rows={2}
+                maxLength={200}
+                autoFocus
+                value={obsText}
+                onChange={(e) => setObsText(e.target.value)}
+              />
+              <div className="lote-form__counter">{obsText.length}/200</div>
+              <div className="lote-detail__obs-header">
+                <button
+                  className="btn btn--primary lote-detail__obs-save"
+                  disabled={obsSaving}
+                  onClick={() => void saveObservation()}
+                >
+                  {obsSaving ? 'Salvando…' : 'Salvar'}
+                </button>
+                <button className="stage-action" onClick={() => setObsOpen(false)}>
+                  Cancelar
+                </button>
+              </div>
+            </>
+          ) : (
+            <ClampedText text={lote.observation ?? ''} limit={200} />
+          )}
+        </div>
+      )}
+      {canWrite() && !lote.observation && !obsOpen && (
+        <button
+          className="stage-action lote-detail__obs-add"
+          onClick={() => {
+            setObsText('');
+            setObsOpen(true);
+          }}
+        >
+          Adicionar observação
+        </button>
+      )}
 
       <div className="lote-detail__scroll">
       <div className="lote-detail__cols">

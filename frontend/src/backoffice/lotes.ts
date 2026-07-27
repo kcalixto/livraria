@@ -8,6 +8,7 @@ export interface Lote {
   date: string; // YYYY-MM-DD
   region: string;
   books: LoteBook[];
+  observation?: string;
   total_cost: number; // centavos
   total_books?: number;
   total_remaining?: number; // Σ restante dos livros do lote
@@ -36,6 +37,7 @@ export interface LoteDetailData {
   id: string;
   date: string;
   region: string;
+  observation?: string; // contexto da compra (≤200 chars), editável
   total_cost: number;
   sold_value: number;
   transactions: LoteTransaction[];
