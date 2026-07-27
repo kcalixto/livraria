@@ -17,7 +17,6 @@ const baseBook: Book = {
   year: 2023,
   format: 'Ensaio',
   amount: 12,
-  status: 'disponível',
 };
 
 function renderEntry(book: Book) {
@@ -41,14 +40,14 @@ describe('LivroEntry', () => {
 
   it('com estoque alto mostra badge verde e botão de adicionar', () => {
     renderEntry(baseBook);
-    expect(screen.getByText('12 na Zona Sul')).toBeInTheDocument();
+    expect(screen.getByText('12 na região')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /adicionar ao carrinho/i })).toBeInTheDocument();
     expect(screen.queryByText('Esgotado')).not.toBeInTheDocument();
   });
 
   it('com estoque baixo (1-3) mostra badge "Últimas"', () => {
     renderEntry({ ...baseBook, amount: 2 });
-    expect(screen.getByText('Últimas 2 na Zona Sul')).toBeInTheDocument();
+    expect(screen.getByText('Últimas 2 na região')).toBeInTheDocument();
   });
 
   it('esgotado: selo, texto e sem botão de carrinho', () => {
@@ -60,9 +59,9 @@ describe('LivroEntry', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('renderiza o status do livro como tag quando disponível', () => {
+  it('não renderiza mais a tag de status (não agregava — esgotado já aparece)', () => {
     renderEntry(baseBook);
-    expect(screen.getByText('disponível')).toBeInTheDocument();
+    expect(screen.queryByText('disponível')).not.toBeInTheDocument();
   });
 
   it('renderiza sem descrição (campo opcional)', () => {

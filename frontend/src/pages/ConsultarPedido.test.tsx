@@ -6,8 +6,8 @@ import { CartProvider } from '../cart/CartContext';
 import { ConsultarPedido } from './ConsultarPedido';
 
 const livros = [
-  { id: 'b1', title: 'A Comuna e o Fogo', price: 4200, description: '', amount: 3, status: 'disponível' },
-  { id: 'b2', title: 'O Pão e as Rosas', price: 3800, description: '', amount: 1, status: 'disponível' },
+  { id: 'b1', title: 'A Comuna e o Fogo', price: 4200, description: '', amount: 3 },
+  { id: 'b2', title: 'O Pão e as Rosas', price: 3800, description: '', amount: 1 },
 ];
 
 const pedido = {

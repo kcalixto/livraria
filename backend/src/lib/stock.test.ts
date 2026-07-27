@@ -82,16 +82,19 @@ beforeEach(() => {
 });
 
 describe('computeStock', () => {
-  it('calcula o saldo por título na região (waiting não deduz)', async () => {
+  it('calcula o saldo por título na região (waiting não deduz do available)', async () => {
     const stock = await computeStock(REGION);
 
-    // b1: adquirido 3+2=5; reservado 1 (u2); retirado 1 (u4); vendido 1 (u3)
+    // b1: adquirido 3+2=5; reservado 1 (u2); retirado 1 (u4); vendido 1 (u3);
+    // comprometido 1 (u1, waiting sem retirada — não sai do available)
     expect(stock.titles['b1']).toEqual({
       acquired: 5,
       reserved: 1,
       picked_up: 1,
       sold: 1,
+      committed: 1,
       available: 2,
+      sellable: 1,
     });
     // b2: adquirido 1; vendido 1 (u5 retirada+paga conta como sold)
     expect(stock.titles['b2']).toEqual({
@@ -99,8 +102,30 @@ describe('computeStock', () => {
       reserved: 0,
       picked_up: 0,
       sold: 1,
+      committed: 0,
       available: 0,
+      sellable: 0,
     });
+  });
+
+  it('sellable nunca fica negativo (pedido além do estoque não vira dívida)', async () => {
+    ddbMock.on(ScanCommand, { TableName: 'livraria-tb-pedidos-test' }).resolves({
+      Items: [
+        unit({ unit_id: 'x1', title_id: 'b2' }),
+        unit({ unit_id: 'x2', title_id: 'b2' }),
+        unit({ unit_id: 'x3', title_id: 'b2' }),
+      ],
+    });
+
+    const stock = await computeStock(REGION);
+    // b2 tem 1 adquirido e 3 pedidos aguardando pagamento
+    expect(stock.titles['b2']).toMatchObject({ available: 1, committed: 3, sellable: 0 });
+  });
+
+  it('unidade comprometida não mexe nas contas do lote (só o title)', async () => {
+    const stock = await computeStock(REGION);
+    // u1 (waiting de b1) não tem lote alocado e não altera o remaining
+    expect(stock.lotes['lote-antigo'].books['b1']).toMatchObject({ remaining: 1 });
   });
 
   it('agrega por lote: contagens, restante e valor vendido', async () => {

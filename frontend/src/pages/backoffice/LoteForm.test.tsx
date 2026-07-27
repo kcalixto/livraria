@@ -5,9 +5,9 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { LoteForm } from './LoteForm';
 
 const livros = [
-  { id: 'b1', title: 'A Comuna e o Fogo', price: 4200, social_price: 3000, amount: 0, status: 'disponível' },
-  { id: 'b2', title: 'O Pão e as Rosas', price: 3800, social_price: 2000, amount: 0, status: 'disponível' },
-  { id: 'b3', title: 'Manual do Agitador Cultural', price: 3400, social_price: 3400, amount: 0, status: 'disponível' },
+  { id: 'b1', title: 'A Comuna e o Fogo', price: 4200, social_price: 3000, amount: 0 },
+  { id: 'b2', title: 'O Pão e as Rosas', price: 3800, social_price: 2000, amount: 0 },
+  { id: 'b3', title: 'Manual do Agitador Cultural', price: 3400, social_price: 3400, amount: 0 },
 ];
 
 let fetchMock: ReturnType<typeof vi.fn>;

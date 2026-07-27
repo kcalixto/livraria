@@ -5,8 +5,8 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { Pedidos } from './Pedidos';
 
 const livros = [
-  { id: 'b1', title: 'A Comuna e o Fogo', price: 4200, social_price: 3000, description: '', amount: 3, status: 'disponível' },
-  { id: 'b2', title: 'O Pão e as Rosas', price: 3800, social_price: 2000, description: '', amount: 0, status: 'disponível' },
+  { id: 'b1', title: 'A Comuna e o Fogo', price: 4200, social_price: 3000, description: '', amount: 3 },
+  { id: 'b2', title: 'O Pão e as Rosas', price: 3800, social_price: 2000, description: '', amount: 0 },
 ];
 
 interface UnitItem {

@@ -6,7 +6,9 @@ export interface TitleStock {
   reserved: number;
   picked_up: number;
   sold: number;
-  available: number;
+  committed: number; // em pedido aguardando pagamento (não retirado)
+  available: number; // saldo operacional: é ele que a alocação FIFO consome
+  sellable: number; // available − committed: o que a loja ainda pode vender
 }
 
 export interface LoteBookStats {
@@ -38,18 +40,22 @@ export interface Stock {
   fifo: Lote[];
 }
 
-type UnitClass = 'sold' | 'reserved' | 'picked_up' | 'none';
+type LoteUnitClass = 'sold' | 'reserved' | 'picked_up';
+type UnitClass = LoteUnitClass | 'committed' | 'none';
 
 const SOLD_STATUSES = new Set(['payment-received', 'sent-to-delivery', 'received']);
 
-// Regras de dedução (CLAUDE.md): waiting sem retirada não deduz; reserva e
-// retirado-sem-pagamento seguram a unidade; pago/entregue é venda.
+// Regras de dedução (CLAUDE.md): reserva e retirado-sem-pagamento seguram a
+// unidade; pago/entregue é venda. Waiting sem retirada NÃO sai do available
+// (senão confirmar o pagamento falharia por falta de estoque) — conta como
+// "committed", que só a vitrine desconta.
 export function classifyUnit(unit: Record<string, unknown>): UnitClass {
   const status = String(unit.status ?? '');
   if (status === 'cancelled') return 'none'; // cancelada devolve ao lote
   if (SOLD_STATUSES.has(status)) return 'sold';
   if (unit.picked_up === true) return 'picked_up';
   if (status === 'in-reserve') return 'reserved';
+  if (status === 'waiting-payment') return 'committed';
   return 'none';
 }
 
@@ -67,7 +73,15 @@ export async function computeStock(region: string): Promise<Stock> {
   const lotes: Record<string, LoteStock> = {};
 
   const titleOf = (bookId: string): TitleStock =>
-    (titles[bookId] ??= { acquired: 0, reserved: 0, picked_up: 0, sold: 0, available: 0 });
+    (titles[bookId] ??= {
+      acquired: 0,
+      reserved: 0,
+      picked_up: 0,
+      sold: 0,
+      committed: 0,
+      available: 0,
+      sellable: 0,
+    });
 
   for (const lote of fifo) {
     const loteStock: LoteStock = { books: {}, sold_value: 0 };
@@ -92,6 +106,9 @@ export async function computeStock(region: string): Promise<Stock> {
 
     const titleId = String(unit.title_id);
     titleOf(titleId)[kind] += 1;
+    // comprometida não consome exemplar de lote: o lote só é alocado quando a
+    // unidade avança pra um estado que deduz
+    if (kind === 'committed') continue;
 
     const loteId = unit.lote_id as string | undefined;
     if (loteId && lotes[loteId]) {
@@ -105,6 +122,9 @@ export async function computeStock(region: string): Promise<Stock> {
 
   for (const stock of Object.values(titles)) {
     stock.available = stock.acquired - stock.reserved - stock.picked_up - stock.sold;
+    // pedido além do estoque é permitido (nunca bloqueamos a criação), então o
+    // sellable tem piso em 0 em vez de virar dívida
+    stock.sellable = Math.max(0, stock.available - stock.committed);
   }
   for (const lote of Object.values(lotes)) {
     for (const stats of Object.values(lote.books)) {

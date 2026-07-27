@@ -10,7 +10,7 @@ export function Header() {
       <RegionPicker />
       <div className="site-header__right">
         <Link to="/" className="site-header__brand">
-          Livraria Local
+          Edições Manoel Lisboa
         </Link>
         <Link to="/pedido" className="site-header__consulta">
           consultar pedido

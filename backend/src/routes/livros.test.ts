@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { mockClient } from 'aws-sdk-client-mock';
 import { DynamoDBDocumentClient, ScanCommand } from '@aws-sdk/lib-dynamodb';
 import { app } from '../app';
-import { BOOK_STATUS_AVAILABLE } from '../lib/constants';
 
 const ddbMock = mockClient(DynamoDBDocumentClient);
 
@@ -93,8 +92,40 @@ describe('GET /livros', () => {
     const comLote = body.find((b) => b.id === 'b1')!;
     const semLote = body.find((b) => b.id === 'b2')!;
     expect(comLote.amount).toBe(3); // 4 adquiridos − 1 reservado
-    expect(comLote.status).toBe(BOOK_STATUS_AVAILABLE);
     expect(semLote.amount).toBe(0); // esgotado: nunca entrou em lote
     expect(comLote).not.toHaveProperty('image_url');
+  });
+
+  it('amount da vitrine desconta também pedidos aguardando pagamento', async () => {
+    ddbMock.on(ScanCommand, { TableName: 'livraria-tb-livros-test' }).resolves({
+      Items: [{ id: 'b1', title: 'Com Lote', price: 5000 }],
+    });
+    ddbMock.on(ScanCommand, { TableName: 'livraria-tb-lotes-test' }).resolves({
+      Items: [
+        {
+          id: 'lote-a',
+          date: '2026-07-01',
+          region: REGION,
+          books: [{ book_id: 'b1', amount: 4 }],
+          total_cost: 1000,
+        },
+      ],
+    });
+    const waiting = (unitId: string) => ({
+      id: 'PED1',
+      region: REGION,
+      unit_id: unitId,
+      title_id: 'b1',
+      status: 'waiting-payment',
+    });
+    ddbMock
+      .on(ScanCommand, { TableName: 'livraria-tb-pedidos-test' })
+      .resolves({ Items: [waiting('u1'), waiting('u2'), waiting('u3')] });
+
+    const res = await app.request('/livros', { headers: KEY_HEADER });
+    const body = (await res.json()) as Array<Record<string, unknown>>;
+
+    // 4 adquiridos, 3 presos em pedido não pago → sobra 1 pra vender
+    expect(body[0].amount).toBe(1);
   });
 });

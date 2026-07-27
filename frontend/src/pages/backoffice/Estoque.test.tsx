@@ -5,8 +5,8 @@ import { MemoryRouter } from 'react-router-dom';
 import { Estoque } from './Estoque';
 
 const livros = [
-  { id: 'b1', title: 'A Comuna e o Fogo', price: 4200, amount: 2, status: 'disponível' },
-  { id: 'b2', title: 'O Pão e as Rosas', price: 3800, amount: 1, status: 'disponível' },
+  { id: 'b1', title: 'A Comuna e o Fogo', price: 4200, amount: 2 },
+  { id: 'b2', title: 'O Pão e as Rosas', price: 3800, amount: 1 },
 ];
 
 const estoque = [

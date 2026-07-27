@@ -5,7 +5,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { PedidoItemEdit } from './PedidoItemEdit';
 
 const livros = [
-  { id: 'b1', title: 'A Comuna e o Fogo', price: 4200, social_price: 3000, amount: 3, status: 'disponível' },
+  { id: 'b1', title: 'A Comuna e o Fogo', price: 4200, social_price: 3000, amount: 3 },
 ];
 
 const pedido = {

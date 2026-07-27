@@ -11,7 +11,6 @@ export interface Book {
   year?: number;
   format?: string;
   amount: number;
-  status: string;
 }
 
 // defesa residual pra livro legado sem o campo (migração grava social = price)

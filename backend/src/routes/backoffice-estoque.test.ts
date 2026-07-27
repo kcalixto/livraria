@@ -61,6 +61,8 @@ describe('GET /backoffice/estoque', () => {
 
     expect(res.status).toBe(200);
     const body = (await res.json()) as Array<Record<string, unknown>>;
+    // a tela de Estoque usa o available (saldo operacional); committed/sellable
+    // vêm junto por serem do mesmo TitleStock, e são o que a vitrine consome
     expect(body).toEqual([
       {
         book_id: 'b1',
@@ -68,7 +70,9 @@ describe('GET /backoffice/estoque', () => {
         reserved: 1,
         picked_up: 0,
         sold: 0,
+        committed: 0,
         available: 2,
+        sellable: 2,
       },
     ]);
   });

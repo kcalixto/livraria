@@ -5,7 +5,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { LoteDetail } from './LoteDetail';
 
 const livros = [
-  { id: 'b1', title: 'A Comuna e o Fogo', price: 4200, amount: 0, status: 'disponível' },
+  { id: 'b1', title: 'A Comuna e o Fogo', price: 4200, amount: 0 },
 ];
 
 const detalhe = {

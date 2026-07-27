@@ -5,7 +5,6 @@ import { buildMeta, formatPrice } from "../lib/format";
 import type { Book } from "../lib/types";
 import { ClampedText } from "./ClampedText";
 import { StockBadge } from "./StockBadge";
-import { StatusTag } from "./StatusTag";
 
 const DESCRIPTION_CLAMP = 220;
 
@@ -53,7 +52,6 @@ export function LivroEntry({ book }: { book: Book }) {
             <span className="livro-entry__no-stock">Sem estoque na região</span>
           ) : (
             <>
-              <StatusTag status={book.status} />
               <StockBadge amount={book.amount} />
               <button
                 className="btn btn--primary"

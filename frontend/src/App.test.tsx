@@ -6,7 +6,7 @@ import { AppRoutes } from './App';
 import { SITE_PATH } from './lib/basename';
 
 const livros = [
-  { id: 'b1', title: 'A Comuna e o Fogo', description: '', price: 4200, amount: 3, status: 'disponível' },
+  { id: 'b1', title: 'A Comuna e o Fogo', description: '', price: 4200, amount: 3 },
 ];
 
 // monta a árvore real de rotas sob o caminho do coletivo, como o CloudFront

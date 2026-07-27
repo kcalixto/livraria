@@ -16,7 +16,6 @@ const existingBook = {
   format: 'Ensaio',
   description: 'Par 1.\n\nPar 2.',
   amount: 3,
-  status: 'disponível',
 };
 
 let fetchMock: ReturnType<typeof vi.fn>;

@@ -5,7 +5,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { Vendas } from './Vendas';
 
 const livros = [
-  { id: 'b1', title: 'A Comuna e o Fogo', price: 4200, description: '', amount: 3, status: 'disponível' },
+  { id: 'b1', title: 'A Comuna e o Fogo', price: 4200, description: '', amount: 3 },
 ];
 
 interface SaleUnit {

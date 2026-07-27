@@ -14,7 +14,6 @@ const books: Book[] = [
     description: 'Par 1.',
     price: 4200,
     amount: 12,
-    status: 'disponível',
   },
 ];
 
@@ -79,10 +78,10 @@ describe('Catalogo', () => {
 
   it('livros esgotados vão pro final da listagem, mantendo a ordem entre os demais', async () => {
     const catalog = [
-      { id: 'e1', title: 'Esgotado Primeiro', description: '', price: 100, amount: 0, status: 'disponível' },
-      { id: 'd1', title: 'Disponível Um', description: '', price: 100, amount: 5, status: 'disponível' },
-      { id: 'e2', title: 'Esgotado Segundo', description: '', price: 100, amount: 0, status: 'disponível' },
-      { id: 'd2', title: 'Disponível Dois', description: '', price: 100, amount: 2, status: 'disponível' },
+      { id: 'e1', title: 'Esgotado Primeiro', description: '', price: 100, amount: 0 },
+      { id: 'd1', title: 'Disponível Um', description: '', price: 100, amount: 5 },
+      { id: 'e2', title: 'Esgotado Segundo', description: '', price: 100, amount: 0 },
+      { id: 'd2', title: 'Disponível Dois', description: '', price: 100, amount: 2 },
     ];
     vi.stubGlobal(
       'fetch',
@@ -105,8 +104,8 @@ describe('Catalogo', () => {
 
   it('busca por título filtra o catálogo (sem acento) e tem estado vazio', async () => {
     const catalog = [
-      { id: 'd1', title: 'Educação Popular', description: '', price: 100, amount: 5, status: 'disponível' },
-      { id: 'd2', title: 'O Pão e as Rosas', description: '', price: 100, amount: 2, status: 'disponível' },
+      { id: 'd1', title: 'Educação Popular', description: '', price: 100, amount: 5 },
+      { id: 'd2', title: 'O Pão e as Rosas', description: '', price: 100, amount: 2 },
     ];
     vi.stubGlobal(
       'fetch',

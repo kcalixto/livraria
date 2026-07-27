@@ -15,7 +15,6 @@ const livros = [
     year: 2023,
     description: 'x',
     amount: 3,
-    status: 'disponível',
   },
   {
     id: 'd32358b6-f991-47fd-8615-0f4d77cc330b',
@@ -27,7 +26,6 @@ const livros = [
     year: 2024,
     description: 'y',
     amount: 1,
-    status: 'disponível',
   },
 ];
 
