@@ -6,6 +6,16 @@ custom:
   siteBucket:
     dev: livraria-serverless-deployment-dev
     prd: livraria-serverless-deplyment-prd
+  # domínio próprio do site por stage (Route53: zonasul.click)
+  siteDomain:
+    dev: dev-edicoes.zonasul.click
+    prd: edicoes.zonasul.click
+  # caminho do coletivo: o site vive em <domínio>/manoel-lisboa (o domínio
+  # comporta outros coletivos no futuro, cada um no seu caminho)
+  sitePath: /manoel-lisboa
+  hostedZoneId: Z004332216EQYRXL6GI0K
+  # zona fixa e global de alias do CloudFront (igual em qualquer conta/região)
+  cloudFrontHostedZoneId: Z2FDTNDATAQYW2
   table:
     livros:
       dev: livraria-tb-livros-dev
@@ -133,10 +143,10 @@ resources:
               ProjectionType: ALL
 
     # ── CloudFront na frente do site estático (HTTPS + headers de segurança) ──
-    # O site continua no bucket S3 (website hosting); a distribuição só
-    # embrulha: TLS, HSTS/nosniff/frame-deny por header, cache dos assets
-    # com hash e fallback SPA (404 → index.html). Sem domínio custom: usa
-    # o *.cloudfront.net com o certificado default.
+    # O site continua no bucket S3 (website hosting); a distribuição embrulha:
+    # TLS com domínio próprio, HSTS/nosniff/frame-deny por header, cache dos
+    # assets com hash, fallback SPA (404 → index.html) e o caminho do coletivo
+    # (${self:custom.sitePath}) resolvido na borda pela SiteRouter.
     SiteSecurityHeaders:
       Type: AWS::CloudFront::ResponseHeadersPolicy
       Properties:
@@ -155,12 +165,61 @@ resources:
             ReferrerPolicy:
               ReferrerPolicy: strict-origin-when-cross-origin
               Override: true
+    # Roteia o caminho do coletivo na borda: o bundle e as capas continuam na
+    # raiz do bucket, então a função só tira o prefixo antes de ir no S3 — o
+    # navegador mantém a URL bonita e o React Router usa o mesmo basename.
+    SiteRouter:
+      Type: AWS::CloudFront::Function
+      Properties:
+        Name: livraria-site-router-${self:provider.stage}
+        AutoPublish: true
+        FunctionConfig:
+          Comment: mapeia ${self:custom.sitePath} para o app na raiz do bucket
+          Runtime: cloudfront-js-2.0
+        # runtime é ES5.1+: sem template literal, sem startsWith
+        FunctionCode: |
+          function handler(event) {
+            var request = event.request;
+            var uri = request.uri;
+            var base = '${self:custom.sitePath}';
+
+            // a raiz não é endereço do site: manda pro caminho do coletivo
+            // (302 e não 301 — se a raiz virar índice de coletivos, nenhum
+            // navegador fica com redirect velho em cache)
+            if (uri === '/' || uri === '/index.html') {
+              return {
+                statusCode: 302,
+                statusDescription: 'Found',
+                headers: { location: { value: base } }
+              };
+            }
+            // o caminho do coletivo serve o app
+            if (uri === base || uri === base + '/') {
+              request.uri = '/index.html';
+              return request;
+            }
+            // rotas internas (/carrinho, /pedido, /backoffice/...): tira o
+            // prefixo; o que não existir no bucket cai no fallback SPA
+            if (uri.indexOf(base + '/') === 0) {
+              request.uri = uri.substring(base.length);
+              return request;
+            }
+            return request;
+          }
     SiteCdn:
       Type: AWS::CloudFront::Distribution
       Properties:
         DistributionConfig:
           Enabled: true
           Comment: livraria site ${self:provider.stage}
+          Aliases:
+            - ${self:custom.siteDomain.${self:provider.stage}}
+          ViewerCertificate:
+            # wildcard *.zonasul.click emitido em us-east-1 pelo stack
+            # livraria-site-cert (ver backend/infra/site-cert.yml)
+            AcmCertificateArn: ${ssm:/livraria/site-cert-arn}
+            SslSupportMethod: sni-only
+            MinimumProtocolVersion: TLSv1.2_2021
           HttpVersion: http2and3
           IPV6Enabled: true
           # inclui as edges da América do Sul (usuários em SP)
@@ -180,6 +239,9 @@ resources:
             CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad # Managed-CachingDisabled
             ResponseHeadersPolicyId: !Ref SiteSecurityHeaders
             Compress: true
+            FunctionAssociations:
+              - EventType: viewer-request
+                FunctionARN: !GetAtt SiteRouter.FunctionARN
           CacheBehaviors:
             # bundles têm hash no nome: cache agressivo é seguro
             - PathPattern: assets/*
@@ -189,11 +251,31 @@ resources:
               ResponseHeadersPolicyId: !Ref SiteSecurityHeaders
               Compress: true
           CustomErrorResponses:
-            # SPA: rota desconhecida cai no index.html (React Router resolve)
+            # SPA: rota desconhecida cai no index.html (React Router resolve).
+            # É busca interna na origem — a SiteRouter não roda de novo aqui,
+            # então não há risco de loop com o redirect da raiz.
             - ErrorCode: 404
               ResponseCode: 200
               ResponsePagePath: /index.html
               ErrorCachingMinTTL: 0
+    # aponta o domínio próprio (A + AAAA) pra distribuição
+    SiteDns:
+      Type: AWS::Route53::RecordSetGroup
+      Properties:
+        HostedZoneId: ${self:custom.hostedZoneId}
+        RecordSets:
+          - Name: ${self:custom.siteDomain.${self:provider.stage}}
+            Type: A
+            AliasTarget:
+              DNSName: !GetAtt SiteCdn.DomainName
+              HostedZoneId: ${self:custom.cloudFrontHostedZoneId}
+              EvaluateTargetHealth: false
+          - Name: ${self:custom.siteDomain.${self:provider.stage}}
+            Type: AAAA
+            AliasTarget:
+              DNSName: !GetAtt SiteCdn.DomainName
+              HostedZoneId: ${self:custom.cloudFrontHostedZoneId}
+              EvaluateTargetHealth: false
 
     # ── Backup diário das tabelas de produção (AWS Backup, retenção 7 dias) ──
     BackupVault:
@@ -244,5 +326,11 @@ resources:
 
   Outputs:
     SiteCdnDomain:
-      Description: Dominio do site atras do CloudFront
+      Description: Dominio da distribuicao CloudFront (origem tecnica)
       Value: !GetAtt SiteCdn.DomainName
+    SiteCdnId:
+      Description: Id da distribuicao (o CI usa pra invalidar o cache)
+      Value: !Ref SiteCdn
+    SiteUrl:
+      Description: Endereco oficial do site
+      Value: https://${self:custom.siteDomain.${self:provider.stage}}${self:custom.sitePath}

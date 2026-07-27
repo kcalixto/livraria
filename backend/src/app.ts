@@ -14,6 +14,10 @@ export const app = new Hono();
 // CORS restrito aos sites da livraria + dev local. Só afeta browsers —
 // curl/scripts (seed, admin) não passam por CORS. (typo do bucket prd é real)
 const ALLOWED_ORIGINS = [
+  // domínios próprios do site (CloudFront + Route53); endereço oficial
+  "https://edicoes.zonasul.click",
+  "https://dev-edicoes.zonasul.click",
+  // origens S3 legadas: seguem servindo até o dono aposentar
   "http://livraria-serverless-deployment-dev.s3-website-sa-east-1.amazonaws.com",
   "http://livraria-serverless-deplyment-prd.s3-website-sa-east-1.amazonaws.com",
 ];

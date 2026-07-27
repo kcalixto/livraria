@@ -74,3 +74,18 @@ jobs:
             npx tsc -b && npx vite build --mode development
           fi
           aws s3 sync dist/ "s3://$SITE_BUCKET" --delete
+
+      # o cache da borda já é curto (só assets/* com hash ficam guardados),
+      # mas invalidar depois do sync garante que ninguém veja build velho
+      - name: Frontend — invalidar cache do CloudFront
+        run: |
+          DIST=$(aws cloudformation describe-stacks --stack-name "livraria-$STAGE" \
+            --query "Stacks[0].Outputs[?OutputKey=='SiteCdnId'].OutputValue" --output text)
+          if [ -z "$DIST" ] || [ "$DIST" = "None" ]; then
+            echo "distribuicao nao encontrada no stack livraria-$STAGE" >&2
+            exit 1
+          fi
+          ID=$(aws cloudfront create-invalidation --distribution-id "$DIST" \
+            --paths '/*' --query 'Invalidation.Id' --output text)
+          echo "invalidacao $ID criada na distribuicao $DIST"
+          aws cloudfront wait invalidation-completed --distribution-id "$DIST" --id "$ID"

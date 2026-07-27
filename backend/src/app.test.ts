@@ -51,6 +51,29 @@ describe('CORS', () => {
     expect(res.headers.get('access-control-allow-origin')).toBeTruthy();
   });
 
+  it('aceita os domínios próprios do site (edicoes/dev-edicoes.zonasul.click)', async () => {
+    for (const origin of [
+      'https://edicoes.zonasul.click',
+      'https://dev-edicoes.zonasul.click',
+    ]) {
+      const res = await app.request('/pedidos', {
+        method: 'OPTIONS',
+        headers: { origin, 'access-control-request-method': 'POST' },
+      });
+      expect(res.headers.get('access-control-allow-origin')).toBe(origin);
+    }
+
+    // outro subdomínio do mesmo domínio NÃO é liberado por tabela
+    const alheio = await app.request('/pedidos', {
+      method: 'OPTIONS',
+      headers: {
+        origin: 'https://qualquer.zonasul.click',
+        'access-control-request-method': 'POST',
+      },
+    });
+    expect(alheio.headers.get('access-control-allow-origin')).toBeNull();
+  });
+
   it('aceita o domínio do CloudFront do site quando SITE_CDN_DOMAIN está setada', async () => {
     process.env.SITE_CDN_DOMAIN = 'd111abc222.cloudfront.net';
     try {

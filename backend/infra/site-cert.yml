@@ -1,0 +1,45 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+# Certificado TLS do site (zonasul.click) para o CloudFront.
+#
+# POR QUE ESTE STACK EXISTE SEPARADO: CloudFront só aceita certificado ACM
+# emitido em us-east-1, e o stack do serverless vive em sa-east-1 — uma stack
+# não cria recurso em outra região. Então o cert nasce aqui, uma vez, e o
+# serverless.yml o consome pelo ARN (parâmetro SSM /livraria/site-cert-arn).
+#
+# Deploy (uma vez, ou quando mudar os domínios):
+#   aws cloudformation deploy --region us-east-1 \
+#     --stack-name livraria-site-cert \
+#     --template-file backend/infra/site-cert.yml
+#
+# O ARN sai no Output CertificateArn; grave no SSM de sa-east-1:
+#   aws ssm put-parameter --region sa-east-1 --name /livraria/site-cert-arn \
+#     --type String --overwrite --value <arn>
+#
+# Wildcard cobre edicoes.zonasul.click e dev-edicoes.zonasul.click (e qualquer
+# subdomínio futuro) com uma única validação DNS.
+
+Parameters:
+  DomainName:
+    Type: String
+    Default: zonasul.click
+  HostedZoneId:
+    Type: String
+    Default: Z004332216EQYRXL6GI0K
+
+Resources:
+  Certificate:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      DomainName: !Sub '*.${DomainName}'
+      ValidationMethod: DNS
+      # o ACM cria o registro CNAME de validação na zona sozinho; o stack só
+      # fica CREATE_COMPLETE quando o certificado é EMITIDO
+      DomainValidationOptions:
+        - DomainName: !Sub '*.${DomainName}'
+          HostedZoneId: !Ref HostedZoneId
+
+Outputs:
+  CertificateArn:
+    Description: Certificado wildcard para o CloudFront do site (us-east-1)
+    Value: !Ref Certificate
