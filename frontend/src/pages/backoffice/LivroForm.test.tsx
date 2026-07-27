@@ -6,6 +6,7 @@ import { LivroForm } from './LivroForm';
 
 const existingBook = {
   id: 'b1',
+  slug: 'a-comuna-e-o-fogo',
   title: 'A Comuna e o Fogo',
   author: 'Aurélio Bandeira',
   price: 4200,
@@ -146,14 +147,22 @@ describe('LivroForm — criar', () => {
     renderForm('/backoffice/livros/novo');
 
     expect(screen.queryByLabelText(/capa/i)).not.toBeInTheDocument();
+    // ao criar, o nome do arquivo ainda não existe (o slug nasce no backend)
     expect(
-      screen.getByText(/a capa entra em frontend\/public\/images\/<stage>\/<id>\.jpg/i),
+      screen.getByText(/gerado a partir do título e aparece aqui depois de salvar/i),
     ).toBeInTheDocument();
-    expect(screen.getByText(/novo build\/deploy do site/i)).toBeInTheDocument();
+    expect(screen.getByText(/build\/deploy do site/i)).toBeInTheDocument();
   });
 });
 
 describe('LivroForm — editar', () => {
+  it('ao editar, o aviso mostra o nome real do arquivo da capa (o slug)', async () => {
+    renderForm('/backoffice/livros/b1/editar');
+
+    expect(await screen.findByText('a-comuna-e-o-fogo')).toBeInTheDocument();
+    expect(screen.getByText(/mudar o título muda esse nome/i)).toBeInTheDocument();
+  });
+
   it('carrega os dados do livro e envia PUT com os campos alterados', async () => {
     renderForm('/backoffice/livros/b1/editar');
 

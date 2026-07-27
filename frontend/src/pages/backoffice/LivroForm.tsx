@@ -29,6 +29,8 @@ export function LivroForm() {
   const [edition, setEdition] = useState('');
   const [year, setYear] = useState('');
   const [format, setFormat] = useState('');
+  // nome do arquivo da capa (derivado do título no backend); só existe ao editar
+  const [slug, setSlug] = useState('');
   const [errors, setErrors] = useState<FieldErrors>({});
   const [apiError, setApiError] = useState(false);
   const [unauthorized, setUnauthorized] = useState(false);
@@ -59,6 +61,7 @@ export function LivroForm() {
         setEdition(book.edition ?? '');
         setYear(book.year !== undefined ? String(book.year) : '');
         setFormat(book.format ?? '');
+        setSlug(book.slug ?? '');
         baselineRef.current = JSON.stringify([
           book.title,
           book.author ?? '',
@@ -250,8 +253,19 @@ export function LivroForm() {
         </div>
 
         <div className="alert alert--warn livro-form__cover-note">
-          A capa entra em frontend/public/images/&lt;stage&gt;/&lt;id&gt;.jpg — lembre que é
-          preciso um novo build/deploy do site pra ela renderizar.
+          {slug ? (
+            <>
+              A capa deste livro é frontend/public/images/&lt;stage&gt;/<strong>{slug}</strong>
+              .jpg — mudar o título muda esse nome, e aí o arquivo precisa ser renomeado no
+              repo. Capa nova só aparece depois de build/deploy do site.
+            </>
+          ) : (
+            <>
+              O nome do arquivo da capa é gerado a partir do título e aparece aqui depois de
+              salvar (frontend/public/images/&lt;stage&gt;/&lt;slug&gt;.jpg). Capa nova exige
+              build/deploy do site.
+            </>
+          )}
         </div>
 
         {apiError && (

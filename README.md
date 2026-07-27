@@ -1,4 +1,4 @@
-# Livraria Local
+# Edições Manoel Lisboa
 
 Webapp de livraria **social, sem fim de lucro**, de um coletivo local: catálogo público focado nas descrições dos livros, carrinho anônimo com geração de pedido (código de 6 chars), consulta pública de pedido em `/pedido`, e backoffice (Pedidos / Vendas / Estoque / Lotes / Livros) com três perfis de acesso.
 
@@ -23,7 +23,7 @@ O endereço oficial é o **domínio próprio** (`zonasul.click`, registrado no R
 
 **Certificado TLS**: CloudFront só aceita ACM de `us-east-1`, e o stack do serverless é `sa-east-1` — por isso o certificado wildcard (`*.zonasul.click`) mora num stack à parte, [`backend/infra/site-cert.yml`](backend/infra/site-cert.yml), aplicado uma vez; o ARN fica no SSM `/livraria/site-cert-arn` (sa-east-1) e o `serverless.yml` o lê no deploy. Só precisa mexer se mudarem os domínios.
 
-Capas de livro: arquivos em `frontend/public/images/<stage>/<id-do-livro>.jpg` — entram no build do site e são servidas pela mesma origem (capa nova exige novo build/deploy; comprimir com `frontend/scripts/compress-covers.sh`, teto 200KB). Comprovantes pix de transações de lote: privados em `livraria-assets-bucket/<stage>/comprovantes/`, lidos só por URL pré-assinada. Deployment bucket do serverless: `kcalixto-serverless-framework`.
+Capas de livro: arquivos em `frontend/public/images/<stage>/<slug-do-livro>.jpg` (o slug é derivado do título pelo backend) — entram no build do site e são servidas pela mesma origem (capa nova exige novo build/deploy; comprimir com `frontend/scripts/compress-covers.sh`, teto 200KB). Comprovantes pix de transações de lote: privados em `livraria-assets-bucket/<stage>/comprovantes/`, lidos só por URL pré-assinada. Deployment bucket do serverless: `kcalixto-serverless-framework`.
 
 ## CI/CD
 
@@ -53,6 +53,7 @@ npm run check     # tsc --noEmit
 # backend
 npm run deploy:dev / deploy:prd
 node scripts/backfill-social-price.mjs <stage>   # social_price = price nos livros sem o campo
+node scripts/backfill-slug.mjs <stage> [--dry-run]  # slug do titulo; imprime o mapa id->slug (renomear as capas e manual)
 node scripts/clean-dev-tables.mjs                # zera pedidos/lotes do DEV (preserva livros)
 # frontend
 npm run dev       # localhost:5173 (aponta pra API dev)
@@ -60,7 +61,7 @@ npm run dev       # localhost:5173 (aponta pra API dev)
 
 ## Gestão de livros
 
-Pela tela **Livros** do backoffice (criar/editar; o id copiável na listagem é o nome do arquivo da capa), ou via API com JWT admin. `price` e `social_price` são obrigatórios, em **centavos**:
+Pela tela **Livros** do backoffice (criar/editar; na listagem, o chip de cima copia o id e o de baixo o slug — que é o nome do arquivo da capa), ou via API com JWT admin. `price` e `social_price` são obrigatórios, em **centavos**:
 
 ```sh
 TOKEN=$(curl -s -X POST $API/backoffice/login -H "x-api-key: $KEY" -H 'content-type: application/json' -d '{"password":"..."}' | jq -r .token)

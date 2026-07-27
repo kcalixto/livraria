@@ -12,6 +12,6 @@ npm run build -- --mode development|production   # injeta a CSP via <meta> no bu
 Pontos de atenção:
 
 - `VITE_API_KEY` embarcada no bundle **não é segredo** (fricção anti-bot).
-- Capas em `public/images/<stage>/<id>.jpg` (comprimir com `scripts/compress-covers.sh`).
+- Capas em `public/images/<stage>/<slug>.jpg` — o slug vem do backend (kebab-case do título) e aparece copiável na listagem de Livros; sem arquivo, entra o placeholder listrado (comprimir com `scripts/compress-covers.sh`).
 - Design tokens em `src/styles.css` (Newsreader + IBM Plex Mono, paleta papel/tinta/vinho); breakpoint mobile do backoffice: 700px.
 - Perfis de acesso: `src/backoffice/auth.ts` (`tokenRole`/`canWrite`) — telas escondem escrita para `viewer`/`stock`, mas quem nega é a API.
