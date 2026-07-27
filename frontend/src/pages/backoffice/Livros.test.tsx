@@ -123,6 +123,20 @@ describe('Backoffice — Livros', () => {
     expect(screen.queryByRole('button', { name: /excluir/i })).not.toBeInTheDocument();
   });
 
+  it('mostra o slug abaixo do id, com hr separando, e copia o slug ao clicar', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText('A Comuna e o Fogo');
+
+    const cell = document.querySelector('.bo-livros__id') as HTMLElement;
+    expect(cell.querySelector('hr')).toBeInTheDocument();
+
+    // mesmo comportamento do chip de id: 4 chars + reticências, copia inteiro
+    const slugChip = screen.getByRole('button', { name: 'a-co…' });
+    await user.click(slugChip);
+    expect(await navigator.clipboard.readText()).toBe('a-comuna-e-o-fogo');
+  });
+
   it('mostra o início do uuid e copia o id completo ao clicar', async () => {
     const user = userEvent.setup();
     renderPage();

@@ -12,19 +12,20 @@ import { formatPrice, normalizeText } from "../../lib/format";
 import { socialPriceOf } from "../../lib/types";
 import type { Book } from "../../lib/types";
 
-// id encurtado clicável: copia o uuid completo (nome do arquivo da capa)
-function IdChip({ id }: { id: string }) {
+// valor encurtado clicável que copia inteiro: usado pro id (chave da API) e
+// pro slug (nome do arquivo da capa)
+function CopyChip({ value }: { value: string }) {
   const [copied, setCopied] = useState(false);
 
   async function copy() {
-    await navigator.clipboard.writeText(id);
+    await navigator.clipboard.writeText(value);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
 
   return (
-    <button className="id-chip" title={id} onClick={() => void copy()}>
-      {copied ? "copiado ✓" : `${id.slice(0, 4)}…`}
+    <button className="id-chip" title={value} onClick={() => void copy()}>
+      {copied ? "copiado ✓" : `${value.slice(0, 4)}…`}
     </button>
   );
 }
@@ -120,7 +121,7 @@ export function Livros() {
         <div className="bo-livros" role="table" aria-label="Livros cadastrados">
           <div className="bo-livros__cols" role="row">
             <span role="columnheader">Capa</span>
-            <span role="columnheader">Id</span>
+            <span role="columnheader">Id · capa</span>
             <span role="columnheader">Título</span>
             <span role="columnheader">Autor</span>
             <span role="columnheader">Preços</span>
@@ -137,8 +138,15 @@ export function Livros() {
                   setBrokenCovers((prev) => new Set(prev).add(book.id))
                 }
               />
+              {/* id em cima (chave da API), slug embaixo (nome do arquivo da capa) */}
               <span className="bo-livros__id" role="cell">
-                <IdChip id={book.id} />
+                <CopyChip value={book.id} />
+                {book.slug && (
+                  <>
+                    <hr className="bo-livros__prices-hr" />
+                    <CopyChip value={book.slug} />
+                  </>
+                )}
               </span>
               <span className="bo-livros__title" role="cell">
                 {book.title}
