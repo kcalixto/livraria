@@ -7,6 +7,7 @@ import type { Book } from '../lib/types';
 
 const baseBook: Book = {
   id: 'b1',
+  slug: 'a-comuna-e-o-fogo',
   title: 'A Comuna e o Fogo',
   author: 'Aurélio Bandeira',
   description: 'Par 1.\n\nPar 2.\n\nPar 3.',
@@ -70,11 +71,11 @@ describe('LivroEntry', () => {
     expect(screen.queryByRole('button', { name: /ver mais/i })).not.toBeInTheDocument();
   });
 
-  it('a capa vem de /images/<stage>/<id>.jpg', () => {
+  it('a capa vem de /images/<stage>/<slug>.jpg', () => {
     renderEntry(baseBook);
     expect(screen.getByRole('img', { name: /capa de a comuna e o fogo/i })).toHaveAttribute(
       'src',
-      '/images/dev/b1.jpg',
+      '/images/dev/a-comuna-e-o-fogo.jpg',
     );
   });
 

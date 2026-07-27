@@ -36,7 +36,12 @@ type State =
   | { kind: 'loading' }
   | { kind: 'error' }
   | { kind: 'unauthorized' }
-  | { kind: 'ready'; lote: LoteDetailData; titles: Map<string, string> };
+  | {
+      kind: 'ready';
+      lote: LoteDetailData;
+      titles: Map<string, string>;
+      slugs: Map<string, string | undefined>; // capa é nomeada pelo slug
+    };
 
 export function LoteDetail() {
   const { id } = useParams();
@@ -61,6 +66,7 @@ export function LoteDetail() {
         kind: 'ready',
         lote,
         titles: new Map(livros.map((b) => [b.id, b.title])),
+        slugs: new Map(livros.map((b) => [b.id, b.slug])),
       });
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
@@ -154,7 +160,7 @@ export function LoteDetail() {
     );
   }
 
-  const { lote, titles } = state;
+  const { lote, titles, slugs } = state;
   const saldo = lote.sold_value + lote.transactions_total - lote.total_cost;
   const titleOf = (bookId: string) => titles.get(bookId) ?? bookId;
 
@@ -315,7 +321,7 @@ export function LoteDetail() {
           <div className="lote-history__books">
             {lote.books.map((book) => (
               <div key={book.book_id} className="lote-history__book">
-                <CoverThumb id={book.book_id} title={titleOf(book.book_id)} />
+                <CoverThumb slug={slugs.get(book.book_id)} title={titleOf(book.book_id)} />
                 <span className="lote-history__book-qty">{book.acquired}×</span>
                 <span className="lote-history__book-title">{titleOf(book.book_id)}</span>
               </div>

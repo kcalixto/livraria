@@ -167,7 +167,7 @@ export function PedidoEdit() {
             }
           >
             <CoverThumb
-              id={item.title_id}
+              slug={books.get(item.title_id)?.slug}
               title={books.get(item.title_id)?.title ?? item.title_id}
             />
             <span className="pedido-edit__item-title">

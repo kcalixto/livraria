@@ -6,6 +6,7 @@ import { useBackofficeResource } from './useBackofficeResource';
 
 export interface BookInfo {
   title: string;
+  slug?: string; // nome do arquivo da capa
   price: number;
   social_price?: number;
   amount: number; // estoque disponível na região
@@ -30,7 +31,13 @@ export function useOrders() {
       books: new Map(
         livros.map((b) => [
           b.id,
-          { title: b.title, price: b.price, social_price: b.social_price, amount: b.amount },
+          {
+            title: b.title,
+            slug: b.slug,
+            price: b.price,
+            social_price: b.social_price,
+            amount: b.amount,
+          },
         ]),
       ),
     };

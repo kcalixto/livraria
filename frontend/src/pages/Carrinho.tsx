@@ -112,7 +112,7 @@ export function Carrinho() {
             {items.map((item) => (
               <div key={item.book_id} className="cart-item">
                 <span className="cart-item__cover">
-                  <CoverThumb id={item.book_id} title={item.title} />
+                  <CoverThumb slug={item.slug} title={item.title} />
                 </span>
                 <div>
                   <div className="cart-item__title">{item.title}</div>

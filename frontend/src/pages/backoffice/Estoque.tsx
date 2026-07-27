@@ -31,7 +31,12 @@ type State =
   | { kind: 'loading' }
   | { kind: 'error' }
   | { kind: 'unauthorized' }
-  | { kind: 'ready'; rows: StockRow[]; titles: Map<string, string> };
+  | {
+      kind: 'ready';
+      rows: StockRow[];
+      titles: Map<string, string>;
+      slugs: Map<string, string | undefined>; // capa é nomeada pelo slug
+    };
 
 type SortKey = 'title' | 'reserved' | 'picked_up' | 'sold' | 'available';
 interface Sort {
@@ -69,6 +74,7 @@ export function Estoque() {
         kind: 'ready',
         rows,
         titles: new Map(livros.map((b) => [b.id, b.title])),
+        slugs: new Map(livros.map((b) => [b.id, b.slug])),
       });
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
@@ -224,7 +230,7 @@ export function Estoque() {
               role="row"
             >
               <CoverThumb
-                id={row.book_id}
+                slug={state.slugs.get(row.book_id)}
                 title={state.titles.get(row.book_id) ?? row.book_id}
                 role="cell"
               />

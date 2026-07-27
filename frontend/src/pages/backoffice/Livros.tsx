@@ -130,11 +130,11 @@ export function Livros() {
           {books.map((book) => (
             <div key={book.id} className="bo-livros__row" role="row">
               <CoverThumb
-                id={book.id}
+                slug={book.slug}
                 title={book.title}
                 role="cell"
-                onBroken={(id) =>
-                  setBrokenCovers((prev) => new Set(prev).add(id))
+                onBroken={() =>
+                  setBrokenCovers((prev) => new Set(prev).add(book.id))
                 }
               />
               <span className="bo-livros__id" role="cell">

@@ -1,5 +1,6 @@
 export interface Book {
   id: string;
+  slug?: string; // nome do arquivo da capa; ausente só em dado pré-migração
   title: string;
   description?: string;
   price: number; // centavos
@@ -20,6 +21,7 @@ export function socialPriceOf(book: Pick<Book, 'price' | 'social_price'>): numbe
 
 export interface CartItem {
   book_id: string;
+  slug?: string; // carrinho salvo antes da migração não tem
   title: string;
   price: number; // centavos
   amount: number;

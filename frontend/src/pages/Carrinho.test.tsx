@@ -9,8 +9,8 @@ function seedCart() {
   localStorage.setItem(
     'livraria:carrinho',
     JSON.stringify([
-      { book_id: 'b1', title: 'A Comuna e o Fogo', price: 4200, amount: 1 },
-      { book_id: 'b2', title: 'O Pão e as Rosas', price: 3800, amount: 2 },
+      { book_id: 'b1', slug: 'a-comuna-e-o-fogo', title: 'A Comuna e o Fogo', price: 4200, amount: 1 },
+      { book_id: 'b2', slug: 'o-pao-e-as-rosas', title: 'O Pão e as Rosas', price: 3800, amount: 2 },
     ]),
   );
 }
@@ -55,7 +55,20 @@ describe('Carrinho', () => {
 
     const covers = document.querySelectorAll('.cart-item__cover img');
     expect(covers).toHaveLength(2);
-    expect((covers[0] as HTMLImageElement).getAttribute('src')).toBe('/images/dev/b1.jpg');
+    expect((covers[0] as HTMLImageElement).getAttribute('src')).toBe(
+      '/images/dev/a-comuna-e-o-fogo.jpg',
+    );
+  });
+
+  it('item de carrinho salvo antes da migração (sem slug) cai no placeholder', () => {
+    localStorage.setItem(
+      'livraria:carrinho',
+      JSON.stringify([{ book_id: 'b1', title: 'A Comuna e o Fogo', price: 4200, amount: 1 }]),
+    );
+    renderPage();
+
+    expect(document.querySelectorAll('.cart-item__cover img')).toHaveLength(0);
+    expect(document.querySelector('.bo-livros__cover-fallback')).toBeInTheDocument();
   });
 
   it('stepper altera quantidade e atualiza subtotal', async () => {

@@ -24,13 +24,13 @@ export function LivroEntry({ book }: { book: Book }) {
   return (
     <article className="livro-entry">
       <div className="livro-entry__cover">
-        {coverBroken ? (
+        {coverBroken || !book.slug ? (
           <div className="livro-entry__cover-fallback">
             <span>{book.title}</span>
           </div>
         ) : (
           <img
-            src={bookCoverPath(book.id)}
+            src={bookCoverPath(book.slug)}
             alt={`Capa de ${book.title}`}
             onError={() => setCoverBroken(true)}
           />
@@ -58,7 +58,12 @@ export function LivroEntry({ book }: { book: Book }) {
               <button
                 className="btn btn--primary"
                 onClick={() =>
-                  add({ id: book.id, title: book.title, price: book.price })
+                  add({
+                    id: book.id,
+                    slug: book.slug,
+                    title: book.title,
+                    price: book.price,
+                  })
                 }
               >
                 Adicionar ao carrinho

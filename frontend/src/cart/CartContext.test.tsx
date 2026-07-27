@@ -35,6 +35,16 @@ describe('CartContext', () => {
     expect(result.current.total).toBe(4200 * 2 + 3800);
   });
 
+  it('guarda o slug do livro no item (é ele que resolve a capa do carrinho)', () => {
+    const { result } = renderHook(() => useCart(), { wrapper });
+    act(() => result.current.add({ ...book, slug: 'a-comuna-e-o-fogo' }));
+
+    expect(result.current.items[0]).toMatchObject({ slug: 'a-comuna-e-o-fogo' });
+    expect(JSON.parse(localStorage.getItem('livraria:carrinho') ?? '[]')[0].slug).toBe(
+      'a-comuna-e-o-fogo',
+    );
+  });
+
   it('altera quantidade e remove quando chega a zero', () => {
     const { result } = renderHook(() => useCart(), { wrapper });
     act(() => result.current.add(book));

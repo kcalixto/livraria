@@ -5,7 +5,7 @@ import type { CartItem } from '../lib/types';
 const STORAGE_KEY = 'livraria:carrinho';
 
 type Action =
-  | { type: 'add'; book: { id: string; title: string; price: number } }
+  | { type: 'add'; book: { id: string; slug?: string; title: string; price: number } }
   | { type: 'setAmount'; book_id: string; amount: number }
   | { type: 'remove'; book_id: string }
   | { type: 'clear' };
@@ -23,6 +23,7 @@ function reducer(items: CartItem[], action: Action): CartItem[] {
         ...items,
         {
           book_id: action.book.id,
+          slug: action.book.slug, // capa do carrinho é resolvida pelo slug
           title: action.book.title,
           price: action.book.price,
           amount: 1,
@@ -55,7 +56,7 @@ interface CartValue {
   items: CartItem[];
   count: number;
   total: number;
-  add: (book: { id: string; title: string; price: number }) => void;
+  add: (book: { id: string; slug?: string; title: string; price: number }) => void;
   setAmount: (book_id: string, amount: number) => void;
   remove: (book_id: string) => void;
   clear: () => void;

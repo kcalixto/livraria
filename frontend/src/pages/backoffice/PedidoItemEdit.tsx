@@ -122,7 +122,7 @@ export function PedidoItemEdit() {
 
       {/* contexto do pedido: só leitura — edita na tela do pedido */}
       <div className="pedido-edit__meta">
-        <CoverThumb id={item.title_id} title={bookTitle} />
+        <CoverThumb slug={books.get(item.title_id)?.slug} title={bookTitle} />
         <dl>
           <div>
             <dt>Pedido</dt>
