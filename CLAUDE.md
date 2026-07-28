@@ -46,6 +46,27 @@ Livraria **social, sem fim de lucro**, de um coletivo local. Catálogo público 
 - **Metodologia**: TDD estrito (teste RED antes de qualquer código de produção; vitest nos dois pacotes; back usa aws-sdk-client-mock; front fixa `TZ: America/Sao_Paulo` e mocka `matchMedia` no vite.config/test-setup — testes de data e de mobile dependem disso). `npm test` e `npm run check` (tsc) devem passar antes de commit. Deploy dev para verificação via curl/browser após cada bloco. Push na main = deploy prd — só com autorização explícita do dono (pré-requisitos prd: rodar `backfill-social-price.mjs prd` e `backfill-slug.mjs prd`).
 - **Ambiente local**: shell default tem Node 16 e o hook do GVM quebra `cd` — usar `export PATH="$HOME/.nvm/versions/node/v20.19.2/bin:$PATH"` e `builtin cd`/`npm --prefix`.
 
+## Onde está o resto (este arquivo continua sendo a fonte única das REGRAS)
+
+As regras vivem aqui. Os arquivos abaixo carregam o que este arquivo não tem: **mapa do código** (`file:line`), **o porquê** de cada decisão, os **gotchas** que já custaram retrabalho e as **receitas de verificação**. Eles nunca reescrevem uma regra — se houver conflito, este arquivo ganha e o doc está desatualizado.
+
+- **Índice**: [`docs/README.md`](docs/README.md).
+- **Por escopo**: [loja](docs/loja.md) (catálogo, carrinho, consulta pública) · [pedidos](docs/pedidos.md) (fila, transições, Vendas) · [estoque-e-lotes](docs/estoque-e-lotes.md) · [livros](docs/livros.md) (slug, capas, preço social) · [auth](docs/auth.md) · [infra](docs/infra.md) (deploy, domínio, CDN, backup) · [ui](docs/ui.md) (convenções + armadilhas de layout) · [testes](docs/testes.md).
+- **Decisões datadas** (contexto → decisão → consequência): [`docs/decisions/`](docs/decisions/).
+- **Investigar produção**: [`docs/observability.md`](docs/observability.md).
+- **Por pacote** (carrega sozinho ao mexer na pasta): `frontend/CLAUDE.md`, `backend/CLAUDE.md`.
+- **Ritos automatizados** (skills): `deploy-dev`, `verificar-dev`, `backfill`, `limpar-dev`.
+
+### Manter isso vivo (protocolo — detalhe em `docs/self-improvement.md`)
+
+| Quando | Faça |
+|---|---|
+| Mudou comportamento de um escopo | Atualize o doc do escopo (e a regra aqui, se a regra mudou) |
+| Tomou decisão estrutural / descartou alternativa | Novo ADR em `docs/decisions/` |
+| Perdeu tempo com uma armadilha | Registre o gotcha com `file:line` no doc do escopo |
+| Doc contradiz o código | O código ganha: corrija o doc (sempre confira contra o source antes de confiar) |
+| A própria estrutura não cobriu seu caso | Anote em "Gaps" no fim de `docs/README.md` |
+
 ## Backlog conhecido (não implementar sem pedir)
 
 Tela de "re-estoque" (pedidos aguardando sem estoque); registro de doações de saldo positivo; múltiplas regiões; **WAF + throttling/budget** (CloudFront do site já existe; WAF de escopo CLOUDFRONT exige stack em `us-east-1` — não cabe neste serverless.yml, precisa de stack própria; a API segue exposta direto no execute-api, então brute-force do código público e flood de `POST /pedidos` continuam só com mitigação barata — pôr a API atrás do CloudFront/WAF é o próximo passo dessa frente); CSP por header (hoje é `<meta>` no build; exigiria espelhar a policy do `cspOnBuild` na ResponseHeadersPolicy); alarme de custo/consumo do DynamoDB; rotação periódica das chaves SSM; GSI para consultas quando Scan doer; rodar `backfill-social-price.mjs prd` e `backfill-slug.mjs prd` antes do próximo deploy prd (e, depois do backfill de slug, renomear à mão os `.jpg` de `frontend/public/images/prd/` usando o mapa que o script imprime).
