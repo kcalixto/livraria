@@ -89,7 +89,7 @@ export function ConsultarPedido() {
     try {
       const [order, livros] = await Promise.all([
         apiGet<PublicOrder>(`/pedidos/${normalized}`),
-        apiGet<Book[]>('/livros'),
+        apiGet<Book[]>('/livros?state=all'),
       ]);
       setResult({
         kind: 'found',

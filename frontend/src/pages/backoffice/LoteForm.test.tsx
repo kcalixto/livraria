@@ -46,6 +46,13 @@ async function openSearch() {
 }
 
 describe('Backoffice — Novo lote', () => {
+  it('busca os livros com ?state=all (lote pode repor título arquivado)', async () => {
+    renderPage();
+    await screen.findByPlaceholderText(/buscar por título/i);
+
+    expect(fetchMock.mock.calls.some(([u]) => String(u).endsWith('/livros?state=all'))).toBe(true);
+  });
+
   it('a lista de títulos só aparece ao focar a busca', async () => {
     renderPage();
     await screen.findByPlaceholderText(/buscar por título/i);

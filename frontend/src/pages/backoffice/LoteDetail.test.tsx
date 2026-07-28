@@ -70,6 +70,13 @@ function renderPage() {
 }
 
 describe('Backoffice — Detalhe do lote', () => {
+  it('busca os livros com ?state=all (lote antigo pode ter título arquivado)', async () => {
+    renderPage();
+    await screen.findAllByText('A Comuna e o Fogo');
+
+    expect(fetchMock.mock.calls.some(([u]) => String(u).endsWith('/livros?state=all'))).toBe(true);
+  });
+
   it('saldo do resumo inclui transações (vendido + transações − custo)', async () => {
     renderPage();
 

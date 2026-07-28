@@ -143,6 +143,12 @@ describe('LivroForm — criar', () => {
     expect(afterSave.defaultPrevented).toBe(false);
   });
 
+  it('ao criar não há select de estado (livro nasce ativo no backend)', () => {
+    renderForm('/backoffice/livros/novo');
+
+    expect(screen.queryByLabelText(/estado/i)).not.toBeInTheDocument();
+  });
+
   it('não tem campo de upload de capa e mostra o lembrete de build', () => {
     renderForm('/backoffice/livros/novo');
 
@@ -197,6 +203,55 @@ describe('LivroForm — editar', () => {
     const putCall = fetchMock.mock.calls.find(([, i]) => (i as RequestInit)?.method === 'PUT');
     const body = JSON.parse((putCall![1] as RequestInit).body as string);
     expect(body.social_price).toBe(2500);
+  });
+
+  it('carrega o livro via /livros?state=all (arquivado precisa abrir pra ser reativado)', async () => {
+    renderForm('/backoffice/livros/b1/editar');
+
+    await screen.findByLabelText(/título/i);
+    expect(fetchMock.mock.calls.some(([u]) => String(u).endsWith('/livros?state=all'))).toBe(true);
+  });
+
+  it('mostra o select de estado com Ativo por default (livro legado sem state)', async () => {
+    renderForm('/backoffice/livros/b1/editar');
+
+    expect(await screen.findByLabelText(/estado/i)).toHaveValue('active');
+  });
+
+  it('arquivar: seleciona Arquivado e o PUT envia state archived', async () => {
+    renderForm('/backoffice/livros/b1/editar');
+
+    const select = await screen.findByLabelText(/estado/i);
+    await userEvent.selectOptions(select, 'archived');
+    await userEvent.click(screen.getByRole('button', { name: /salvar/i }));
+    await screen.findByText('LISTA LIVROS');
+
+    const putCall = fetchMock.mock.calls.find(([, i]) => (i as RequestInit)?.method === 'PUT');
+    const body = JSON.parse((putCall![1] as RequestInit).body as string);
+    expect(body.state).toBe('archived');
+  });
+
+  it('livro arquivado carrega Arquivado selecionado e reativar envia state active', async () => {
+    const arquivado = { ...existingBook, state: 'archived' };
+    fetchMock = vi.fn().mockImplementation((_url: string, init?: RequestInit) => {
+      if (init?.method === 'PUT') {
+        return Promise.resolve(new Response(JSON.stringify(arquivado), { status: 200 }));
+      }
+      return Promise.resolve(new Response(JSON.stringify([arquivado]), { status: 200 }));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    renderForm('/backoffice/livros/b1/editar');
+
+    const select = await screen.findByLabelText(/estado/i);
+    expect(select).toHaveValue('archived');
+
+    await userEvent.selectOptions(select, 'active');
+    await userEvent.click(screen.getByRole('button', { name: /salvar/i }));
+    await screen.findByText('LISTA LIVROS');
+
+    const putCall = fetchMock.mock.calls.find(([, i]) => (i as RequestInit)?.method === 'PUT');
+    const body = JSON.parse((putCall![1] as RequestInit).body as string);
+    expect(body.state).toBe('active');
   });
 
   it('livro antigo sem preço social pré-preenche com o preço cheio', async () => {

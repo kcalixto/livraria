@@ -68,7 +68,7 @@ export function Estoque() {
     try {
       const [rows, livros] = await Promise.all([
         apiAuthGet<StockRow[]>('/backoffice/estoque'),
-        apiGet<Book[]>('/livros'),
+        apiGet<Book[]>('/livros?state=all'),
       ]);
       setState({
         kind: 'ready',

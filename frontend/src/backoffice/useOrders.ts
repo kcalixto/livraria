@@ -23,7 +23,7 @@ interface OrdersData {
 export function useOrders() {
   const fetcher = useCallback(async (): Promise<OrdersData> => {
     const [livros, orders] = await Promise.all([
-      apiGet<Book[]>('/livros'),
+      apiGet<Book[]>('/livros?state=all'),
       apiAuthGet<Order[]>('/backoffice/pedidos'),
     ]);
     return {

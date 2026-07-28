@@ -64,7 +64,7 @@ export function LoteDetail() {
     try {
       const [lote, livros] = await Promise.all([
         apiAuthGet<LoteDetailData>(`/backoffice/lotes/${id}`),
-        apiGet<Book[]>('/livros'),
+        apiGet<Book[]>('/livros?state=all'),
       ]);
       setState({
         kind: 'ready',

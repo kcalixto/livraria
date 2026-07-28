@@ -71,6 +71,16 @@ describe('Loja — Consultar pedido', () => {
     expect(screen.getByText(/entregue/i)).toBeInTheDocument();
   });
 
+  it('resolve os títulos via /livros?state=all (pedido antigo pode ter livro arquivado)', async () => {
+    renderPage();
+
+    await userEvent.type(screen.getByLabelText(/código do pedido/i), 'aj3-c9k');
+    await userEvent.click(screen.getByRole('button', { name: /consultar/i }));
+    await screen.findByText('#AJ3-C9K');
+
+    expect(fetchMock.mock.calls.some(([u]) => String(u).endsWith('/livros?state=all'))).toBe(true);
+  });
+
   it('solicitar cancelamento por item: confirma, faz POST e mostra o aviso', async () => {
     fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
       const u = String(url);

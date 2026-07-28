@@ -90,6 +90,15 @@ afterEach(() => {
 });
 
 describe('Backoffice — Pedidos (linhas por unidade)', () => {
+  it('useOrders busca os livros com ?state=all (título arquivado não some da fila)', async () => {
+    stubFetch([]);
+    renderPage();
+
+    await waitFor(() =>
+      expect(fetchMock.mock.calls.some(([u]) => String(u).endsWith('/livros?state=all'))).toBe(true),
+    );
+  });
+
   it('duas unidades do MESMO título renderizam duas linhas', async () => {
     stubFetch([
       order('PED001', [

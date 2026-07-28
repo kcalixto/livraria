@@ -10,6 +10,7 @@ export interface Book {
   edition?: string;
   year?: number;
   format?: string;
+  state?: 'active' | 'archived'; // ausência = active (acervo legado, sem backfill)
   amount: number;
 }
 

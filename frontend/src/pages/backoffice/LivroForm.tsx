@@ -29,6 +29,7 @@ export function LivroForm() {
   const [edition, setEdition] = useState('');
   const [year, setYear] = useState('');
   const [format, setFormat] = useState('');
+  const [state, setState] = useState<'active' | 'archived'>('active');
   // nome do arquivo da capa (derivado do título no backend); só existe ao editar
   const [slug, setSlug] = useState('');
   const [errors, setErrors] = useState<FieldErrors>({});
@@ -38,13 +39,13 @@ export function LivroForm() {
   const [loadingBook, setLoadingBook] = useState(editing);
 
   // sujo = campos diferentes do estado inicial (vazio ao criar, carregado ao editar)
-  const snapshot = JSON.stringify([title, author, description, priceText, socialPriceText, pages, edition, year, format]);
-  const baselineRef = useRef(JSON.stringify(['', '', '', '', '', '', '', '', '']));
+  const snapshot = JSON.stringify([title, author, description, priceText, socialPriceText, pages, edition, year, format, state]);
+  const baselineRef = useRef(JSON.stringify(['', '', '', '', '', '', '', '', '', 'active']));
   useDirtyGuard(snapshot !== baselineRef.current);
 
   useEffect(() => {
     if (!editing) return;
-    apiGet<Book[]>('/livros')
+    apiGet<Book[]>('/livros?state=all')
       .then((books) => {
         const book = books.find((b) => b.id === id);
         if (!book) {
@@ -61,6 +62,7 @@ export function LivroForm() {
         setEdition(book.edition ?? '');
         setYear(book.year !== undefined ? String(book.year) : '');
         setFormat(book.format ?? '');
+        setState(book.state ?? 'active');
         setSlug(book.slug ?? '');
         baselineRef.current = JSON.stringify([
           book.title,
@@ -72,6 +74,7 @@ export function LivroForm() {
           book.edition ?? '',
           book.year !== undefined ? String(book.year) : '',
           book.format ?? '',
+          book.state ?? 'active',
         ]);
       })
       .catch((err) => {
@@ -110,6 +113,8 @@ export function LivroForm() {
     if (edition.trim()) payload.edition = edition.trim();
     if (year.trim()) payload.year = parseInt(year, 10);
     if (format.trim()) payload.format = format.trim();
+    // só ao editar: livro nasce active no backend, o select nem é renderizado ao criar
+    if (editing) payload.state = state;
 
     setSaving(true);
     setApiError(false);
@@ -250,6 +255,22 @@ export function LivroForm() {
               onChange={(e) => setFormat(e.target.value)}
             />
           </div>
+          {editing && (
+            <div>
+              <label className="field-label" htmlFor="livro-estado">
+                Estado
+              </label>
+              <select
+                id="livro-estado"
+                className={`field-input livro-form__state--${state}`}
+                value={state}
+                onChange={(e) => setState(e.target.value as 'active' | 'archived')}
+              >
+                <option value="active">Ativo</option>
+                <option value="archived">Arquivado</option>
+              </select>
+            </div>
+          )}
         </div>
 
         <div className="alert alert--warn livro-form__cover-note">

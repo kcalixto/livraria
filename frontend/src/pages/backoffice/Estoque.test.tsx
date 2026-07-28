@@ -41,6 +41,14 @@ function renderPage() {
 }
 
 describe('Backoffice — Estoque real', () => {
+  it('busca os livros com ?state=all (arquivado ainda tem estoque físico)', async () => {
+    renderPage();
+    await screen.findByText('A Comuna e o Fogo');
+
+    const calls = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls;
+    expect(calls.some(([u]) => String(u).endsWith('/livros?state=all'))).toBe(true);
+  });
+
   it('mostra o saldo por livro SEM a coluna Adquirido e com a capa em miniatura', async () => {
     renderPage();
 

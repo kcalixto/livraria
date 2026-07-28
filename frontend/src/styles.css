@@ -1395,6 +1395,13 @@ a:hover {
 .livro-form__api-error {
   margin-bottom: 14px;
 }
+/* cor do estado no select: verde ativo, cinza arquivado */
+.livro-form__state--active {
+  color: var(--success);
+}
+.livro-form__state--archived {
+  color: var(--muted);
+}
 .livro-form .btn--block {
   margin-top: 10px;
 }

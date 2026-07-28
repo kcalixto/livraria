@@ -47,6 +47,8 @@ O livro tem `state` (`active` | `archived`), validado em POST e PUT por `invalid
 
 **Ausência de `state` = active** — é o que dispensa backfill do acervo legado. O filtro vive no `GET /livros` ([livros.ts:22](../backend/src/routes/livros.ts)): a vitrine só recebe active, e `?state=all` devolve o acervo inteiro. Quem precisa do `all`: as telas do backoffice (um livro arquivado continua tendo estoque físico e histórico) e a consulta pública de pedido (o nome de um título arquivado não pode sumir de um pedido antigo). Armadilha: qualquer valor de `?state` que não seja `all` cai no default silenciosamente — não há validação do param, de propósito (contrato mínimo dos testes).
 
+No front, **todo consumidor de `GET /livros` fora do catálogo usa `?state=all`** — são 7 call sites (Livros, Estoque, LoteForm, LoteDetail, `useOrders`, ConsultarPedido e o próprio LivroForm); só `pages/Catalogo.tsx` fica no default. O do LivroForm é o menos óbvio: sem ele, livro arquivado não abre no form e **nunca pode ser reativado**. O select Estado (`livro-form__state--active|archived`, verde/cinza) só existe ao editar, e a listagem Livros marca arquivado com o mesmo badge do "sem capa".
+
 ## Exclusão segmentada
 
 `DELETE /backoffice/livros/:id` exige JWT admin **e** o header `x-admin-api-key` ([backoffice-livros.ts:147](../backend/src/routes/backoffice-livros.ts)) — dois middlewares em série. Não há botão no front: só curl por quem tem a chave.

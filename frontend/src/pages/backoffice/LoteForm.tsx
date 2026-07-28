@@ -43,7 +43,7 @@ export function LoteForm() {
   useDirtyGuard(selected.size > 0);
 
   useEffect(() => {
-    apiGet<Book[]>('/livros')
+    apiGet<Book[]>('/livros?state=all')
       .then(setBooks)
       .catch((err) => {
         if (err instanceof ApiError && err.status === 401) {

@@ -115,6 +115,30 @@ describe('Backoffice — Livros', () => {
     expect(screen.getByText('O Pão e as Rosas')).toBeInTheDocument();
   });
 
+  it('busca o acervo inteiro com ?state=all (arquivado não some da gestão)', async () => {
+    renderPage();
+    await screen.findByText('A Comuna e o Fogo');
+
+    expect(fetchMock.mock.calls.some(([u]) => String(u).endsWith('/livros?state=all'))).toBe(true);
+  });
+
+  it('livro arquivado ganha badge "arquivado" na linha', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation(() =>
+        Promise.resolve(
+          new Response(JSON.stringify([{ ...livros[0], state: 'archived' }, livros[1]]), {
+            status: 200,
+          }),
+        ),
+      ),
+    );
+    renderPage();
+    await screen.findByText('A Comuna e o Fogo');
+
+    expect(screen.getByText(/^arquivado$/i)).toBeInTheDocument();
+  });
+
   it('não tem botão de excluir (exclusão é segmentada por chave admin, via curl)', async () => {
     renderPage();
     await screen.findByText('A Comuna e o Fogo');

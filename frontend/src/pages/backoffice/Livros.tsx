@@ -52,7 +52,7 @@ export function Livros() {
   const load = useCallback(async () => {
     setState({ kind: "loading" });
     try {
-      const books = await apiGet<Book[]>("/livros");
+      const books = await apiGet<Book[]>("/livros?state=all");
       setState({ kind: "ready", books });
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
@@ -150,6 +150,11 @@ export function Livros() {
               </span>
               <span className="bo-livros__title" role="cell">
                 {book.title}
+                {book.state === "archived" && (
+                  <span className="badge badge--low bo-livros__no-cover">
+                    arquivado
+                  </span>
+                )}
                 {brokenCovers.has(book.id) && (
                   <span className="badge badge--low bo-livros__no-cover">
                     sem capa
