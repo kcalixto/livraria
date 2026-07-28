@@ -1402,6 +1402,56 @@ a:hover {
 .livro-form__state--archived {
   color: var(--muted);
 }
+/* deletar livro: aria-disabled (não disabled) pra tooltip funcionar via hover */
+.livro-form__delete {
+  position: relative;
+  margin-top: 26px;
+}
+.livro-form__delete[aria-disabled='true'] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+/* mesma receita do tooltip do .action-icon, lendo data-tooltip (aria-label
+   sobrescreveria o nome acessível de um botão com texto) */
+.livro-form__delete[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 7px);
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+  color: var(--surface);
+  background: var(--ink);
+  border-radius: 4px;
+  padding: 5px 8px;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 30;
+}
+.livro-form__delete[data-tooltip]::before {
+  content: '';
+  position: absolute;
+  bottom: calc(100% + 2px);
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: var(--ink);
+  opacity: 0;
+  pointer-events: none;
+  z-index: 30;
+}
+.livro-form__delete[data-tooltip]:hover::after,
+.livro-form__delete[data-tooltip]:hover::before,
+.livro-form__delete[data-tooltip]:focus-visible::after,
+.livro-form__delete[data-tooltip]:focus-visible::before {
+  opacity: 1;
+  transition: opacity 0.12s ease 0.2s;
+}
 .livro-form .btn--block {
   margin-top: 10px;
 }

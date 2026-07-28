@@ -139,7 +139,7 @@ describe('Backoffice — Livros', () => {
     expect(screen.getByText(/^arquivado$/i)).toBeInTheDocument();
   });
 
-  it('não tem botão de excluir (exclusão é segmentada por chave admin, via curl)', async () => {
+  it('não tem botão de excluir na listagem (deletar vive no form de edição)', async () => {
     renderPage();
     await screen.findByText('A Comuna e o Fogo');
     expect(screen.queryByRole('button', { name: /excluir/i })).not.toBeInTheDocument();

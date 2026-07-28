@@ -1,8 +1,10 @@
 import { Loading } from '../../components/Loading';
+import { DangerConfirmModal } from '../../components/DangerConfirmModal';
 import { useEffect, useRef, useState } from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
-import { ApiError, apiAuthPost, apiAuthPut, apiGet } from '../../api/client';
+import { ApiError, apiAuthDelete, apiAuthGet, apiAuthPost, apiAuthPut, apiGet } from '../../api/client';
 import { clearToken } from '../../backoffice/auth';
+import type { Order } from '../../backoffice/order-status';
 import { useDirtyGuard } from '../../backoffice/useDirtyGuard';
 import { centsToText, textToCents } from '../../lib/format';
 import { socialPriceOf } from '../../lib/types';
@@ -37,6 +39,11 @@ export function LivroForm() {
   const [unauthorized, setUnauthorized] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loadingBook, setLoadingBook] = useState(editing);
+  // null = ainda não sabe (carregando/erro) → o botão fica travado; o 409 do
+  // backend é a rede de segurança de qualquer forma
+  const [hasSale, setHasSale] = useState<boolean | null>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   // sujo = campos diferentes do estado inicial (vazio ao criar, carregado ao editar)
   const snapshot = JSON.stringify([title, author, description, priceText, socialPriceText, pages, edition, year, format, state]);
@@ -88,6 +95,17 @@ export function LivroForm() {
       .finally(() => setLoadingBook(false));
   }, [editing, id]);
 
+  // trava de venda espelhada do backend: QUALQUER unidade de pedido com o
+  // title_id (qualquer status, até cancelada) segura o título
+  useEffect(() => {
+    if (!editing) return;
+    apiAuthGet<Order[]>('/backoffice/pedidos')
+      .then((orders) =>
+        setHasSale(orders.some((o) => (o.items ?? []).some((i) => i.title_id === id))),
+      )
+      .catch(() => setHasSale(null));
+  }, [editing, id]);
+
   async function submit(e: { preventDefault: () => void }) {
     e.preventDefault();
 
@@ -132,6 +150,29 @@ export function LivroForm() {
         return;
       }
       setApiError(true);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function deleteBook() {
+    setSaving(true);
+    setDeleteError(null);
+    try {
+      await apiAuthDelete(`/backoffice/livros/${id}`);
+      navigate('/backoffice/livros', { state: { toast: 'Livro deletado' } });
+    } catch (err) {
+      setConfirmingDelete(false);
+      if (err instanceof ApiError && err.status === 401) {
+        clearToken();
+        setUnauthorized(true);
+        return;
+      }
+      setDeleteError(
+        err instanceof ApiError && err.status === 409
+          ? 'O título ganhou uma venda enquanto você editava — não pode mais ser deletado.'
+          : 'Não foi possível deletar. Tente de novo.',
+      );
     } finally {
       setSaving(false);
     }
@@ -299,6 +340,38 @@ export function LivroForm() {
           {saving ? 'Salvando…' : 'Salvar'}
         </button>
       </form>
+
+      {editing && (
+        <>
+          {deleteError && (
+            <div className="alert alert--error livro-form__api-error">{deleteError}</div>
+          )}
+          {/* aria-disabled em vez de disabled: button[disabled] não dispara o
+              hover do tooltip; o guard fica no onClick */}
+          <button
+            type="button"
+            className="btn btn--danger livro-form__delete"
+            aria-disabled={hasSale !== false || undefined}
+            data-tooltip={hasSale ? 'há venda do título segurando ele' : undefined}
+            onClick={() => {
+              if (hasSale !== false) return;
+              setConfirmingDelete(true);
+            }}
+          >
+            Deletar livro
+          </button>
+        </>
+      )}
+
+      {confirmingDelete && (
+        <DangerConfirmModal
+          title="Deletar livro"
+          description="Apaga o livro da base — a operação NÃO é reversível. O arquivo da capa continua no repo e precisa ser removido à mão."
+          busy={saving}
+          onConfirm={() => void deleteBook()}
+          onClose={() => setConfirmingDelete(false)}
+        />
+      )}
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { LivroForm } from './LivroForm';
@@ -21,7 +21,7 @@ const existingBook = {
 
 let fetchMock: ReturnType<typeof vi.fn>;
 
-function stubFetch() {
+function stubFetch({ orders = [], deleteStatus = 204 }: { orders?: unknown[]; deleteStatus?: number } = {}) {
   fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
     const u = String(url);
     if (init?.method === 'POST' && u.includes('/backoffice/livros')) {
@@ -31,6 +31,16 @@ function stubFetch() {
     }
     if (init?.method === 'PUT') {
       return Promise.resolve(new Response(JSON.stringify(existingBook), { status: 200 }));
+    }
+    if (init?.method === 'DELETE') {
+      return Promise.resolve(
+        deleteStatus === 204
+          ? new Response(null, { status: 204 })
+          : new Response(JSON.stringify({ error: 'title has orders' }), { status: deleteStatus }),
+      );
+    }
+    if (u.includes('/backoffice/pedidos')) {
+      return Promise.resolve(new Response(JSON.stringify(orders), { status: 200 }));
     }
     return Promise.resolve(new Response(JSON.stringify([existingBook]), { status: 200 }));
   });
@@ -265,5 +275,62 @@ describe('LivroForm — editar', () => {
     renderForm('/backoffice/livros/b1/editar');
 
     expect(await screen.findByLabelText('Preço social (R$)')).toHaveValue('42,00');
+  });
+});
+
+describe('LivroForm — deletar', () => {
+  const saleOfB1 = {
+    id: 'PED001',
+    items: [{ unit_id: 'u1', title_id: 'b1', status: 'cancelled' }],
+  };
+
+  it('sem venda: Deletar livro abre o modal e confirmar envia DELETE e navega com toast', async () => {
+    renderForm('/backoffice/livros/b1/editar');
+
+    const btn = await screen.findByRole('button', { name: /deletar livro/i });
+    await waitFor(() => expect(btn).not.toHaveAttribute('aria-disabled'));
+
+    await userEvent.click(btn);
+    expect(screen.getByRole('dialog', { name: /deletar livro/i })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /confirmar/i }));
+    expect(await screen.findByText('LISTA LIVROS')).toBeInTheDocument();
+
+    const del = fetchMock.mock.calls.find(([, i]) => (i as RequestInit)?.method === 'DELETE');
+    expect(String(del![0])).toMatch(/\/backoffice\/livros\/b1$/);
+  });
+
+  it('com venda (até cancelada): botão desabilitado com tooltip e clique não abre modal', async () => {
+    stubFetch({ orders: [saleOfB1] });
+    renderForm('/backoffice/livros/b1/editar');
+
+    const btn = await screen.findByRole('button', { name: /deletar livro/i });
+    await waitFor(() => expect(btn).toHaveAttribute('data-tooltip'));
+    expect(btn).toHaveAttribute('aria-disabled', 'true');
+    expect(btn.getAttribute('data-tooltip')).toMatch(/venda do título/i);
+
+    await userEvent.click(btn);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(
+      fetchMock.mock.calls.filter(([, i]) => (i as RequestInit)?.method === 'DELETE'),
+    ).toHaveLength(0);
+  });
+
+  it('ao criar não há botão Deletar', () => {
+    renderForm('/backoffice/livros/novo');
+    expect(screen.queryByRole('button', { name: /deletar livro/i })).not.toBeInTheDocument();
+  });
+
+  it('DELETE 409 (venda entrou durante a edição): mostra o erro e não navega', async () => {
+    stubFetch({ deleteStatus: 409 });
+    renderForm('/backoffice/livros/b1/editar');
+
+    const btn = await screen.findByRole('button', { name: /deletar livro/i });
+    await waitFor(() => expect(btn).not.toHaveAttribute('aria-disabled'));
+    await userEvent.click(btn);
+    await userEvent.click(screen.getByRole('button', { name: /confirmar/i }));
+
+    expect(await screen.findByText(/ganhou uma venda/i)).toBeInTheDocument();
+    expect(screen.queryByText('LISTA LIVROS')).not.toBeInTheDocument();
   });
 });

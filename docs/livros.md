@@ -53,6 +53,8 @@ No front, **todo consumidor de `GET /livros` fora do catálogo usa `?state=all`*
 
 `DELETE /backoffice/livros/:id` (JWT admin) passa por `titleHasOrders` ([backoffice-livros.ts:151](../backend/src/routes/backoffice-livros.ts)): Scan **paginado** na tabela de pedidos com `FilterExpression: title_id = :t` — o loop de `LastEvaluatedKey` importa porque um miss de página liberaria deletar título vendido. Achou linha (qualquer status) → `409 {error: 'title has orders'}` sem tocar o banco. História e alternativas descartadas: [0007](decisions/0007-delete-de-livro-trava-de-venda.md).
 
+No front o botão "Deletar livro" vive no `LivroForm` (só ao editar), atrás do `DangerConfirmModal`. A trava é espelhada: o form busca `GET /backoffice/pedidos` e trava o botão se alguma unidade tem o `title_id`. **Gotcha do tooltip**: o botão usa `aria-disabled` + guard no onClick (nunca `disabled` — `button[disabled]` não dispara hover) e o texto vem de `data-tooltip`, não `aria-label` — num botão com texto visível o `aria-label` sobrescreveria o nome acessível. O CSS (`livro-form__delete`) replica a receita do `.action-icon::after`. Enquanto a checagem não resolve (`hasSale === null`), o botão fica travado sem tooltip; o 409 do backend cobre a corrida (o form mostra o erro no lugar de navegar).
+
 ## Verificação deste escopo
 
 ```sh
