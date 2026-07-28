@@ -8,7 +8,7 @@ A carga inicial veio de uma planilha: 30 pedidos históricos, com datas reais de
 
 ## Decisão
 
-1. Nascem **colunas próprias**: `ordered_at` (pedido) e `finalized_at` (unidade). `created_at`/`updated_at` passam a ser exclusivamente do sistema e **nunca** são escritos por correção.
+1. Nascem **colunas próprias**: `ordered_at` (pedido) e `finalized_at` (unidade). `created_at`/`updated_at` passam a ser exclusivamente do sistema (a regra está no [`CLAUDE.md`](../../CLAUDE.md)) e **nunca** são escritos por correção.
 2. O front **prefere** as editáveis na exibição: `orderedAt(order)` e `finalizedAtOf(item)` com fallback para as colunas de sistema.
 3. O builder de update foi partido em dois: `applyUpdate` (operacional, grava `updated_at`) e `applyEdit` (correção, **não** grava).
 4. Rotas administrativas (todas admin): `PUT /:id` (nome + `ordered_at`, em todas as linhas do pedido) e `PUT /:id/unidades/:unitId` (valor, `finalized_at`, status, preço social, observação).

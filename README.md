@@ -8,6 +8,7 @@ Webapp de livraria **social, sem fim de lucro**, de um coletivo local: catálogo
 - **backend/** — Node 20 TS, Hono numa única Lambda (Serverless Framework v3), DynamoDB, `sa-east-1`
 - Design: fonte da verdade no projeto Claude Design "Livraria local design system"
 - Regras de negócio e convenções completas: [CLAUDE.md](CLAUDE.md)
+- Mapa do código, decisões (ADRs) e armadilhas: [docs/](docs/README.md)
 
 ## Ambientes
 
@@ -55,6 +56,9 @@ npm run deploy:dev / deploy:prd
 node scripts/backfill-social-price.mjs <stage>   # social_price = price nos livros sem o campo
 node scripts/backfill-slug.mjs <stage> [--dry-run]  # slug do titulo; imprime o mapa id->slug (renomear as capas e manual)
 node scripts/clean-dev-tables.mjs                # zera pedidos/lotes do DEV (preserva livros)
+# raiz
+node scripts/check-docs.mjs   # auditoria mecanica dos docs (links, linhas citadas, regra duplicada)
+
 # frontend
 npm run dev       # localhost:5173 (aponta pra API dev)
 ```

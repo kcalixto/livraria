@@ -4,7 +4,7 @@
 
 ## Contexto
 
-O projeto tem uma regra fundadora: **toda ação administrativa é reversível**, porque erro humano acontece (liberar reserva volta pra espera, desfazer retirada idem — ambos devolvem a unidade ao lote). Faltava cancelar: pessoa desiste de um título de um pedido de vários, ou o livro não aparece.
+O projeto tem uma regra fundadora: **toda ação administrativa é reversível** ([`CLAUDE.md`](../../CLAUDE.md)), porque erro humano acontece (liberar reserva volta pra espera, desfazer retirada idem — ambos devolvem a unidade ao lote). Faltava cancelar: pessoa desiste de um título de um pedido de vários, ou o livro não aparece.
 
 ## Decisão
 

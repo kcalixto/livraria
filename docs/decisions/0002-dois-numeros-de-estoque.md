@@ -4,7 +4,7 @@
 
 ## Contexto
 
-A vitrine mostrava `available = adquirido − reservado − retirado − vendido`. Unidade em `waiting-payment` (pedido criado, ainda não pago) **não** era descontada, porque a criação de pedido nunca valida nem aloca estoque — regra deliberada do projeto. Resultado: um livro com 4 exemplares e 4 pedidos não pagos continuava anunciando 4, e a livraria poderia vender o que já estava prometido.
+A vitrine mostrava `available = adquirido − reservado − retirado − vendido`. Unidade em `waiting-payment` (pedido criado, ainda não pago) **não** era descontada, porque a criação de pedido nunca valida nem aloca estoque — regra deliberada do projeto ([`CLAUDE.md`](../../CLAUDE.md)). Resultado: um livro com 4 exemplares e 4 pedidos não pagos continuava anunciando 4, e a livraria poderia vender o que já estava prometido.
 
 O dono pediu que a vitrine descontasse **toda** unidade presa em pedido aberto, incluindo as não pagas, valendo também para o ESGOTADO e para o botão de comprar.
 

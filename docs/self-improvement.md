@@ -26,18 +26,17 @@ Se a sessão mexeu em código de produção:
 
 ## Auditoria (rodar de vez em quando)
 
-O que varrer, e o comando que responde:
+### O que é automático
 
-- **Ponteiro apodrecido**: cada `file:line` citado nos docs ainda aponta pro que o doc afirma?
-  ```sh
-  grep -rno '](\.\./[^)]*\.\(ts\|tsx\|css\|yml\)' docs/ | head -40   # lista as referências
-  ```
-  Conferir por amostragem com `grep -n` no arquivo citado. Doc que aponta pra linha errada é pior que doc ausente.
-- **Regra duplicada**: alguma frase imperativa do `CLAUDE.md` foi reescrita num doc de escopo? Se sim, apague do escopo e deixe o link.
+```sh
+node scripts/check-docs.mjs
+```
+
+Checa o que não exige julgamento: todo link resolve, toda linha citada no rótulo (`[arquivo.ts:NN]`) existe no arquivo, e nenhuma regra do `CLAUDE.md` foi copiada para um doc de escopo. Sai com código != 0 se achar problema. Os trechos de regra são derivados do próprio `CLAUDE.md` a cada execução, então a checagem não apodrece junto com o texto.
+
+### O que continua manual (e por quê)
+
+- **A linha citada ainda FAZ o que o doc afirma?** Isso exige julgamento — um checador que só confirma "a linha existe" dá falsa segurança. Confira por amostragem com `grep -n` nas âncoras do escopo que você tocou. Doc que aponta pra linha errada é pior que doc ausente.
 - **Escopo órfão**: área nova no código sem doc em `docs/`.
-- **Skill defasada**: os comandos das skills de rito ainda funcionam? (`deploy-dev` e `verificar-dev` são executáveis — rodar é a verificação.)
+- **Skill defasada**: os comandos das skills de rito ainda funcionam? `deploy-dev` e `verificar-dev` são executáveis — rodar **é** a verificação.
 - **Backlog resolvido**: item do backlog do `CLAUDE.md` que já foi feito e ninguém removeu.
-
-## Por que não há automação
-
-Nem lint de markdown, nem validação automática dos `file:line`. A veracidade dos ponteiros exige julgamento ("a linha ainda faz o que o doc diz?"), e um linter que só checasse existência de arquivo daria falsa segurança. Se um dia doer, o caminho é um script que extrai as referências e falha quando o arquivo citado não contém mais o símbolo mencionado.
