@@ -248,7 +248,7 @@ export function LoteDetail() {
                 onChange={(e) => setObsText(e.target.value)}
               />
               <div className="lote-form__counter">{obsText.length}/200</div>
-              <div className="lote-detail__obs-header">
+              <div className="lote-detail__obs-actions">
                 <button
                   className="btn btn--primary lote-detail__obs-save"
                   disabled={obsSaving}

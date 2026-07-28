@@ -2973,6 +2973,23 @@ a.btn--secondary:hover {
   text-transform: uppercase;
   color: var(--muted);
 }
+/* o header da tabela é sticky e pinta 16px ACIMA de si (box-shadow que cobre o
+   padding do container ao grudar no topo): quem vem antes dele precisa de folga
+   maior que isso, senão fica recortado — foi o que aconteceu com este botão */
+.lote-detail__obs-add {
+  display: inline-flex;
+  margin-bottom: 18px;
+}
+/* Salvar/Cancelar da edição: juntos à esquerda, não espalhados na largura */
+.lote-detail__obs-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+.lote-detail__obs-save {
+  padding: 8px 14px;
+}
 
 /* card de pedido recolhível: header clicável + chevron (o controle acessível) */
 .order-card__header {
