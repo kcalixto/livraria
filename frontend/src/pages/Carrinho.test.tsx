@@ -137,6 +137,30 @@ describe('Carrinho', () => {
     });
   });
 
+  it('done: botão de WhatsApp abre a conversa da livraria com o código no texto', async () => {
+    seedCart();
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response(JSON.stringify({ id: 'AJ3C9K' }), { status: 201 })),
+    );
+    renderPage();
+
+    await userEvent.click(screen.getByRole('button', { name: /gerar pedido/i }));
+    await userEvent.type(screen.getByLabelText(/nome ou vulgo/i), 'Camarada Rosa');
+    await userEvent.type(screen.getByLabelText(/contato/i), '(11) 9 8888-0000');
+    await userEvent.click(screen.getByRole('button', { name: /enviar pedido/i }));
+    await screen.findByText(/pedido enviado/i);
+
+    const zap = screen.getByRole('link', { name: /enviar pelo whatsapp/i });
+    const href = zap.getAttribute('href')!;
+    expect(href).toContain('https://wa.me/5511933938090');
+    // o código vai no texto: o cliente não precisa digitar
+    expect(decodeURIComponent(href)).toContain('AJ3-C9K');
+    // link externo abre em nova aba sem vazar a referência da janela
+    expect(zap).toHaveAttribute('target', '_blank');
+    expect(zap.getAttribute('rel')).toContain('noopener');
+  });
+
   it('mostra erro quando a API falha, sem limpar o carrinho', async () => {
     seedCart();
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('err', { status: 500 })));

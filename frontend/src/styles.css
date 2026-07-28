@@ -3029,3 +3029,27 @@ a.btn--secondary:hover {
     width: 26px;
   }
 }
+
+/* Atalho de WhatsApp na tela de pedido enviado: exceção deliberada à paleta
+   papel/tinta/vinho — o verde é o que faz o botão ser reconhecido na hora. */
+.order-done__whatsapp {
+  /* .order-done é bloco centralizado por texto: sem sair do fluxo inline, este
+     botão dividiria a linha com o link "Acompanhar pedido" */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  width: fit-content;
+  margin: 16px auto 0;
+  padding: 12px 20px;
+  color: #fff;
+  background: #25d366; /* verde oficial da marca */
+  border: none;
+}
+.order-done__whatsapp:hover {
+  background: #1da851;
+}
+.order-done__whatsapp:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
