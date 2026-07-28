@@ -31,9 +31,9 @@ beforeEach(() => {
   // teste de colisão sobrescreve este mock com os slugs que quiser
   ddbMock.on(ScanCommand).resolves({ Items: [] });
   process.env.LIVRARIA_FRONT_END_API_KEY = 'chave-front';
-  process.env.BACKOFFICE_ADMIN_API_KEY = 'chave-admin';
   process.env.JWT_SECRET = 'segredo-jwt-teste';
   process.env.LIVROS_TABLE_NAME = 'livraria-tb-livros-test';
+  process.env.PEDIDOS_TABLE_NAME = 'livraria-tb-pedidos-test';
 });
 
 describe('POST /backoffice/livros', () => {
@@ -326,13 +326,16 @@ describe('PUT /backoffice/livros/:id', () => {
   });
 });
 
-describe('DELETE /backoffice/livros/:id (segmentado por chave admin)', () => {
-  it('deleta e retorna 204 com JWT + x-admin-api-key corretos', async () => {
+describe('DELETE /backoffice/livros/:id (trava de venda)', () => {
+  it('deleta e retorna 204 com JWT admin quando o título não tem pedido', async () => {
+    ddbMock
+      .on(ScanCommand, { TableName: 'livraria-tb-pedidos-test' })
+      .resolves({ Items: [] });
     ddbMock.on(DeleteCommand).resolves({});
 
     const res = await app.request('/backoffice/livros/b1', {
       method: 'DELETE',
-      headers: { ...(await authHeaders()), 'x-admin-api-key': 'chave-admin' },
+      headers: await authHeaders(),
     });
 
     expect(res.status).toBe(204);
@@ -341,27 +344,54 @@ describe('DELETE /backoffice/livros/:id (segmentado por chave admin)', () => {
     expect(input.Key).toEqual({ id: 'b1' });
   });
 
-  it('retorna 401 sem x-admin-api-key (mesmo com JWT válido)', async () => {
+  it('retorna 409 quando existe pedido com o title_id (qualquer status, até cancelado)', async () => {
+    ddbMock
+      .on(ScanCommand, { TableName: 'livraria-tb-pedidos-test' })
+      .resolves({ Items: [{ id: 'PED001', title_id: 'b1', status: 'cancelled' }] });
+
     const res = await app.request('/backoffice/livros/b1', {
       method: 'DELETE',
       headers: await authHeaders(),
     });
-    expect(res.status).toBe(401);
+
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({ error: 'title has orders' });
+    expect(ddbMock.commandCalls(DeleteCommand)).toHaveLength(0);
   });
 
-  it('retorna 401 com x-admin-api-key incorreta', async () => {
+  it('confere todas as páginas do Scan de pedidos antes de liberar', async () => {
+    ddbMock
+      .on(ScanCommand, { TableName: 'livraria-tb-pedidos-test' })
+      .resolvesOnce({ Items: [], LastEvaluatedKey: { id: 'PED001', book_id: 'x#y' } })
+      .resolvesOnce({ Items: [{ id: 'PED002', title_id: 'b1' }] });
+
     const res = await app.request('/backoffice/livros/b1', {
       method: 'DELETE',
-      headers: { ...(await authHeaders()), 'x-admin-api-key': 'errada' },
+      headers: await authHeaders(),
     });
-    expect(res.status).toBe(401);
+
+    expect(res.status).toBe(409);
+    expect(ddbMock.commandCalls(DeleteCommand)).toHaveLength(0);
   });
 
   it('retorna 401 sem JWT', async () => {
     const res = await app.request('/backoffice/livros/b1', {
       method: 'DELETE',
-      headers: { 'x-api-key': 'chave-front', 'x-admin-api-key': 'chave-admin' },
+      headers: { 'x-api-key': 'chave-front' },
     });
     expect(res.status).toBe(401);
+  });
+
+  it('retorna 401 com role viewer (escrita é só do admin)', async () => {
+    const token = await sign(
+      { role: 'viewer', exp: Math.floor(Date.now() / 1000) + 3600 },
+      'segredo-jwt-teste',
+    );
+    const res = await app.request('/backoffice/livros/b1', {
+      method: 'DELETE',
+      headers: { 'x-api-key': 'chave-front', authorization: `Bearer ${token}` },
+    });
+    expect(res.status).toBe(401);
+    expect(ddbMock.commandCalls(DeleteCommand)).toHaveLength(0);
   });
 });

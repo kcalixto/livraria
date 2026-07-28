@@ -34,6 +34,8 @@ TOKEN=$(curl -s -X POST "$API/backoffice/login" -H "x-api-key: $KEY" \
    - a unidade sai com **`lote_id` preenchido**.
    Se isso falhar, alguém mexeu em `available` — ver `docs/decisions/0002-dois-numeros-de-estoque.md`.
 5. **Observação de lote** — `POST /backoffice/lotes` com `observation` grava aparada; linha com `amount: 0` é descartada; `PATCH /backoffice/lotes/:id` edita; observação vazia **remove** o atributo; 201 chars dá **400**.
+6. **State do livro** — `PUT` com `{state: 'archived'}`: o título some do `GET /livros` mas aparece em `GET /livros?state=all`; `{state: 'qualquer-outra-coisa'}` dá **400**; reative com `{state: 'active'}`.
+7. **Trava de venda do delete** — `DELETE /backoffice/livros/:id` de um título que TEM pedido (use o do passo 3) responde **409** `{error: 'title has orders'}`; de um título recém-criado sem pedido, **204**.
 
 Escreva tudo num script `zsh` no scratchpad e rode de uma vez — as etapas dependem dos ids das anteriores. Use `node -pe` para extrair campos do JSON (sem `jq`, que pode não existir).
 
@@ -43,11 +45,10 @@ Escreva tudo num script `zsh` no scratchpad e rode de uma vez — as etapas depe
 # pedidos de teste (filtre pelo nome que você usou)
 curl -s -X DELETE "$API/backoffice/pedidos/<ID>" -H "x-api-key: $KEY" -H "authorization: Bearer $TOKEN"
 
-# livros de teste exigem a segunda chave
-ADMIN=$(aws ssm get-parameter --name /livraria/backoffice-admin-api-key --with-decryption \
-  --query 'Parameter.Value' --output text --region sa-east-1)
+# livros de teste: o DELETE responde 409 se o título tiver QUALQUER pedido
+# (até cancelado) — apague os pedidos de teste ANTES dos livros
 curl -s -X DELETE "$API/backoffice/livros/<ID>" -H "x-api-key: $KEY" \
-  -H "authorization: Bearer $TOKEN" -H "x-admin-api-key: $ADMIN"
+  -H "authorization: Bearer $TOKEN"
 
 # lote de teste: NÃO existe rota de delete de lote — apague o item na tabela dev
 aws dynamodb delete-item --region sa-east-1 --table-name livraria-tb-lotes-dev \

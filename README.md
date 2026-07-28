@@ -42,7 +42,7 @@ GitHub Actions (`.github/workflows/deploy.yml`): testes em todo push/PR; push na
 | `stock` | `/livraria/backoffice-stock-key` | 24h | leitura de estoque + livros |
 
   Fora do escopo do token a API responde **401** (`requireRole` por rota); o front esconde abas/ações, mas a fronteira é o backend.
-- **Exclusão de livro** exige, além do JWT admin, o header `x-admin-api-key` (`/livraria/backoffice-admin-api-key`) — só via curl.
+- **Exclusão de livro** (JWT admin, botão no form de edição) só é possível para título sem nenhum pedido — com pedido a API responde **409** (título com venda é imortal; tirar da loja é arquivar).
 - SSM resolvido em **deploy-time** → rotação de qualquer segredo exige redeploy. ⚠️ Os params são compartilhados entre dev e prd.
 
 ## Comandos
@@ -72,8 +72,8 @@ TOKEN=$(curl -s -X POST $API/backoffice/login -H "x-api-key: $KEY" -H 'content-t
 curl -X POST $API/backoffice/livros -H "authorization: Bearer $TOKEN" -H "x-api-key: $KEY" -H 'content-type: application/json' \
   -d '{"title":"...","description":"par1\n\npar2","price":4200,"social_price":3000,"author":"...","pages":288,"edition":"2ª","year":2024,"format":"Ensaio"}'
 
-# excluir (segmentado — sem botão no front)
-curl -X DELETE $API/backoffice/livros/<id> -H "authorization: Bearer $TOKEN" -H "x-api-key: $KEY" -H "x-admin-api-key: $ADMIN_KEY"
+# excluir (só título sem pedido; com pedido responde 409)
+curl -X DELETE $API/backoffice/livros/<id> -H "authorization: Bearer $TOKEN" -H "x-api-key: $KEY"
 ```
 
 ## Fluxo do pedido (resumo)

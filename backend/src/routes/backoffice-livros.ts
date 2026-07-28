@@ -3,7 +3,6 @@ import { DeleteCommand, PutCommand, ScanCommand, UpdateCommand } from '@aws-sdk/
 import { ConditionalCheckFailedException } from '@aws-sdk/client-dynamodb';
 import { docClient } from '../lib/db';
 import { slugify } from '../lib/slug';
-import { adminApiKeyMiddleware } from '../middlewares/admin-api-key';
 import { jwtMiddleware } from '../middlewares/jwt';
 import { requireRole } from '../middlewares/require-role';
 
@@ -144,7 +143,33 @@ backofficeLivros.put('/:id', requireRole('admin'), async (c) => {
   }
 });
 
-backofficeLivros.delete('/:id', requireRole('admin'), adminApiKeyMiddleware, async (c) => {
+// título com pedido é imortal: QUALQUER linha na tabela de pedidos (qualquer
+// status, até cancelado) segura o livro — deletar quebraria o histórico que
+// referencia o title_id. Tirar da loja é arquivar, não deletar. Sem GSI por
+// title_id, então Scan paginado: um miss de página liberaria deletar título
+// vendido, e a tabela é pequena.
+async function titleHasOrders(titleId: string): Promise<boolean> {
+  let key: Record<string, unknown> | undefined;
+  do {
+    const page = await docClient.send(
+      new ScanCommand({
+        TableName: process.env.PEDIDOS_TABLE_NAME,
+        FilterExpression: 'title_id = :t',
+        ExpressionAttributeValues: { ':t': titleId },
+        ProjectionExpression: 'id',
+        ExclusiveStartKey: key,
+      }),
+    );
+    if ((page.Items ?? []).length > 0) return true;
+    key = page.LastEvaluatedKey;
+  } while (key);
+  return false;
+}
+
+backofficeLivros.delete('/:id', requireRole('admin'), async (c) => {
+  if (await titleHasOrders(c.req.param('id'))) {
+    return c.json({ error: 'title has orders' }, 409);
+  }
   await docClient.send(
     new DeleteCommand({
       TableName: process.env.LIVROS_TABLE_NAME,

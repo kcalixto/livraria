@@ -1,6 +1,6 @@
 # Auth e perfis de acesso
 
-> Regras: [`CLAUDE.md`](../CLAUDE.md) (duas camadas, matriz de perfis, exclusão segmentada). Aqui: onde está cada gate e o que acontece se você esquecer um.
+> Regras: [`CLAUDE.md`](../CLAUDE.md) (duas camadas, matriz de perfis). Aqui: onde está cada gate e o que acontece se você esquecer um.
 
 ## Duas camadas, propósitos diferentes
 
@@ -8,7 +8,8 @@
 |---|---|---|
 | `x-api-key` global | fricção anti-bot em **todas** as rotas | `backend/src/middlewares/api-key.ts` |
 | JWT por perfil | autorização real do backoffice | `backend/src/middlewares/jwt.ts` + `require-role.ts` |
-| `x-admin-api-key` | segunda chave para a ação destrutiva (DELETE de livro) | `backend/src/middlewares/admin-api-key.ts` |
+
+O DELETE de livro já teve uma terceira camada (`x-admin-api-key`); ela foi substituída pela trava de venda — ver [0007](decisions/0007-delete-de-livro-trava-de-venda.md).
 
 A api key **não é segredo**: ela embarca no bundle via `VITE_API_KEY`. Tratá-la como segredo é o erro conceitual a evitar — ela existe para elevar o custo de script automatizado, não para autenticar.
 

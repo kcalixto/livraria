@@ -49,9 +49,9 @@ O livro tem `state` (`active` | `archived`), validado em POST e PUT por `invalid
 
 No front, **todo consumidor de `GET /livros` fora do catálogo usa `?state=all`** — são 7 call sites (Livros, Estoque, LoteForm, LoteDetail, `useOrders`, ConsultarPedido e o próprio LivroForm); só `pages/Catalogo.tsx` fica no default. O do LivroForm é o menos óbvio: sem ele, livro arquivado não abre no form e **nunca pode ser reativado**. O select Estado (`livro-form__state--active|archived`, verde/cinza) só existe ao editar, e a listagem Livros marca arquivado com o mesmo badge do "sem capa".
 
-## Exclusão segmentada
+## Exclusão com trava de venda
 
-`DELETE /backoffice/livros/:id` exige JWT admin **e** o header `x-admin-api-key` ([backoffice-livros.ts:147](../backend/src/routes/backoffice-livros.ts)) — dois middlewares em série. Não há botão no front: só curl por quem tem a chave.
+`DELETE /backoffice/livros/:id` (JWT admin) passa por `titleHasOrders` ([backoffice-livros.ts:151](../backend/src/routes/backoffice-livros.ts)): Scan **paginado** na tabela de pedidos com `FilterExpression: title_id = :t` — o loop de `LastEvaluatedKey` importa porque um miss de página liberaria deletar título vendido. Achou linha (qualquer status) → `409 {error: 'title has orders'}` sem tocar o banco. História e alternativas descartadas: [0007](decisions/0007-delete-de-livro-trava-de-venda.md).
 
 ## Verificação deste escopo
 
