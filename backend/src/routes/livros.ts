@@ -15,7 +15,11 @@ livros.get('/livros', async (c) => {
 
   // capa não vem da API: o front resolve /images/<stage>/<slug>.jpg
   const items: Record<string, unknown>[] = result.Items ?? [];
+  const stateParam = c.req.query('state');
   const books = items
+    // vitrine só vê active (ausência de state = active, acervo legado);
+    // ?state=all serve backoffice e consulta de pedido (título arquivado não some do histórico)
+    .filter((item) => stateParam === 'all' || (item.state ?? 'active') === 'active')
     .sort((a, b) => String(b.created_at ?? '').localeCompare(String(a.created_at ?? '')))
     .map((item) => ({
       ...item,

@@ -6,7 +6,8 @@ Três telas, uma jornada: navegar → pedir → acompanhar. No backend, **um arq
 
 ## Catálogo (`frontend/src/pages/Catalogo.tsx`)
 
-- `GET /livros` devolve `amount = sellable` ([livros.ts:24](../backend/src/routes/livros.ts)) — o número **líquido**, que já desconta pedido não pago. Ver [estoque-e-lotes.md](estoque-e-lotes.md).
+- `GET /livros` devolve `amount = sellable` ([livros.ts:28](../backend/src/routes/livros.ts)) — o número **líquido**, que já desconta pedido não pago. Ver [estoque-e-lotes.md](estoque-e-lotes.md).
+- Livro `archived` não vem na resposta (ausência de `state` = active); o catálogo não filtra nada — o corte é no backend, e `?state=all` existe para o backoffice e a consulta de pedido. Ver [livros.md](livros.md).
 - `amount === 0` → ESGOTADO, e esgotados vão pro fim da lista com sort **estável** (preserva o `created_at desc` que o backend já mandou).
 - Busca por título é client-side com `normalizeText` (acento-insensível), aplicada **antes** do sort de esgotados.
 - `components/StockBadge.tsx` fala **"na região"** genérico, não o nome da região: `ACTIVE_REGION` ("SP, Capital — Zona Sul") não cabe numa badge e a região ativa já aparece no topo do catálogo. Singular tem texto próprio ("Último disponível na região").

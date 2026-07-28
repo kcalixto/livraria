@@ -156,6 +156,31 @@ describe('POST /backoffice/livros', () => {
     expect(body).not.toHaveProperty('description');
   });
 
+  it('grava state active por padrão (livro novo nasce visível na loja)', async () => {
+    ddbMock.on(PutCommand).resolves({});
+
+    const res = await app.request('/backoffice/livros', {
+      method: 'POST',
+      body: JSON.stringify(validBody),
+      headers: await authHeaders(),
+    });
+
+    expect(res.status).toBe(201);
+    expect((await res.json()) as Record<string, unknown>).toMatchObject({ state: 'active' });
+    expect(ddbMock.commandCalls(PutCommand)[0].args[0].input.Item).toMatchObject({
+      state: 'active',
+    });
+  });
+
+  it('retorna 400 quando state não é active nem archived', async () => {
+    const res = await app.request('/backoffice/livros', {
+      method: 'POST',
+      body: JSON.stringify({ ...validBody, state: 'deleted' }),
+      headers: await authHeaders(),
+    });
+    expect(res.status).toBe(400);
+  });
+
   it('retorna 400 quando price não é inteiro (centavos)', async () => {
     const res = await app.request('/backoffice/livros', {
       method: 'POST',
@@ -244,6 +269,29 @@ describe('PUT /backoffice/livros/:id', () => {
     const input = ddbMock.commandCalls(UpdateCommand)[0].args[0].input;
     expect(input.UpdateExpression).not.toContain('slug');
     expect(ddbMock.commandCalls(ScanCommand)).toHaveLength(0);
+  });
+
+  it('atualiza o state (arquivar/reativar pelo form de edição)', async () => {
+    ddbMock.on(UpdateCommand).resolves({ Attributes: { id: 'b1', state: 'archived' } });
+
+    const res = await app.request('/backoffice/livros/b1', {
+      method: 'PUT',
+      body: JSON.stringify({ state: 'archived' }),
+      headers: await authHeaders(),
+    });
+
+    expect(res.status).toBe(200);
+    const input = ddbMock.commandCalls(UpdateCommand)[0].args[0].input;
+    expect(input.ExpressionAttributeValues?.[':state']).toBe('archived');
+  });
+
+  it('retorna 400 quando o state do PUT é inválido', async () => {
+    const res = await app.request('/backoffice/livros/b1', {
+      method: 'PUT',
+      body: JSON.stringify({ state: 'sumido' }),
+      headers: await authHeaders(),
+    });
+    expect(res.status).toBe(400);
   });
 
   it('retorna 400 quando social_price do PUT é inválido', async () => {

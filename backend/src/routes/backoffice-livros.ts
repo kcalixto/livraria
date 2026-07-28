@@ -9,11 +9,18 @@ import { requireRole } from '../middlewares/require-role';
 
 // social_price: preço pra quem não pode pagar o cheio (regra da livraria social)
 const REQUIRED_FIELDS = ['title', 'price', 'social_price'] as const;
-const OPTIONAL_FIELDS = ['description', 'author', 'pages', 'edition', 'year', 'format'] as const;
+const OPTIONAL_FIELDS = ['description', 'author', 'pages', 'edition', 'year', 'format', 'state'] as const;
 const ALL_FIELDS = [...REQUIRED_FIELDS, ...OPTIONAL_FIELDS];
 
 function invalidPrice(price: unknown): boolean {
   return typeof price !== 'number' || !Number.isInteger(price) || price < 0;
+}
+
+// archived some da vitrine mas segue no backoffice; ausência = active (legado)
+const BOOK_STATES = ['active', 'archived'];
+
+function invalidState(state: unknown): boolean {
+  return state !== undefined && !BOOK_STATES.includes(state as string);
 }
 
 // Slug derivado do título, único no acervo. O Scan projeta só id+slug e o
@@ -58,6 +65,9 @@ backofficeLivros.post('/', requireRole('admin'), async (c) => {
   if (invalidPrice(body.social_price)) {
     return c.json({ error: 'social_price must be a non-negative integer (cents)' }, 400);
   }
+  if (invalidState(body.state)) {
+    return c.json({ error: 'state must be active or archived' }, 400);
+  }
 
   const now = new Date().toISOString();
   const book: Record<string, unknown> = {
@@ -65,6 +75,7 @@ backofficeLivros.post('/', requireRole('admin'), async (c) => {
     // fora de ALL_FIELDS de propósito: o cliente nunca escolhe o slug (o loop
     // abaixo só copia campos conhecidos, então body.slug é ignorado)
     slug: await uniqueSlug(body.title),
+    state: 'active', // livro novo nasce visível na loja; o loop sobrescreve se o body mandar
     created_at: now,
     updated_at: now,
   };
@@ -91,6 +102,9 @@ backofficeLivros.put('/:id', requireRole('admin'), async (c) => {
   }
   if (body.social_price !== undefined && invalidPrice(body.social_price)) {
     return c.json({ error: 'social_price must be a non-negative integer (cents)' }, 400);
+  }
+  if (invalidState(body.state)) {
+    return c.json({ error: 'state must be active or archived' }, 400);
   }
 
   const setParts: string[] = updates.map((f) => `#${f} = :${f}`);

@@ -8,11 +8,11 @@
 
 O charset é restrito a `[a-z0-9-]` de propósito: o slug vira nome de arquivo, chave de S3 e path de CloudFront — nada que precise de encoding.
 
-**Como o cliente é impedido de escolher o slug** ([backoffice-livros.ts:65-71](../backend/src/routes/backoffice-livros.ts)): o slug entra no objeto ao lado de `id`/`created_at`, e o loop que copia campos do body só percorre `ALL_FIELDS` — onde `slug` **não está**. Então `body.slug` é silenciosamente ignorado. Não é validação; é ausência de caminho.
+**Como o cliente é impedido de escolher o slug** ([backoffice-livros.ts:74-84](../backend/src/routes/backoffice-livros.ts)): o slug entra no objeto ao lado de `id`/`created_at`, e o loop que copia campos do body só percorre `ALL_FIELDS` — onde `slug` **não está**. Então `body.slug` é silenciosamente ignorado. Não é validação; é ausência de caminho.
 
-**Unicidade** (`uniqueSlug`, [backoffice-livros.ts:24](../backend/src/routes/backoffice-livros.ts)): Scan projetando só `id, slug`, monta o conjunto de tomados ignorando o próprio id, e sufixa `-2`, `-3`… O Scan cabe numa página (dezenas de livros). **Risco aceito e documentado no código**: dois POSTs simultâneos podem gerar slug duplicado — DynamoDB não tem unique constraint sem tabela auxiliar, e a livraria opera com um admin. Se acontecer, duas capas apontam pro mesmo arquivo e isso aparece na hora na tela Livros.
+**Unicidade** (`uniqueSlug`, [backoffice-livros.ts:31](../backend/src/routes/backoffice-livros.ts)): Scan projetando só `id, slug`, monta o conjunto de tomados ignorando o próprio id, e sufixa `-2`, `-3`… O Scan cabe numa página (dezenas de livros). **Risco aceito e documentado no código**: dois POSTs simultâneos podem gerar slug duplicado — DynamoDB não tem unique constraint sem tabela auxiliar, e a livraria opera com um admin. Se acontecer, duas capas apontam pro mesmo arquivo e isso aparece na hora na tela Livros.
 
-**Editar o título regera o slug** ([backoffice-livros.ts:107-109](../backend/src/routes/backoffice-livros.ts)). O `selfId` é obrigatório: sem ele o livro colidiria consigo mesmo e viraria `-2` a cada save. Consequência assumida: o arquivo da capa continua com o nome velho e a capa **cai no placeholder** até alguém renomear o `.jpg` no repo — por isso o aviso do form mostra o nome real do arquivo (`LivroForm.tsx`, bloco `.livro-form__cover-note`).
+**Editar o título regera o slug** ([backoffice-livros.ts:121-123](../backend/src/routes/backoffice-livros.ts)). O `selfId` é obrigatório: sem ele o livro colidiria consigo mesmo e viraria `-2` a cada save. Consequência assumida: o arquivo da capa continua com o nome velho e a capa **cai no placeholder** até alguém renomear o `.jpg` no repo — por isso o aviso do form mostra o nome real do arquivo (`LivroForm.tsx`, bloco `.livro-form__cover-note`).
 
 ## Capas: sem fallback
 
@@ -41,9 +41,15 @@ O `slugify` está **duplicado** dentro do script (é `.mjs`, não importa TS). A
 
 Ordem segura em produção — e por quê: rodar o backfill **antes** do deploy é seguro porque o bundle no ar ignora o campo `slug`; o inverso (bundle novo + banco sem slug + arquivos já renomeados) derruba **todas** as capas. Ver [`decisions/0001-slug-e-capa-por-slug.md`](decisions/0001-slug-e-capa-por-slug.md).
 
+## State: active / archived
+
+O livro tem `state` (`active` | `archived`), validado em POST e PUT por `invalidState` ([backoffice-livros.ts:22](../backend/src/routes/backoffice-livros.ts)) — valor fora da lista é 400. POST grava `active` no objeto base ([backoffice-livros.ts:78](../backend/src/routes/backoffice-livros.ts)), então livro novo nasce visível; o campo entrou em `OPTIONAL_FIELDS`, então o PUT atualiza pelo mesmo UpdateExpression dinâmico dos demais.
+
+**Ausência de `state` = active** — é o que dispensa backfill do acervo legado. O filtro vive no `GET /livros` ([livros.ts:22](../backend/src/routes/livros.ts)): a vitrine só recebe active, e `?state=all` devolve o acervo inteiro. Quem precisa do `all`: as telas do backoffice (um livro arquivado continua tendo estoque físico e histórico) e a consulta pública de pedido (o nome de um título arquivado não pode sumir de um pedido antigo). Armadilha: qualquer valor de `?state` que não seja `all` cai no default silenciosamente — não há validação do param, de propósito (contrato mínimo dos testes).
+
 ## Exclusão segmentada
 
-`DELETE /backoffice/livros/:id` exige JWT admin **e** o header `x-admin-api-key` ([backoffice-livros.ts:133](../backend/src/routes/backoffice-livros.ts)) — dois middlewares em série. Não há botão no front: só curl por quem tem a chave.
+`DELETE /backoffice/livros/:id` exige JWT admin **e** o header `x-admin-api-key` ([backoffice-livros.ts:147](../backend/src/routes/backoffice-livros.ts)) — dois middlewares em série. Não há botão no front: só curl por quem tem a chave.
 
 ## Verificação deste escopo
 

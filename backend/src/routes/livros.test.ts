@@ -96,6 +96,35 @@ describe('GET /livros', () => {
     expect(comLote).not.toHaveProperty('image_url');
   });
 
+  it('não retorna livros arquivados (state=archived); sem state = ativo', async () => {
+    ddbMock.on(ScanCommand, { TableName: 'livraria-tb-livros-test' }).resolves({
+      Items: [
+        { id: 'ativo', title: 'Ativo Explícito', price: 100, state: 'active' },
+        { id: 'arquivado', title: 'Arquivado', price: 100, state: 'archived' },
+        { id: 'legado', title: 'Legado Sem State', price: 100 },
+      ],
+    });
+
+    const res = await app.request('/livros', { headers: KEY_HEADER });
+    const body = (await res.json()) as Array<{ id: string }>;
+
+    expect(body.map((b) => b.id).sort()).toEqual(['ativo', 'legado']);
+  });
+
+  it('?state=all retorna também os arquivados (backoffice e consulta de pedido)', async () => {
+    ddbMock.on(ScanCommand, { TableName: 'livraria-tb-livros-test' }).resolves({
+      Items: [
+        { id: 'ativo', title: 'Ativo', price: 100, state: 'active' },
+        { id: 'arquivado', title: 'Arquivado', price: 100, state: 'archived' },
+      ],
+    });
+
+    const res = await app.request('/livros?state=all', { headers: KEY_HEADER });
+    const body = (await res.json()) as Array<{ id: string }>;
+
+    expect(body.map((b) => b.id).sort()).toEqual(['arquivado', 'ativo']);
+  });
+
   it('amount da vitrine desconta também pedidos aguardando pagamento', async () => {
     ddbMock.on(ScanCommand, { TableName: 'livraria-tb-livros-test' }).resolves({
       Items: [{ id: 'b1', title: 'Com Lote', price: 5000 }],
