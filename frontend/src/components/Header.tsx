@@ -1,8 +1,8 @@
 import { Link } from "react-router-dom";
-import { useCart } from "../cart/CartContext";
-import { RegionPicker } from "./RegionPicker";
-import { ActionGlyph, ActionIcon } from "./ActionIcon";
 import { useIsMobile } from "../backoffice/useIsMobile";
+import { useCart } from "../cart/CartContext";
+import { ActionGlyph } from "./ActionIcon";
+import { RegionPicker } from "./RegionPicker";
 
 export function Header() {
   const { count } = useCart();
