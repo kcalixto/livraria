@@ -75,6 +75,7 @@ provider:
             - !GetAtt TabelaLivros.Arn
             - !GetAtt TabelaPedidos.Arn
             - !GetAtt TabelaLotes.Arn
+            - !GetAtt TabelaLeituras.Arn
             - !Sub '${TabelaPedidos.Arn}/index/*'
         - Effect: Allow
           Action:
