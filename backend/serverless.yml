@@ -23,6 +23,9 @@ custom:
     pedidos:
       dev: livraria-tb-pedidos-dev
       prd: livraria-tb-pedidos-prd
+    leituras:
+      dev: livraria-tb-leituras-v2-dev
+      prd: livraria-tb-leituras-v2-prd
     lotes:
       dev: livraria-tb-lotes-dev
       prd: livraria-tb-lotes-prd
@@ -46,11 +49,13 @@ provider:
     ASSETS_S3_BUCKET_NAME: livraria-assets-bucket
     LIVROS_TABLE_NAME: ${self:custom.table.livros.${self:provider.stage}}
     PEDIDOS_TABLE_NAME: ${self:custom.table.pedidos.${self:provider.stage}}
+    LEITURAS_TABLE_NAME: ${self:custom.table.leituras.${self:provider.stage}}
     LOTES_TABLE_NAME: ${self:custom.table.lotes.${self:provider.stage}}
     LIVRARIA_FRONT_END_API_KEY: 10a28e2f-07a5-489e-b26a-8abe55d236f8
     BACKOFFICE_KEY: ${ssm:/livraria/backoffice-key}
     BACKOFFICE_VIEWER_KEY: ${ssm:/livraria/backoffice-viewer-key}
     BACKOFFICE_STOCK_KEY: ${ssm:/livraria/backoffice-stock-key}
+    BACKOFFICE_READING_MANAGER_KEY: ${ssm:/livraria/backoffice-reading-manager-key}
     JWT_SECRET: ${ssm:/livraria/jwt-secret}
     # domínio da distribuição do site: entra no allowlist de CORS do Hono
     SITE_CDN_DOMAIN: !GetAtt SiteCdn.DomainName
@@ -140,6 +145,22 @@ resources:
                 KeyType: HASH
             Projection:
               ProjectionType: ALL
+    TabelaLeituras:
+      Type: AWS::DynamoDB::Table
+      DeletionPolicy: Retain
+      Properties:
+        TableName: ${self:custom.table.leituras.${self:provider.stage}}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: name
+            AttributeType: S
+          - AttributeName: book_name
+            AttributeType: S
+        KeySchema:
+          - AttributeName: name
+            KeyType: HASH
+          - AttributeName: book_name
+            KeyType: RANGE
 
     # ── CloudFront na frente do site estático (HTTPS + headers de segurança) ──
     # O site continua no bucket S3 (website hosting); a distribuição embrulha:

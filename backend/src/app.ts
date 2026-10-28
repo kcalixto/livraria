@@ -6,6 +6,7 @@ import { backofficeLivros } from "./routes/backoffice-livros";
 import { backofficeLotes } from "./routes/backoffice-lotes";
 import { backofficeEstoque } from "./routes/backoffice-estoque";
 import { pedidos } from "./routes/pedidos";
+import { leitura } from "./routes/leitura";
 import { backofficeAuth } from "./routes/backoffice-auth";
 import { backofficePedidos } from "./routes/backoffice-pedidos";
 
@@ -43,6 +44,7 @@ app.use("*", apiKeyMiddleware);
 
 app.route("/", livros);
 app.route("/pedidos", pedidos);
+app.route("/leitura", leitura);
 app.route("/backoffice/login", backofficeAuth);
 app.route("/backoffice/livros", backofficeLivros);
 app.route("/backoffice/lotes", backofficeLotes);

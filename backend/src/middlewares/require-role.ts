@@ -1,6 +1,6 @@
 import { createMiddleware } from 'hono/factory';
 
-export type Role = 'admin' | 'viewer' | 'stock';
+export type Role = 'admin' | 'viewer' | 'stock' | 'reading-manager'
 
 declare module 'hono' {
   interface ContextVariableMap {
