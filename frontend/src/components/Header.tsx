@@ -1,8 +1,8 @@
 import { Link } from "react-router-dom";
-import { useIsMobile } from "../backoffice/useIsMobile";
 import { useCart } from "../cart/CartContext";
-import { ActionGlyph } from "./ActionIcon";
 import { RegionPicker } from "./RegionPicker";
+import { ActionGlyph } from "./ActionIcon";
+import { useIsMobile } from "../backoffice/useIsMobile";
 
 export function Header() {
   const { count } = useCart();
@@ -17,6 +17,9 @@ export function Header() {
         </Link>
         <Link to="/pedido" className="site-header__consulta">
           consultar pedido
+        </Link>
+        <Link to="/lista-leitura" className="site-header__consulta">
+          histórico de leitura
         </Link>
         <Link to="/carrinho" className="cart-button">
           <ActionGlyph icon="cart" />
