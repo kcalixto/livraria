@@ -39,7 +39,8 @@ export function Login() {
         admin: "/backoffice/pedidos",
       };
       const home = redirectMap[role as Role];
-      navigate(state.from ?? home);
+      // navigate(state.from ?? home);
+      navigate(home);
     } catch {
       setError(true);
     } finally {
