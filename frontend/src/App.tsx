@@ -1,25 +1,33 @@
-import { Route, Routes } from 'react-router-dom';
-import { Catalogo } from './pages/Catalogo';
-import { Carrinho } from './pages/Carrinho';
-import { ConsultarPedido } from './pages/ConsultarPedido';
-import { Login } from './pages/backoffice/Login';
-import { BackofficeLayout } from './pages/backoffice/BackofficeLayout';
-import { Pedidos } from './pages/backoffice/Pedidos';
-import { PedidoEdit } from './pages/backoffice/PedidoEdit';
-import { PedidoItemEdit } from './pages/backoffice/PedidoItemEdit';
-import { Vendas } from './pages/backoffice/Vendas';
-import { Estoque } from './pages/backoffice/Estoque';
-import { Livros } from './pages/backoffice/Livros';
-import { LivroForm } from './pages/backoffice/LivroForm';
-import { Lotes } from './pages/backoffice/Lotes';
-import { LoteForm } from './pages/backoffice/LoteForm';
-import { LoteDetail } from './pages/backoffice/LoteDetail';
+import { Route, Routes } from "react-router-dom";
+import { Catalogo } from "./pages/Catalogo";
+import { Carrinho } from "./pages/Carrinho";
+import { ConsultarPedido } from "./pages/ConsultarPedido";
+import { Login } from "./pages/backoffice/Login";
+import { BackofficeLayout } from "./pages/backoffice/BackofficeLayout";
+import { Pedidos } from "./pages/backoffice/Pedidos";
+import { PedidoEdit } from "./pages/backoffice/PedidoEdit";
+import { PedidoItemEdit } from "./pages/backoffice/PedidoItemEdit";
+import { Vendas } from "./pages/backoffice/Vendas";
+import { Estoque } from "./pages/backoffice/Estoque";
+import { Livros } from "./pages/backoffice/Livros";
+import { LivroForm } from "./pages/backoffice/LivroForm";
+import { Lotes } from "./pages/backoffice/Lotes";
+import { LoteForm } from "./pages/backoffice/LoteForm";
+import { LoteDetail } from "./pages/backoffice/LoteDetail";
+import { MinhaLeitura } from "./pages/acknowledge/MinhaLeitura";
+import { Leitura } from "./pages/backoffice/Leitura";
 
 // Árvore de rotas sem o Router: o main.tsx monta com BrowserRouter (basename
 // do caminho do coletivo) e os testes com MemoryRouter.
 export function AppRoutes() {
+  // document.documentElement.dataset.theme = "light";
+  // localStorage.setItem("theme", "dark");
+
   return (
     <Routes>
+      // Acknowledge
+      <Route path="/lista-leitura" element={<MinhaLeitura />} />
+      // Marketplace
       <Route path="/" element={<Catalogo />} />
       <Route path="/carrinho" element={<Carrinho />} />
       <Route path="/pedido" element={<ConsultarPedido />} />
@@ -39,6 +47,7 @@ export function AppRoutes() {
         <Route path="/backoffice/lotes" element={<Lotes />} />
         <Route path="/backoffice/lotes/novo" element={<LoteForm />} />
         <Route path="/backoffice/lotes/:id" element={<LoteDetail />} />
+        <Route path="/backoffice/leitura" element={<Leitura />} />
       </Route>
     </Routes>
   );

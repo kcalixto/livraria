@@ -1,5 +1,6 @@
 /* Tokens — fonte da verdade: Livraria Local - Telas de referência (Claude Design) */
 :root {
+  color-scheme: light;
   --paper: #f2efe7;
   --canvas: #e4dfd2;
   --surface: #f6f3ec;
@@ -31,6 +32,88 @@
   --skeleton-soft: #e8e2d4;
   --serif: "Newsreader", Georgia, serif;
   --mono: "IBM Plex Mono", monospace;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --paper: #121110;
+  --canvas: #0a0908;
+  --surface: #1a1815;
+  --surface-raised: #24211c;
+  --surface-header: #1f1c18;
+  --input-bg: #0a0908;
+
+  --ink: #fbf8f1;
+  --ink-soft: #bdb7aa;
+  --ink-body: #e8e3d8;
+  --ink-mid: #d4cfc3;
+  --muted: #a8a295;
+
+  --wine: #c9473e;
+  --wine-dark: #a8362e;
+  --wine-fg: #ffffff;
+
+  --success: #a8d8a8;
+  --success-bg: #142014;
+  --success-border: #3f6b3f;
+
+  --warn: #ecbd72;
+  --warn-bg: #241a0b;
+  --warn-border: #6b5126;
+
+  --error: #ff9a8f;
+  --error-bg: #2a1210;
+  --error-border: #7a3a33;
+
+  --border: #4d483e;
+  --border-soft: #3a362e;
+  --border-input: #6b6558;
+  --cover-border: #6b6455;
+  --skeleton: #2f2c26;
+  --skeleton-soft: #24211c;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+
+    --paper: #121110;
+    --canvas: #0a0908;
+    --surface: #1a1815;
+    --surface-raised: #24211c;
+    --surface-header: #1f1c18;
+    --input-bg: #0a0908;
+
+    --ink: #fbf8f1;
+    --ink-soft: #bdb7aa;
+    --ink-body: #e8e3d8;
+    --ink-mid: #d4cfc3;
+    --muted: #a8a295;
+
+    --wine: #c9473e;
+    --wine-dark: #a8362e;
+    --wine-fg: #ffffff;
+
+    --success: #a8d8a8;
+    --success-bg: #142014;
+    --success-border: #3f6b3f;
+
+    --warn: #ecbd72;
+    --warn-bg: #241a0b;
+    --warn-border: #6b5126;
+
+    --error: #ff9a8f;
+    --error-bg: #2a1210;
+    --error-border: #7a3a33;
+
+    --border: #4d483e;
+    --border-soft: #3a362e;
+    --border-input: #6b6558;
+    --cover-border: #6b6455;
+    --skeleton: #2f2c26;
+    --skeleton-soft: #24211c;
+  }
 }
 
 * {
@@ -1229,7 +1312,6 @@ a:hover {
   margin: 16px 0 0;
 }
 
-
 /* ── Ajustes ── */
 .site-header--sticky {
   position: sticky;
@@ -1276,7 +1358,9 @@ a:hover {
 .bo-livros__cols,
 .bo-livros__row {
   display: grid;
-  grid-template-columns: 60px 90px minmax(0, 2fr) minmax(0, 1.3fr) 110px 0.6fr 56px;
+  grid-template-columns:
+    60px 90px minmax(0, 2fr) minmax(0, 1.3fr)
+    110px 0.6fr 56px;
   gap: 12px;
   align-items: center;
   padding: 10px 16px;
@@ -1407,7 +1491,7 @@ a:hover {
   position: relative;
   margin-top: 26px;
 }
-.livro-form__delete[aria-disabled='true'] {
+.livro-form__delete[aria-disabled="true"] {
   opacity: 0.45;
   cursor: not-allowed;
 }
@@ -1434,7 +1518,7 @@ a:hover {
   z-index: 30;
 }
 .livro-form__delete[data-tooltip]::before {
-  content: '';
+  content: "";
   position: absolute;
   bottom: calc(100% + 2px);
   left: 50%;
@@ -1557,6 +1641,41 @@ a.btn--secondary:hover {
 }
 .lotes-table__saldo--positive {
   color: var(--success);
+}
+
+.leituras-table__cols,
+.leituras-table__row,
+.leituras-table__totals {
+  display: grid;
+  grid-template-columns: 1fr 2fr 40px;
+  align-items: center;
+}
+.leituras-table__cols {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+  margin: 0.5rem;
+}
+.leituras-table__rows {
+  padding-bottom: 2rem;
+}
+.leituras-table__row {
+  border-bottom: 1px solid #e6e0d2;
+  color: var(--ink);
+  padding: 0.5rem 0;
+}
+.leituras-table__row:hover {
+  background: var(--surface-raised);
+}
+.leituras-table__name {
+}
+.leituras-table__book_name {
+}
+.leituras-table__status {
+  text-align: center;
 }
 
 /* form de lote */
@@ -1979,18 +2098,30 @@ a.btn--secondary:hover {
     display: grid;
     grid-template-columns: 1fr auto;
     grid-template-areas:
-      'id total'
-      'name contact'
-      'date actions';
+      "id total"
+      "name contact"
+      "date actions";
     gap: 6px 12px;
     align-items: center;
     padding: 12px 14px;
   }
-  .order-card__id { grid-area: id; }
-  .order-card__total { grid-area: total; font-size: 16px; }
-  .order-card__name { grid-area: name; }
-  .order-card__contact { grid-area: contact; justify-self: end; }
-  .order-card__date { grid-area: date; }
+  .order-card__id {
+    grid-area: id;
+  }
+  .order-card__total {
+    grid-area: total;
+    font-size: 16px;
+  }
+  .order-card__name {
+    grid-area: name;
+  }
+  .order-card__contact {
+    grid-area: contact;
+    justify-self: end;
+  }
+  .order-card__date {
+    grid-area: date;
+  }
   .order-card__order-actions {
     grid-area: actions;
     justify-self: end;
@@ -2017,7 +2148,7 @@ a.btn--secondary:hover {
     font-size: 16px;
   }
   .order-card__available::before {
-    content: 'Disponível: ';
+    content: "Disponível: ";
     font-size: 10px;
     color: var(--muted);
     text-transform: uppercase;
@@ -2112,7 +2243,7 @@ a.btn--secondary:hover {
     grid-template-columns: 1fr;
   }
   .toast {
-  pointer-events: none; /* informativo: nunca bloqueia a próxima ação */
+    pointer-events: none; /* informativo: nunca bloqueia a próxima ação */
     left: 12px;
     right: 12px;
     bottom: 12px;
@@ -2459,7 +2590,7 @@ a.btn--secondary:hover {
   z-index: 30;
 }
 .action-icon::before {
-  content: '';
+  content: "";
   position: absolute;
   bottom: calc(100% + 2px);
   left: 50%;
@@ -2484,14 +2615,30 @@ a.btn--secondary:hover {
   border-color: currentColor;
   background: var(--input-bg);
 }
-.action-icon--teal { color: #2a6a66; }
-.action-icon--green { color: var(--success); }
-.action-icon--amber { color: var(--warn); }
-.action-icon--gray { color: var(--ink-mid); }
-.action-icon--blue { color: #2c4f7c; }
-.action-icon--forest { color: #2c5c2c; }
-.action-icon--red { color: var(--error); }
-.action-icon--ink { color: var(--ink); }
+.action-icon--teal {
+  color: #2a6a66;
+}
+.action-icon--green {
+  color: var(--success);
+}
+.action-icon--amber {
+  color: var(--warn);
+}
+.action-icon--gray {
+  color: var(--ink-mid);
+}
+.action-icon--blue {
+  color: #2c4f7c;
+}
+.action-icon--forest {
+  color: #2c5c2c;
+}
+.action-icon--red {
+  color: var(--error);
+}
+.action-icon--ink {
+  color: var(--ink);
+}
 
 /* ── Modal de resumo do pedido ── */
 .modal-overlay {
@@ -2746,6 +2893,19 @@ a.btn--secondary:hover {
 .consulta__unit-obs p {
   margin: 0 0 6px;
 }
+.add__form {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+}
+.add__field {
+  flex: 1;
+}
+.add__field .field-input {
+  margin-bottom: 0;
+  font-family: var(--mono);
+  letter-spacing: 0.08em;
+}
 .order-done__track {
   display: inline-block;
   margin-top: 14px;
@@ -2910,7 +3070,7 @@ a.btn--secondary:hover {
   z-index: 30;
 }
 .picked-alert::before {
-  content: '';
+  content: "";
   position: absolute;
   bottom: calc(100% + 2px);
   left: 50%;
@@ -3075,9 +3235,9 @@ a.btn--secondary:hover {
   .order-card__header {
     grid-template-columns: auto 1fr auto;
     grid-template-areas:
-      'fold id total'
-      'fold name contact'
-      'fold date actions';
+      "fold id total"
+      "fold name contact"
+      "fold date actions";
   }
   .order-card__fold {
     grid-area: fold;

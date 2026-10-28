@@ -1,7 +1,7 @@
-import { useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import { apiPost } from '../../api/client';
-import { setToken } from '../../backoffice/auth';
+import { useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { apiPost } from "../../api/client";
+import { setToken, type Role } from "../../backoffice/auth";
 
 interface LoginState {
   expired?: boolean;
@@ -12,7 +12,7 @@ export function Login() {
   const navigate = useNavigate();
   const location = useLocation();
   const state = (location.state ?? {}) as LoginState;
-  const [password, setPassword] = useState('');
+  const [password, setPassword] = useState("");
   const [error, setError] = useState(false);
   const [checking, setChecking] = useState(false);
 
@@ -22,13 +22,24 @@ export function Login() {
     setError(false);
     try {
       const { token, role } = await apiPost<{ token: string; role?: string }>(
-        '/backoffice/login',
+        "/backoffice/login",
         { password },
       );
       setToken(token);
+      if (!role) {
+        console.error("role is not defined");
+        return;
+      }
+
       // volta pra onde o operador estava; perfil stock cai direto no Estoque
-      const home = role === 'stock' ? '/backoffice/estoque' : '/backoffice/pedidos';
-      navigate(role === 'stock' ? home : (state.from ?? home));
+      const redirectMap: { [K in Role]: string } = {
+        stock: "/backoffice/estoque",
+        "reading-manager": "/backoffice/leitura",
+        viewer: "/backoffice/pedidos",
+        admin: "/backoffice/pedidos",
+      };
+      const home = redirectMap[role as Role];
+      navigate(home);
     } catch {
       setError(true);
     } finally {
@@ -56,7 +67,7 @@ export function Login() {
           type="password"
           autoFocus
           autoComplete="current-password"
-          className={`field-input bo-login__input${error ? ' field-input--error' : ''}`}
+          className={`field-input bo-login__input${error ? " field-input--error" : ""}`}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
@@ -66,13 +77,17 @@ export function Login() {
           </div>
         )}
 
-        <button className="btn btn--primary btn--block" type="submit" disabled={checking}>
+        <button
+          className="btn btn--primary btn--block"
+          type="submit"
+          disabled={checking}
+        >
           {checking ? (
             <>
               <span className="spinner" /> Verificando
             </>
           ) : (
-            'Entrar'
+            "Entrar"
           )}
         </button>
       </form>
