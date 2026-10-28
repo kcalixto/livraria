@@ -29,7 +29,8 @@ app.use(
       // resolve o domínio no deploy e injeta via env (lido lazy p/ testes)
       const cdn = process.env.SITE_CDN_DOMAIN;
       if (cdn && origin === `https://${cdn}`) return origin;
-      return ALLOWED_ORIGINS.includes(origin) || origin.startsWith("http://localhost:")
+      return ALLOWED_ORIGINS.includes(origin) ||
+        origin.startsWith("http://localhost:")
         ? origin
         : null;
     },
