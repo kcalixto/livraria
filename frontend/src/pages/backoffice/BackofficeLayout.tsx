@@ -15,6 +15,7 @@ import {
   type Role,
 } from "../../backoffice/auth";
 import { RegionPicker } from "../../components/RegionPicker";
+import ROUTES from "../../constants/routes";
 
 const WARN_BELOW_MINUTES = 10;
 
@@ -137,6 +138,17 @@ export function BackofficeLayout() {
         viewer: false,
         stock: false,
         "reading-manager": true,
+      },
+    },
+    {
+      to: ROUTES.BACKOFFICE_CALCULADORA_LIVRETOS,
+      title: "Calculadora Livretos",
+      dividerRight: false,
+      roles: {
+        admin: true,
+        viewer: false,
+        stock: false,
+        "reading-manager": false,
       },
     },
   ];

@@ -16,6 +16,8 @@ import { LoteForm } from "./pages/backoffice/LoteForm";
 import { LoteDetail } from "./pages/backoffice/LoteDetail";
 import { MinhaLeitura } from "./pages/acknowledge/MinhaLeitura";
 import { Leitura } from "./pages/backoffice/Leitura";
+import ROUTES from "./constants/routes";
+import { CalculadoraLivretos } from "./pages/backoffice/CalculadoraLivretos";
 
 // Árvore de rotas sem o Router: o main.tsx monta com BrowserRouter (basename
 // do caminho do coletivo) e os testes com MemoryRouter.
@@ -48,6 +50,10 @@ export function AppRoutes() {
         <Route path="/backoffice/lotes/novo" element={<LoteForm />} />
         <Route path="/backoffice/lotes/:id" element={<LoteDetail />} />
         <Route path="/backoffice/leitura" element={<Leitura />} />
+        <Route
+          path={ROUTES.BACKOFFICE_CALCULADORA_LIVRETOS}
+          element={<CalculadoraLivretos />}
+        />
       </Route>
     </Routes>
   );

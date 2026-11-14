@@ -3270,3 +3270,76 @@ a.btn--secondary:hover {
   outline: 2px solid var(--ink);
   outline-offset: 2px;
 }
+
+/* ── Calculadora de livretos (backoffice) ── */
+.calc-sheet-cost {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted);
+}
+.calc-config__section {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--wine);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin: 4px 0 12px;
+}
+.calc-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0 12px;
+  margin-bottom: 8px;
+}
+.calc-form__field {
+  flex: 1 1 120px;
+}
+.calc-form__field--title {
+  flex: 2 1 200px;
+}
+.calc-form__submit {
+  margin-bottom: 18px;
+}
+.calc-table-wrap {
+  overflow-x: auto;
+}
+.calc-table {
+  min-width: 760px;
+}
+.stock-table__cols.calc-table__grid,
+.stock-table__row.calc-table__grid {
+  grid-template-columns: 2fr repeat(2, 0.7fr) repeat(2, 1fr) 1.6fr 0.6fr 40px;
+  gap: 8px;
+}
+.calc-totals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 2px solid var(--ink);
+}
+.calc-totals__item {
+  flex: 1 1 180px;
+  display: flex;
+  flex-direction: column;
+}
+.calc-totals__value {
+  font-family: var(--mono);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.calc-totals__value.stock-qty--ok {
+  color: var(--success);
+}
+.calc-totals__value.stock-qty--zero {
+  color: var(--error);
+}
+.calc-totals__percent {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted);
+}
